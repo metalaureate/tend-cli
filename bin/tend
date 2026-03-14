@@ -720,28 +720,26 @@ _tend_pot_line() {
   case "$heat" in
     fire)
       icon="▲"; color="${C_BOLD}${C_RED}"
-      desc="kitchen on fire — agents have been waiting!" ;;
+      if (( hot == 1 )); then desc="1 waiting — overdue, check now"
+      else                    desc="${hot} waiting — overdue, check now"; fi ;;
     hot)
       icon="▲"; color="$C_AMBER"
-      if (( hot == 1 )); then desc="getting hot — 1 agent needs you"
-      else                    desc="getting hot — ${hot} agents need you"; fi ;;
+      if (( hot == 1 )); then desc="1 waiting — needs attention"
+      else                    desc="${hot} waiting — need attention"; fi ;;
     warming)
       icon="△"; color="$C_AMBER"
-      if (( hot == 1 )); then desc="1 agent needs attention"
-      else                    desc="${hot} agents need attention"; fi ;;
+      if (( hot == 1 )); then desc="1 waiting"
+      else                    desc="${hot} waiting"; fi ;;
     simmering)
       icon="◉"; color="$C_CYAN"
-      if (( working == 1 )); then
-        desc="simmering — 1 agent cooking"
-      else
-        desc="simmering — ${working} agents cooking"
-      fi ;;
+      if (( working == 1 )); then desc="1 working"
+      else                        desc="${working} working"; fi ;;
     ready)
       icon="◆"; color="$C_GREEN"
-      desc="ready to serve — review results" ;;
+      desc="done — review results" ;;
     cold|*)
       icon="◌"; color="$C_GREY"
-      desc="kitchen cold — no agents active" ;;
+      desc="idle" ;;
   esac
   printf "  %s%s  %s%s\n" "$color" "$icon" "$desc" "$C_RESET"
 }

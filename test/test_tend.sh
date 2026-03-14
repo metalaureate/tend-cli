@@ -924,7 +924,7 @@ test_gamification_on_by_default() {
   "$TEND" emit working "coding away"
   local out
   out=$("$TEND")
-  assert_contains "pot line shown"    "simmering"   "$out"
+  assert_contains "pot line shown"    "working"     "$out"
   assert_contains "stats line shown"  "done today"  "$out"
 }
 
@@ -937,7 +937,7 @@ test_gamification_disabled_by_env() {
   "$TEND" emit working "coding away"
   local out
   out=$(TEND_NO_GAMIFICATION=1 "$TEND")
-  assert_not_contains "no pot line"   "simmering"   "$out"
+  assert_not_contains "no pot line"   "──────"      "$out"
   assert_not_contains "no stats line" "done today"  "$out"
 }
 
@@ -983,11 +983,11 @@ test_gamification_pot_fire() {
   printf '%s waiting blocked on review\n' "$old_ts" > "$dir/.tend/events"
   local out
   out=$("$TEND")
-  assert_contains "fire state shown" "on fire" "$out"
+  assert_contains "fire state shown" "overdue" "$out"
 }
 
 test_gamification_pot_simmering() {
-  echo "test: gamification shows simmering for working agents"
+  echo "test: gamification shows working for working agents"
   local dir
   dir=$(make_project "gami-zeta")
   cd "$dir"
@@ -995,11 +995,11 @@ test_gamification_pot_simmering() {
   "$TEND" emit working "building feature"
   local out
   out=$("$TEND")
-  assert_contains "simmering shown" "simmering" "$out"
+  assert_contains "working shown" "working" "$out"
 }
 
 test_gamification_pot_cold() {
-  echo "test: gamification shows cold when kitchen is idle"
+  echo "test: gamification shows idle when no agents active"
   local dir
   dir=$(make_project "gami-eta")
   cd "$dir"
@@ -1007,7 +1007,7 @@ test_gamification_pot_cold() {
   "$TEND" emit idle
   local out
   out=$("$TEND")
-  assert_contains "cold shown" "cold" "$out"
+  assert_contains "idle shown" "idle" "$out"
 }
 
 test_gamification_open_todos() {
