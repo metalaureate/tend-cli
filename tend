@@ -74,45 +74,74 @@ _tend_ago() {
   _tend_format_duration "$delta"
 }
 
-# Discover tended projects under TEND_ROOT (directories with .tend/)
+TEND_REGISTRY="${HOME}/.tend/projects"
+
+# Discover tended projects from the registry
 _tend_discover_projects() {
-  local dir
-  if [[ ! -d "$TEND_ROOT" ]]; then
+  if [[ ! -f "$TEND_REGISTRY" ]]; then
     return
   fi
-  for dir in "$TEND_ROOT"/*/; do
-    [[ -d "${dir}.tend" ]] && basename "$dir"
-  done
+  while IFS= read -r path; do
+    [[ -z "$path" ]] && continue
+    [[ -d "$path/.tend" ]] && echo "$path"
+  done < "$TEND_REGISTRY"
+}
+
+# Register a project path in the registry
+_tend_register_project() {
+  local project_path="$1"
+  mkdir -p "$(dirname "$TEND_REGISTRY")"
+  if [[ ! -f "$TEND_REGISTRY" ]] || ! grep -qxF "$project_path" "$TEND_REGISTRY" 2>/dev/null; then
+    echo "$project_path" >> "$TEND_REGISTRY"
+  fi
 }
 
 # Resolve a project name to its full path.
-# If an arg is given, match against discovered projects (prefix then substring).
+# If an arg is given, match against registered projects (basename prefix then substring).
 # If no arg, detect from $PWD by walking up to find .git.
 _tend_resolve_project_path() {
   local name="${1:-}"
 
   if [[ -n "$name" ]]; then
-    # Direct match
+    # Check registry for matches
+    if [[ -f "$TEND_REGISTRY" ]]; then
+      local path bname
+      # Exact basename match
+      while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        bname=$(basename "$path")
+        if [[ "$bname" == "$name" && -d "$path" ]]; then
+          echo "$path"
+          return
+        fi
+      done < "$TEND_REGISTRY"
+      # Prefix match
+      while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        bname=$(basename "$path")
+        if [[ "$bname" == "$name"* && -d "$path" ]]; then
+          echo "$path"
+          return
+        fi
+      done < "$TEND_REGISTRY"
+      # Substring match
+      while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        bname=$(basename "$path")
+        if [[ "$bname" == *"$name"* && -d "$path" ]]; then
+          echo "$path"
+          return
+        fi
+      done < "$TEND_REGISTRY"
+    fi
+
+    # Fallback: try TEND_ROOT direct match
     if [[ -d "$TEND_ROOT/$name/.git" ]]; then
       echo "$TEND_ROOT/$name"
       return
     fi
-    # Prefix match
-    local match
-    for match in "$TEND_ROOT"/"$name"*/; do
-      if [[ -d "${match}.git" ]]; then
-        echo "${match%/}"
-        return
-      fi
-    done
-    # Substring match
-    for match in "$TEND_ROOT"/*"$name"*/; do
-      if [[ -d "${match}.git" ]]; then
-        echo "${match%/}"
-        return
-      fi
-    done
-    echo >&2 "tend: project '$name' not found under $TEND_ROOT"
+
+    echo >&2 "tend: project '$name' not found"
     return 1
   fi
 
@@ -254,6 +283,9 @@ _tend_cmd_init() {
     echo "✓ AGENTS.md already has tend integration in $project_name"
   fi
 
+  # Register project in tend registry
+  _tend_register_project "$project_path"
+
   echo "✓ Initialized .tend/ in $project_name"
 }
 
@@ -350,7 +382,7 @@ _tend_cmd_status() {
   local project
   while IFS= read -r project; do
     [[ -z "$project" ]] && continue
-    local events_file="$TEND_ROOT/$project/.tend/events"
+    local events_file="$project/.tend/events"
     [[ ! -f "$events_file" ]] && continue
 
     local last_line
@@ -378,7 +410,7 @@ _tend_cmd_board() {
   projects=$(_tend_discover_projects) || true
 
   if [[ -z "$projects" ]]; then
-    echo "  No tended projects found under $TEND_ROOT"
+    echo "  No tended projects found"
     echo "  Run 'tend init' inside a project to start tending it"
     return
   fi
@@ -393,7 +425,9 @@ _tend_cmd_board() {
 
   while IFS= read -r project; do
     [[ -z "$project" ]] && continue
-    local project_path="$TEND_ROOT/$project"
+    local project_path="$project"
+    local project_name
+    project_name=$(basename "$project_path")
 
     local state="" msg="" ts="" duration_str=""
 
@@ -452,7 +486,7 @@ _tend_cmd_board() {
 
     # Truncate project name to 20 chars, pad to 20
     local display_name
-    display_name=$(printf "%-20.20s" "$project")
+    display_name=$(printf "%-20.20s" "$project_name")
 
     # Build the detail string
     local detail=""
