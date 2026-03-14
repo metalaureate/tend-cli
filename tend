@@ -494,7 +494,7 @@ _tend_cmd_board() {
         state="unknown"
         local ago
         ago=$(_tend_ago "$ts")
-        duration_str="last working: ${msg} (${ago} ago)"
+        duration_str="was: ${msg} (${ago} ago)"
         msg=""
       elif [[ "$state" == "working" && -n "$ts" ]]; then
         local ago
@@ -503,7 +503,11 @@ _tend_cmd_board() {
       elif [[ "$state" == "idle" && -n "$ts" ]]; then
         local ago
         ago=$(_tend_ago "$ts")
-        duration_str="last: ${msg} (${ago} ago)"
+        if [[ -n "$msg" ]]; then
+          duration_str="${msg} (${ago} ago)"
+        else
+          duration_str="${ago} ago"
+        fi
         msg=""
       elif [[ "$state" == "done" && -n "$ts" ]]; then
         duration_str=""
@@ -516,7 +520,7 @@ _tend_cmd_board() {
         last_commit_ago=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true
         if [[ -n "$last_commit_msg" ]]; then
           state="idle"
-          duration_str="last commit: ${last_commit_msg} (${last_commit_ago})"
+          duration_str="${last_commit_msg} (${last_commit_ago})"
         fi
       fi
     fi
@@ -551,9 +555,13 @@ _tend_cmd_board() {
       detail="$duration_str"
     fi
 
-    # Truncate detail to fit terminal (rough: 80 - 30 used = 50 chars)
-    if (( ${#detail} > 50 )); then
-      detail="${detail:0:47}..."
+    # Truncate detail to fit terminal
+    local term_width=${COLUMNS:-80}
+    local prefix_width=44  # 2 indent + 2 icon + 1 sp + 20 name + 2 sp + 15 label + 2 sp
+    local max_detail=$(( term_width - prefix_width ))
+    if (( max_detail < 10 )); then max_detail=10; fi
+    if (( ${#detail} > max_detail )); then
+      detail="${detail:0:$(( max_detail - 3 ))}..."
     fi
 
     printf "  %s%s %s  %-15s %s%s\n" \
