@@ -719,28 +719,28 @@ _tend_pot_line() {
   local icon desc color
   case "$heat" in
     fire)
-      icon="🔥"; color="${C_BOLD}${C_RED}"
+      icon="▲"; color="${C_BOLD}${C_RED}"
       desc="kitchen on fire — agents have been waiting!" ;;
     hot)
-      icon="🔥"; color="$C_AMBER"
+      icon="▲"; color="$C_AMBER"
       if (( hot == 1 )); then desc="getting hot — 1 agent needs you"
       else                    desc="getting hot — ${hot} agents need you"; fi ;;
     warming)
-      icon="🫕"; color="$C_AMBER"
+      icon="△"; color="$C_AMBER"
       if (( hot == 1 )); then desc="1 agent needs attention"
       else                    desc="${hot} agents need attention"; fi ;;
     simmering)
-      icon="🫕"; color="$C_CYAN"
+      icon="◉"; color="$C_CYAN"
       if (( working == 1 )); then
         desc="simmering — 1 agent cooking"
       else
         desc="simmering — ${working} agents cooking"
       fi ;;
     ready)
-      icon="🍲"; color="$C_GREEN"
+      icon="◆"; color="$C_GREEN"
       desc="ready to serve — review results" ;;
     cold|*)
-      icon="🫕"; color="$C_GREY"
+      icon="◌"; color="$C_GREY"
       desc="kitchen cold — no agents active" ;;
   esac
   printf "  %s%s  %s%s\n" "$color" "$icon" "$desc" "$C_RESET"
@@ -874,9 +874,9 @@ _tend_gamification_footer() {
   # Streak indicator
   local streak_str=""
   if (( TEND_STATS_STREAK >= 7 )); then
-    streak_str="  ·  🔥 ${TEND_STATS_STREAK}-day streak"
+    streak_str="  ·  ${C_AMBER}▲${C_RESET}${C_DIM} ${TEND_STATS_STREAK}-day streak"
   elif (( TEND_STATS_STREAK > 0 )); then
-    streak_str="  ·  ✨ ${TEND_STATS_STREAK}-day streak"
+    streak_str="  ·  ◆ ${TEND_STATS_STREAK}-day streak"
   fi
 
   # Week line (only when it adds information beyond today)
