@@ -624,6 +624,96 @@ test_ack_reduces_attention_count() {
   assert_eq "shows ○ after" "○" "$after"
 }
 
+test_hook_session_start_with_session_id() {
+  echo "test: hook session-start includes session ID in event"
+  local dir
+  dir=$(make_project "papa2")
+  cd "$dir"
+  "$TEND" init
+  local out
+  out=$(echo '{"sessionId":"sess-abc123","hookEventName":"SessionStart"}' | "$TEND" hook session-start)
+  local last_event
+  last_event=$(tail -1 "$dir/.tend/events")
+  assert_contains "event has session ID" "sess-abc123" "$last_event"
+  assert_contains "event has working state" "working" "$last_event"
+}
+
+test_hook_stop_with_session_id() {
+  echo "test: hook stop includes session ID in event"
+  local dir
+  dir=$(make_project "quebec2")
+  cd "$dir"
+  "$TEND" init
+  echo '{"sessionId":"sess-abc123","hookEventName":"Stop","stop_hook_active":false}' | "$TEND" hook stop
+  local last_event
+  last_event=$(tail -1 "$dir/.tend/events")
+  assert_contains "event has session ID" "sess-abc123" "$last_event"
+  assert_contains "event has idle state" "idle" "$last_event"
+}
+
+test_multi_session_aggregate() {
+  echo "test: board aggregates multiple sessions correctly"
+  local dir
+  dir=$(make_project "romeo2")
+  cd "$dir"
+  "$TEND" init
+  local ts
+  ts=$(date +"%Y-%m-%dT%H:%M:%S")
+  echo "$ts sess-1 working building auth" >> "$dir/.tend/events"
+  echo "$ts sess-2 working writing tests" >> "$dir/.tend/events"
+  local out
+  out=$("$TEND" status)
+  assert_eq "working not needs-attention" "○" "$out"
+  out=$("$TEND")
+  assert_contains "shows working" "working" "$out"
+  assert_contains "shows multi-agent count" "2 working" "$out"
+}
+
+test_multi_session_partial_stop() {
+  echo "test: project stays working when one session stops"
+  local dir
+  dir=$(make_project "sierra2")
+  cd "$dir"
+  "$TEND" init
+  local ts
+  ts=$(date +"%Y-%m-%dT%H:%M:%S")
+  echo "$ts sess-1 working building auth" >> "$dir/.tend/events"
+  echo "$ts sess-2 working writing tests" >> "$dir/.tend/events"
+  echo "$ts sess-1 idle" >> "$dir/.tend/events"
+  local out
+  out=$("$TEND")
+  assert_contains "still shows working" "working" "$out"
+}
+
+test_ack_resets_all_sessions() {
+  echo "test: ack resets all sessions"
+  local dir
+  dir=$(make_project "tango2")
+  cd "$dir"
+  "$TEND" init
+  local ts
+  ts=$(date +"%Y-%m-%dT%H:%M:%S")
+  echo "$ts sess-1 done built auth" >> "$dir/.tend/events"
+  echo "$ts sess-2 stuck need API key" >> "$dir/.tend/events"
+  "$TEND" ack
+  local out
+  out=$("$TEND" status)
+  assert_eq "shows ○ after ack" "○" "$out"
+}
+
+test_old_format_backward_compat() {
+  echo "test: old format events still work"
+  local dir
+  dir=$(make_project "uniform2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "old style event"
+  local out
+  out=$("$TEND")
+  assert_contains "shows working" "working" "$out"
+  assert_contains "shows message" "old style" "$out"
+}
+
 test_board_sorts_by_recency() {
   echo "test: board sorts projects by most recent first"
   local dir1 dir2
@@ -724,6 +814,12 @@ run_all() {
     test_ack_clears_done
     test_ack_with_project_name
     test_ack_reduces_attention_count
+    test_hook_session_start_with_session_id
+    test_hook_stop_with_session_id
+    test_multi_session_aggregate
+    test_multi_session_partial_stop
+    test_ack_resets_all_sessions
+    test_old_format_backward_compat
     test_board_sorts_by_recency
     test_project_name_resolution
   )

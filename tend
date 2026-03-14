@@ -89,6 +89,12 @@ _tend_json_escape() {
   '
 }
 
+# Extract a field from JSON input (best-effort, no jq dependency)
+_tend_extract_session_id() {
+  local input="$1"
+  printf '%s' "$input" | sed -n 's/.*"sessionId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
+}
+
 TEND_REGISTRY="${HOME}/.tend/projects"
 
 # Discover tended projects from the registry
@@ -227,6 +233,108 @@ _tend_is_stale() {
 _tend_needs_attention() {
   local state="$1"
   [[ "$state" == "done" || "$state" == "stuck" || "$state" == "waiting" ]]
+}
+
+# Compute aggregate project state from events (supports multi-session)
+# Sets: TEND_AGG_STATE, TEND_AGG_MSG, TEND_AGG_TS, TEND_AGG_ACTIVE
+_tend_project_state() {
+  local project_path="$1"
+  local events_file="$project_path/.tend/events"
+
+  TEND_AGG_STATE="" TEND_AGG_MSG="" TEND_AGG_TS="" TEND_AGG_ACTIVE=0
+
+  if [[ ! -f "$events_file" ]] || [[ ! -s "$events_file" ]]; then
+    return 1
+  fi
+
+  local result
+  result=$(awk '
+    function is_state(s) {
+      return (s == "working" || s == "done" || s == "stuck" || s == "waiting" || s == "idle")
+    }
+    function priority(s) {
+      if (s == "stuck") return 5
+      if (s == "done") return 4
+      if (s == "waiting") return 3
+      if (s == "working") return 2
+      return 0
+    }
+    {
+      ts = $1
+      if ($2 == "*") {
+        # Reset marker (from tend ack)
+        for (k in sess) delete sess[k]
+        for (k in sess_ts) delete sess_ts[k]
+        for (k in sess_msg) delete sess_msg[k]
+        sess["_"] = $3
+        sess_ts["_"] = ts
+        sess_msg["_"] = ""
+      } else if (is_state($2)) {
+        # Old format (no session ID) — treat as _cli session
+        sess["_cli"] = $2
+        sess_ts["_cli"] = ts
+        msg = ""
+        for (i = 3; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+        sess_msg["_cli"] = msg
+      } else if (is_state($3)) {
+        # New format: $2 is session ID
+        sess[$2] = $3
+        sess_ts[$2] = ts
+        msg = ""
+        for (i = 4; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+        sess_msg[$2] = msg
+      }
+      last_ts = ts
+    }
+    END {
+      if (length(sess) == 0) exit 1
+      best = "idle"; best_p = 0; best_msg = ""; active = 0
+      working_ts = ""
+      for (s in sess) {
+        p = priority(sess[s])
+        if (sess[s] != "idle") active++
+        if (sess[s] == "working") {
+          working_ts = (working_ts ? working_ts "," : "") sess_ts[s]
+        }
+        if (p > best_p) {
+          best_p = p
+          best = sess[s]
+          best_msg = sess_msg[s]
+        }
+      }
+      printf "%s\t%s\t%s\t%d\t%s\n", last_ts, best, best_msg, active, working_ts
+    }
+  ' "$events_file")
+
+  if [[ -z "$result" ]]; then
+    return 1
+  fi
+
+  TEND_AGG_TS=$(printf '%s' "$result" | cut -f1)
+  TEND_AGG_STATE=$(printf '%s' "$result" | cut -f2)
+  TEND_AGG_MSG=$(printf '%s' "$result" | cut -f3)
+  TEND_AGG_ACTIVE=$(printf '%s' "$result" | cut -f4)
+  local working_ts
+  working_ts=$(printf '%s' "$result" | cut -f5)
+
+  # Handle staleness: if aggregate is "working", check if ALL working sessions are stale
+  if [[ "$TEND_AGG_STATE" == "working" && -n "$working_ts" ]]; then
+    local all_stale=true
+    local old_ifs="$IFS"
+    IFS=','
+    for wts in $working_ts; do
+      if ! _tend_is_stale "$wts"; then
+        all_stale=false
+        break
+      fi
+    done
+    IFS="$old_ifs"
+    if $all_stale; then
+      TEND_AGG_STATE="unknown"
+    fi
+  fi
+
+  return 0
 }
 
 # Icon for a given state
@@ -491,18 +599,10 @@ _tend_cmd_status() {
   local project
   while IFS= read -r project; do
     [[ -z "$project" ]] && continue
-    local events_file="$project/.tend/events"
-    [[ ! -f "$events_file" ]] && continue
-
-    local last_line
-    last_line=$(tail -1 "$events_file" 2>/dev/null) || continue
-    [[ -z "$last_line" ]] && continue
-
-    local rest="${last_line#* }"
-    local state="${rest%% *}"
-
-    if _tend_needs_attention "$state"; then
-      (( count++ ))
+    if _tend_project_state "$project"; then
+      if _tend_needs_attention "$TEND_AGG_STATE"; then
+        (( count++ ))
+      fi
     fi
   done <<< "$projects"
 
@@ -579,16 +679,16 @@ _tend_cmd_board() {
     local project_name
     project_name=$(basename "$project_path")
 
-    local state="" msg="" ts="" duration_str=""
+    local state="" msg="" ts="" duration_str="" active_count=0
 
-    if _tend_last_event "$project_path"; then
-      state="$TEND_EVT_STATE"
-      msg="$TEND_EVT_MSG"
-      ts="$TEND_EVT_TS"
+    if _tend_project_state "$project_path"; then
+      state="$TEND_AGG_STATE"
+      msg="$TEND_AGG_MSG"
+      ts="$TEND_AGG_TS"
+      active_count="$TEND_AGG_ACTIVE"
 
-      # Detect stale working state
-      if [[ "$state" == "working" && -n "$ts" ]] && _tend_is_stale "$ts"; then
-        state="unknown"
+      # Staleness already handled by _tend_project_state
+      if [[ "$state" == "unknown" && -n "$ts" ]]; then
         local ago
         ago=$(_tend_ago "$ts")
         duration_str="was: ${msg} (${ago} ago)"
@@ -637,6 +737,9 @@ _tend_cmd_board() {
     icon=$(_tend_state_icon "$state")
     color=$(_tend_state_color "$state")
     label=$(_tend_state_label "$state")
+    if (( active_count > 1 )); then
+      label="${active_count} ${state}"
+    fi
 
     # Truncate project name to 20 chars, pad to 20
     local display_name
@@ -693,12 +796,13 @@ _tend_cmd_detail() {
   project_path=$(_tend_resolve_project_path "$project_name") || exit 1
   project_name=$(basename "$project_path")
 
-  local state="" msg="" ts="" icon="" color=""
+  local state="" msg="" ts="" icon="" color="" active_count=0
 
-  if _tend_last_event "$project_path"; then
-    state="$TEND_EVT_STATE"
-    msg="$TEND_EVT_MSG"
-    ts="$TEND_EVT_TS"
+  if _tend_project_state "$project_path"; then
+    state="$TEND_AGG_STATE"
+    msg="$TEND_AGG_MSG"
+    ts="$TEND_AGG_TS"
+    active_count="$TEND_AGG_ACTIVE"
   fi
 
   icon=$(_tend_state_icon "$state")
@@ -707,8 +811,14 @@ _tend_cmd_detail() {
   local upper_name
   upper_name=$(echo "$project_name" | tr '[:lower:]' '[:upper:]')
 
+  local label
+  label=$(_tend_state_label "$state")
+  if (( active_count > 1 )); then
+    label="${active_count} ${state}"
+  fi
+
   echo ""
-  echo "  ${C_BOLD}${upper_name}${C_RESET}                               $color$icon $(_tend_state_label "$state")${C_RESET}"
+  echo "  ${C_BOLD}${upper_name}${C_RESET}                               $color$icon $label${C_RESET}"
   echo ""
 
   # Current task
@@ -745,8 +855,19 @@ _tend_cmd_detail() {
       [[ -z "$line" ]] && continue
       local line_ts="${line%% *}"
       local line_rest="${line#* }"
-      local line_state="${line_rest%% *}"
-      local line_msg="${line_rest#* }"
+      local line_state="" line_msg=""
+      local second="${line_rest%% *}"
+      case "$second" in
+        working|done|stuck|waiting|idle)
+          line_state="$second"
+          line_msg="${line_rest#* }"
+          ;;
+        *)
+          local after="${line_rest#* }"
+          line_state="${after%% *}"
+          line_msg="${after#* }"
+          ;;
+      esac
       [[ "$line_state" == "$line_msg" ]] && line_msg=""
       # Extract just the time part
       local time_part="${line_ts##*T}"
@@ -846,7 +967,7 @@ _tend_cmd_ack() {
 
   local ts
   ts=$(_tend_ts_local)
-  echo "$ts idle" >> "$project_path/.tend/events"
+  echo "$ts * idle" >> "$project_path/.tend/events"
   echo "✓ Acknowledged $project_name"
 }
 
@@ -938,15 +1059,23 @@ EOF
 
 # --- tend hook (lifecycle hooks for VS Code / Claude Code) ---
 _tend_hook_session_start() {
-  cat > /dev/null
+  local input
+  input=$(cat)
   local project_path
   project_path=$(_tend_resolve_project_path "" 2>/dev/null) || return 0
 
-  # Emit working event automatically
+  local session_id
+  session_id=$(_tend_extract_session_id "$input")
+
+  # Emit working event with session ID
   if [[ -d "$project_path/.tend" ]]; then
     local ts
     ts=$(_tend_ts_local)
-    echo "$ts working session started" >> "$project_path/.tend/events"
+    if [[ -n "$session_id" ]]; then
+      echo "$ts $session_id working session started" >> "$project_path/.tend/events"
+    else
+      echo "$ts working session started" >> "$project_path/.tend/events"
+    fi
   fi
 
   local context=""
@@ -1005,9 +1134,15 @@ _tend_hook_stop() {
   project_path=$(_tend_resolve_project_path "" 2>/dev/null) || return 0
 
   if [[ -d "$project_path/.tend" ]]; then
+    local session_id
+    session_id=$(_tend_extract_session_id "$input")
     local ts
     ts=$(_tend_ts_local)
-    echo "$ts idle" >> "$project_path/.tend/events"
+    if [[ -n "$session_id" ]]; then
+      echo "$ts $session_id idle" >> "$project_path/.tend/events"
+    else
+      echo "$ts idle" >> "$project_path/.tend/events"
+    fi
   fi
 }
 
