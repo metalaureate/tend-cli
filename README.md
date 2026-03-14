@@ -98,20 +98,7 @@ Tend's core is a one-line-per-event append-only log at `.tend/events`:
 
 Five states: `working`, `done`, `stuck`, `waiting`, `idle`.
 
-Any agent can emit events. Add this to your project's `AGENTS.md`:
-
-```markdown
-## Tend Integration
-
-On startup, read `.tend/queue` for queued instructions. Execute them, then clear the file.
-Read `.tend/TODO` for the current backlog.
-
-Emit state changes:
-- `tend emit working "<what you're starting>"`
-- `tend emit done "<summary of what you completed>"`
-- `tend emit stuck "<what you need from the human>"`
-- `tend emit idle` (when finished and waiting for assignment)
-```
+`tend init` automatically adds the event protocol to your project's `AGENTS.md`, so agents know how to emit state changes.
 
 ---
 
