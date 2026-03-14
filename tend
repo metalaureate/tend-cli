@@ -308,6 +308,7 @@ _tend_setup_shell() {
       cat >> "$HOME/.zshrc" <<'SHELL_EOF'
 
 # --- Tend status indicator ---
+setopt PROMPT_SUBST
 _tend_precmd() { _TEND_S="$(tend status 2>/dev/null)"; }
 precmd_functions+=(_tend_precmd)
 RPROMPT='$_TEND_S'
