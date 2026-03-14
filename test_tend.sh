@@ -409,6 +409,163 @@ test_nested_project() {
   assert_contains "nested project on board" "grandchild" "$out"
 }
 
+test_say_adds_to_queue() {
+  echo "test: say adds message to queue"
+  local dir
+  dir=$(make_project "sierra")
+  cd "$dir"
+  "$TEND" init
+  local out
+  out=$("$TEND" say "check the failing test")
+  assert_contains "confirms queued" "Queued for sierra" "$out"
+  local content
+  content=$(cat "$dir/.tend/queue")
+  assert_contains "message in queue" "check the failing test" "$content"
+}
+
+test_say_with_project_name() {
+  echo "test: say with explicit project name"
+  local dir1 dir2
+  dir1=$(make_project "victor")
+  dir2=$(make_project "whiskey")
+  cd "$dir1" && "$TEND" init
+  cd "$dir2" && "$TEND" init
+  local out
+  out=$("$TEND" say victor "try the new approach")
+  assert_contains "confirms queued for victor" "Queued for victor" "$out"
+  local content
+  content=$(cat "$dir1/.tend/queue")
+  assert_contains "message in victor queue" "try the new approach" "$content"
+}
+
+test_say_requires_message() {
+  echo "test: say requires a message"
+  local dir
+  dir=$(make_project "yankee")
+  cd "$dir"
+  "$TEND" init
+  assert_exit "fails without message" 1 "$TEND" say
+}
+
+test_say_requires_init() {
+  echo "test: say fails without .tend/"
+  local dir
+  dir=$(make_project "zulu")
+  cd "$dir"
+  assert_exit "fails without init" 1 "$TEND" say "test message"
+}
+
+test_init_creates_queue() {
+  echo "test: init creates queue file"
+  local dir
+  dir=$(make_project "alpha2")
+  cd "$dir"
+  "$TEND" init
+  assert_file_exists "queue file" "$dir/.tend/queue"
+}
+
+test_init_gitignores_queue() {
+  echo "test: init gitignores queue"
+  local dir
+  dir=$(make_project "bravo2")
+  cd "$dir"
+  "$TEND" init
+  local gitignore
+  gitignore=$(cat "$dir/.gitignore")
+  assert_contains "events gitignored" ".tend/events" "$gitignore"
+  assert_contains "queue gitignored" ".tend/queue" "$gitignore"
+}
+
+test_init_creates_hooks_config() {
+  echo "test: init creates .github/hooks/tend.json"
+  local dir
+  dir=$(make_project "charlie2")
+  cd "$dir"
+  "$TEND" init
+  assert_file_exists "hooks config" "$dir/.github/hooks/tend.json"
+  local content
+  content=$(cat "$dir/.github/hooks/tend.json")
+  assert_contains "has SessionStart" "SessionStart" "$content"
+  assert_contains "has PostToolUse" "PostToolUse" "$content"
+  assert_contains "has Stop" "Stop" "$content"
+}
+
+test_hook_session_start() {
+  echo "test: hook session-start reads queue and TODO, emits working"
+  local dir
+  dir=$(make_project "delta2")
+  cd "$dir"
+  "$TEND" init
+  echo "fix the auth bug" >> "$dir/.tend/TODO"
+  echo "[2026-03-14T10:00:00] try approach from PR #42" >> "$dir/.tend/queue"
+  local out
+  out=$(echo '{}' | "$TEND" hook session-start)
+  assert_contains "includes queue message" "PR #42" "$out"
+  assert_contains "includes TODO" "auth bug" "$out"
+  # Queue should be cleared
+  local queue_size
+  queue_size=$(wc -c < "$dir/.tend/queue" | tr -d ' ')
+  assert_eq "queue cleared" "0" "$queue_size"
+  # Should have emitted working event
+  local last_event
+  last_event=$(tail -1 "$dir/.tend/events")
+  assert_contains "emits working" "working" "$last_event"
+}
+
+test_hook_check_queue_empty() {
+  echo "test: hook check-queue silent when empty"
+  local dir
+  dir=$(make_project "echo2")
+  cd "$dir"
+  "$TEND" init
+  local out
+  out=$(echo '{}' | "$TEND" hook check-queue)
+  assert_eq "no output when empty" "" "$out"
+}
+
+test_hook_check_queue_with_message() {
+  echo "test: hook check-queue returns message"
+  local dir
+  dir=$(make_project "foxtrot2")
+  cd "$dir"
+  "$TEND" init
+  echo "[2026-03-14T10:00:00] use the new API" >> "$dir/.tend/queue"
+  local out
+  out=$(echo '{}' | "$TEND" hook check-queue)
+  assert_contains "includes message" "new API" "$out"
+  local queue_size
+  queue_size=$(wc -c < "$dir/.tend/queue" | tr -d ' ')
+  assert_eq "queue cleared" "0" "$queue_size"
+}
+
+test_hook_stop_emits_idle() {
+  echo "test: hook stop emits idle event"
+  local dir
+  dir=$(make_project "golf2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "building feature"
+  echo '{"stop_hook_active": false}' | "$TEND" hook stop
+  local last
+  last=$(tail -1 "$dir/.tend/events")
+  assert_contains "emits idle" "idle" "$last"
+}
+
+test_hook_stop_respects_active() {
+  echo "test: hook stop skips when stop_hook_active is true"
+  local dir
+  dir=$(make_project "hotel2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "building feature"
+  local before_count
+  before_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
+  echo '{"stop_hook_active": true}' | "$TEND" hook stop
+  local after_count
+  after_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
+  assert_eq "no new event" "$before_count" "$after_count"
+}
+
 test_project_name_resolution() {
   echo "test: project name resolution (prefix/substring)"
   local dir
@@ -465,6 +622,18 @@ run_all() {
     test_sync_generates_prompt
     test_unknown_command
     test_nested_project
+    test_say_adds_to_queue
+    test_say_with_project_name
+    test_say_requires_message
+    test_say_requires_init
+    test_init_creates_queue
+    test_init_gitignores_queue
+    test_init_creates_hooks_config
+    test_hook_session_start
+    test_hook_check_queue_empty
+    test_hook_check_queue_with_message
+    test_hook_stop_emits_idle
+    test_hook_stop_respects_active
     test_project_name_resolution
   )
 

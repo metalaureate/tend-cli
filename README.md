@@ -82,6 +82,7 @@ If a `working` event is older than 30 minutes, the project shows as `unknown` (c
 ```
 .tend/
 ├── events    # Append-only event log (gitignored)
+├── queue     # Inbound messages from the developer (gitignored)
 └── TODO      # Ordered backlog (committed)
 ```
 
@@ -117,6 +118,26 @@ The shell prompt indicator (`○` / `●N`) means you often don't even need the 
 - **Then disappear.** No persistent UI. No daemon. No background process.
 
 
+### `tend say` — Talk to Agents Without Switching
+
+`tend say my-app "try the auth approach from PR #192"` sends a message to the agent on another project without leaving your current train of thought. The message lands in `.tend/queue`, and the agent picks it up at its next stopping point.
+
+With VS Code agent hooks or Claude Code hooks, delivery is automatic — the agent sees queued messages the moment it finishes its current turn. `tend init` generates the hook configuration at `.github/hooks/tend.json`.
+
+### Lifecycle Hooks
+
+`tend init` creates `.github/hooks/tend.json`, which wires three hooks into VS Code's agent lifecycle (also compatible with Claude Code):
+
+| Hook | What it does |
+|---|---|
+| `SessionStart` | Reads `.tend/queue` and `.tend/TODO`, injects them as context |
+| `PostToolUse` | Checks `.tend/queue` for new messages mid-session |
+| `Stop` | Emits `idle` to `.tend/events` when the agent finishes |
+
+Hooks are powered by `tend hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
+
+The `.github/hooks/` location is loaded by default in VS Code — no settings changes needed.
+
 ## Coming Soon
 
 ### `tend relay` — Remote Agent Support
@@ -134,12 +155,6 @@ On a local machine, that writes to `.tend/events`. On a remote machine with `TEN
 `tend` pulls relay events alongside local `.tend/events` files. The board doesn't change. The shell prompt doesn't change. `ps` doesn't care where the process is running — neither does tend.
 
 The relay is optional. Local agents still just write to a file. But when your agents are spread across environments, the relay is what makes one board possible.
-
-### `tend say` — Talk to Agents Without Switching
-
-`tend say my-app "try the auth approach from PR #192"` sends a message to the agent on another project without leaving your current train of thought. The message lands in `.tend/queue`, and the agent picks it up at its next stopping point.
-
-Claude Code already supports this via hooks — the agent reads the queue the moment it finishes its current turn. VS Code and other IDEs are adding similar lifecycle hooks. As they do, `tend say` will work across all of them. Same command, same file, different delivery mechanism.
 
 ---
 
