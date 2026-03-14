@@ -1,2 +1,3 @@
 .tend/events
 .tend/queue
+.tend/*.txt
