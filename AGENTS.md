@@ -5,7 +5,6 @@ This project uses Tend for workflow coordination.
 ### On Startup
 
 1. Read `.tend/TODO` to understand the current backlog.
-2. Read `.tend/NOTES` for project context and known gotchas.
 
 ### Emitting State Changes
 
@@ -32,7 +31,6 @@ echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
 
 ### On Completion
 
-- Log completed work to `.tend/DONE` with a timestamp.
 - If there are items in `.tend/TODO`, note the next item but wait for the developer to assign it.
 
 ## Testing

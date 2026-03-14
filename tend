@@ -267,7 +267,7 @@ _tend_cmd_init() {
   mkdir -p "$tend_dir"
 
   local file
-  for file in events TODO DONE NOTES; do
+  for file in events TODO; do
     if [[ ! -f "$tend_dir/$file" ]]; then
       touch "$tend_dir/$file"
     fi
@@ -354,7 +354,6 @@ This project uses Tend for workflow coordination.
 ### On Startup
 
 1. Read `.tend/TODO` to understand the current backlog.
-2. Read `.tend/NOTES` for project context and known gotchas.
 
 ### Emitting State Changes
 
@@ -381,7 +380,6 @@ echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
 
 ### On Completion
 
-- Log completed work to `.tend/DONE` with a timestamp.
 - If there are items in `.tend/TODO`, note the next item but wait for the developer to assign it.
 AGENTS_EOF
 }
@@ -665,20 +663,6 @@ _tend_cmd_detail() {
     echo ""
   fi
 
-  # Notes (last 5)
-  local notes_file="$project_path/.tend/NOTES"
-  if [[ -f "$notes_file" ]] && [[ -s "$notes_file" ]]; then
-    echo "  ${C_BOLD}Notes:${C_RESET}"
-    tail -5 "$notes_file" | while IFS= read -r line; do
-      [[ -z "$line" ]] && continue
-      local item="$line"
-      if [[ "$item" == \[* ]]; then
-        item="${item#*] }"
-      fi
-      echo "    $item"
-    done
-    echo ""
-  fi
 }
 
 # --- tend todo ---
@@ -731,70 +715,6 @@ _tend_cmd_todo() {
   echo "✓ Added to $project_name/TODO"
 }
 
-# --- tend done ---
-_tend_cmd_done() {
-  local project_name="" message=""
-
-  if [[ $# -ge 2 ]]; then
-    if _tend_resolve_project_path "$1" &>/dev/null; then
-      project_name="$1"
-      shift
-    fi
-  fi
-
-  message="$*"
-  if [[ -z "$message" ]]; then
-    echo >&2 "Usage: tend done [project] \"message\""
-    exit 1
-  fi
-
-  local project_path
-  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
-  project_name=$(basename "$project_path")
-
-  if [[ ! -d "$project_path/.tend" ]]; then
-    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
-    exit 1
-  fi
-
-  local ts
-  ts=$(_tend_ts_local)
-  echo "[$ts] $message" >> "$project_path/.tend/DONE"
-  echo "✓ Logged to $project_name/DONE"
-}
-
-# --- tend note ---
-_tend_cmd_note() {
-  local project_name="" message=""
-
-  if [[ $# -ge 2 ]]; then
-    if _tend_resolve_project_path "$1" &>/dev/null; then
-      project_name="$1"
-      shift
-    fi
-  fi
-
-  message="$*"
-  if [[ -z "$message" ]]; then
-    echo >&2 "Usage: tend note [project] \"message\""
-    exit 1
-  fi
-
-  local project_path
-  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
-  project_name=$(basename "$project_path")
-
-  if [[ ! -d "$project_path/.tend" ]]; then
-    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
-    exit 1
-  fi
-
-  local ts
-  ts=$(_tend_ts_local)
-  echo "[$ts] $message" >> "$project_path/.tend/NOTES"
-  echo "✓ Added to $project_name/NOTES"
-}
-
 # --- tend switch ---
 _tend_cmd_switch() {
   local project_name="${1:-}"
@@ -823,7 +743,6 @@ _tend_cmd_sync() {
   project_name=$(basename "$project_path")
 
   local todo_file="$project_path/.tend/TODO"
-  local done_file="$project_path/.tend/DONE"
 
   # Gather data
   local git_log=""
@@ -832,14 +751,11 @@ _tend_cmd_sync() {
   local todo_content=""
   [[ -f "$todo_file" ]] && todo_content=$(cat "$todo_file")
 
-  local done_content=""
-  [[ -f "$done_file" ]] && done_content=$(cat "$done_file")
-
   # Generate reconciliation prompt
   cat <<EOF
 # Tend Sync — $project_name
 
-Review the state of this project and reconcile TODO/DONE with actual git history.
+Review the state of this project and reconcile TODO with actual git history.
 
 ## Recent Git History (last 20 commits)
 $git_log
@@ -847,14 +763,10 @@ $git_log
 ## Current TODO
 $todo_content
 
-## Completed (DONE log)
-$done_content
-
 ## Instructions
-1. Compare the DONE log against git history. Are there completed items that aren't logged?
-2. Compare TODO against what's been done. Are there items that should be removed or marked complete?
-3. Are there items in git history that suggest new TODOs?
-4. Produce an updated TODO list and note any discrepancies.
+1. Compare TODO against git history. Are there items that have been completed and should be removed?
+2. Are there items in git history that suggest new TODOs?
+3. Produce an updated TODO list.
 EOF
 }
 
@@ -875,8 +787,6 @@ Usage:
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
   tend status                   Status indicator (○ or ●N)
   tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
-  tend done [project] "msg"     Log a completion
-  tend note [project] "msg"     Capture a note
   tend switch <project>         Focus VSCode window for project
   tend sync [project]           Generate reconciliation prompt
   tend version                  Show version
@@ -905,8 +815,6 @@ main() {
     emit)      shift; _tend_cmd_emit "$@" ;;
     status)    _tend_cmd_status ;;
     todo)      shift; _tend_cmd_todo "$@" ;;
-    done)      shift; _tend_cmd_done "$@" ;;
-    note)      shift; _tend_cmd_note "$@" ;;
     switch|sw) shift; _tend_cmd_switch "$@" ;;
     sync)      shift; _tend_cmd_sync "$@" ;;
     version)   _tend_cmd_version ;;

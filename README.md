@@ -68,9 +68,6 @@ tend my-app
 # Capture a TODO
 tend todo "refactor the model layer"
 
-# Log a completion
-tend done "shipped v2.1 to TestFlight"
-
 # Jump to a project's VSCode window
 tend switch my-app
 ```
@@ -82,13 +79,11 @@ tend switch my-app
 | Command | Description |
 |---|---|
 | `tend` | Show the departures board — all projects at a glance |
-| `tend <project>` | Drill into a project — recent events, TODOs, notes |
+| `tend <project>` | Drill into a project — recent events, TODOs |
 | `tend init [project]` | Initialize `.tend/` directory in a project |
 | `tend emit <state> "msg"` | Emit an event: `working`, `done`, `stuck`, `waiting`, `idle` |
 | `tend status` | Status indicator: `○` or `●N` |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
-| `tend done [project] "msg"` | Log a completion |
-| `tend note [project] "msg"` | Capture a note or decision |
 | `tend switch <project>` | Focus the VSCode window for a project (macOS) |
 | `tend sync [project]` | Generate a reconciliation prompt (pipe to agent or clipboard) |
 
@@ -112,7 +107,7 @@ Any agent can emit events. Add this to your project's `AGENTS.md`:
 ## Tend Integration
 
 On startup, read `.tend/queue` for queued instructions. Execute them, then clear the file.
-Read `.tend/TODO` for the current backlog and `.tend/NOTES` for project context.
+Read `.tend/TODO` for the current backlog.
 
 Emit state changes:
 - `tend emit working "<what you're starting>"`
@@ -129,9 +124,7 @@ Emit state changes:
 project-root/
 ├── .tend/
 │   ├── events    # Append-only event log (the core protocol)
-│   ├── TODO      # Ordered backlog
-│   ├── DONE      # Timestamped completions
-│   └── NOTES     # Context, decisions, lessons
+│   └── TODO      # Ordered backlog
 ```
 
 All files are plain text. Timestamps use ISO 8601. No YAML, no JSON.

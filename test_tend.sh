@@ -130,8 +130,6 @@ test_init_creates_tend_dir() {
   "$TEND" init
   assert_file_exists "events file" "$dir/.tend/events"
   assert_file_exists "TODO file" "$dir/.tend/TODO"
-  assert_file_exists "DONE file" "$dir/.tend/DONE"
-  assert_file_exists "NOTES file" "$dir/.tend/NOTES"
 }
 
 test_init_creates_agents_md() {
@@ -342,13 +340,11 @@ test_detail_view() {
   "$TEND" init
   "$TEND" emit working "building feature"
   "$TEND" todo "add tests"
-  "$TEND" note "API returns strings not ints"
   local out
   out=$("$TEND" romeo)
   assert_contains "shows project name" "ROMEO" "$out"
   assert_contains "shows current task" "building feature" "$out"
   assert_contains "shows TODO" "add tests" "$out"
-  assert_contains "shows notes" "API returns strings" "$out"
 }
 
 test_todo_add() {
@@ -379,34 +375,6 @@ test_todo_show() {
   assert_contains "shows second item" "item two" "$out"
 }
 
-test_done_logs() {
-  echo "test: done logs completion"
-  local dir
-  dir=$(make_project "victor")
-  cd "$dir"
-  "$TEND" init
-  local out
-  out=$("$TEND" done "shipped v2.1")
-  assert_contains "confirms logged" "Logged to victor/DONE" "$out"
-  local content
-  content=$(cat "$dir/.tend/DONE")
-  assert_contains "item in file" "shipped v2.1" "$content"
-}
-
-test_note_captures() {
-  echo "test: note captures context"
-  local dir
-  dir=$(make_project "whiskey")
-  cd "$dir"
-  "$TEND" init
-  local out
-  out=$("$TEND" note "old API uses string dates")
-  assert_contains "confirms added" "Added to whiskey/NOTES" "$out"
-  local content
-  content=$(cat "$dir/.tend/NOTES")
-  assert_contains "note in file" "old API uses string dates" "$content"
-}
-
 test_sync_generates_prompt() {
   echo "test: sync generates reconciliation prompt"
   local dir
@@ -414,12 +382,10 @@ test_sync_generates_prompt() {
   cd "$dir"
   "$TEND" init
   "$TEND" todo "build feature X"
-  "$TEND" done "fixed bug Y"
   local out
   out=$("$TEND" sync xray)
   assert_contains "has project name" "xray" "$out"
   assert_contains "has TODO section" "Current TODO" "$out"
-  assert_contains "has DONE section" "Completed" "$out"
   assert_contains "has git section" "Git History" "$out"
   assert_contains "has instructions" "Instructions" "$out"
 }
@@ -496,8 +462,6 @@ run_all() {
     test_detail_view
     test_todo_add
     test_todo_show
-    test_done_logs
-    test_note_captures
     test_sync_generates_prompt
     test_unknown_command
     test_nested_project
