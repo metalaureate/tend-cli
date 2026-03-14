@@ -27,8 +27,7 @@ TEND                               Thu Mar 13, 14:32
 ```
 
 ```bash
-tend my-app          # drill into a project
-tend peek my-app     # per-session breakdown
+tend my-app          # project detail + sessions
 tend todo "fix auth" # queue work for the agent
 tend switch my-app   # focus the editor window
 ```
@@ -51,8 +50,7 @@ No config files. No database. No daemon.
 | Command | Description |
 |---|---|
 | `tend` | Show the departures board |
-| `tend <project>` | Drill into a project |
-| `tend peek [project]` | Per-session breakdown with source tags |
+| `tend <project>` | Project detail + sessions |
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend switch <project>` | Focus the editor window |
@@ -134,7 +132,7 @@ tend
 #   ○ other-project         idle       update deps (2h ago)
 ```
 
-Remote projects show a `↗` indicator. `tend peek` shows per-session breakdown with source tags (local vs relay).
+Remote projects show a `↗` indicator. `tend <project>` shows per-session breakdown with source tags (local vs relay).
 
 ### Relay Commands
 

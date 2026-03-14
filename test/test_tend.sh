@@ -844,8 +844,8 @@ MOCK
   assert_eq "counts relay done as attention" "●1" "$out"
 }
 
-test_peek_shows_sessions() {
-  echo "test: peek shows per-session breakdown"
+test_detail_shows_sessions() {
+  echo "test: detail shows per-session breakdown"
   local dir
   dir=$(make_project "peek-proj")
   (cd "$dir" && "$TEND" init peek-proj) >/dev/null 2>&1
@@ -853,15 +853,15 @@ test_peek_shows_sessions() {
   echo "2026-03-14T14:05:00 sess-B working running tests" >> "$dir/.tend/events"
 
   local out
-  out=$(cd "$dir" && "$TEND" peek)
+  out=$(cd "$dir" && "$TEND" peek-proj)
   assert_contains "shows project name" "PEEK-PROJ" "$out"
   assert_contains "shows session A state" "working" "$out"
   assert_contains "shows session A message" "building auth" "$out"
   assert_contains "shows session B message" "running tests" "$out"
 }
 
-test_peek_mixed_local_and_relay() {
-  echo "test: peek shows both local and relay sessions"
+test_detail_mixed_local_and_relay() {
+  echo "test: detail shows both local and relay sessions"
   local dir
   dir=$(make_project "mixed-proj")
   (cd "$dir" && "$TEND" init mixed-proj) >/dev/null 2>&1
@@ -881,7 +881,7 @@ MOCK
   chmod +x "$mock_dir/curl"
 
   local out
-  out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" peek)
+  out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" mixed-proj)
   assert_contains "shows local session" "local task" "$out"
   assert_contains "shows relay session" "cloud task" "$out"
   assert_contains "relay has arrow marker" "↗" "$out"
@@ -973,8 +973,8 @@ run_all() {
     test_relay_status_not_configured
     test_relay_board_with_cache
     test_relay_status_counts_cache
-    test_peek_shows_sessions
-    test_peek_mixed_local_and_relay
+    test_detail_shows_sessions
+    test_detail_mixed_local_and_relay
     test_merged_project_state
   )
 

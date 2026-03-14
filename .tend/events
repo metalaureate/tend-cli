@@ -117,3 +117,15 @@
 2026-03-14T14:57:12 65b2105a-aded-4507-8ee3-38b715366d01 working
 2026-03-14T15:04:37 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 done session ended
 2026-03-14T15:06:56 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 working
+2026-03-14T15:07:28 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 idle session ended
+2026-03-14T15:07:41 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 working
+2026-03-14T15:07:45 done fix: stop hook emits idle, footer counts sessions
+2026-03-14T15:07:49 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 idle session ended
+2026-03-14T15:21:26 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 working
+2026-03-14T15:21:33 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 idle session ended
+2026-03-14T15:22:59 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 working
+2026-03-14T15:23:07 c68b4a36-d944-40f8-89b3-000f9521343b working
+2026-03-14T15:23:53 739e64de-dc3a-44b2-8851-62b5aea2402c idle session ended
+2026-03-14T15:24:17 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 idle session ended
+2026-03-14T15:24:29 ee66ed3a-dbdb-4f90-8bee-3a29a78a50a9 working
+2026-03-14T15:24:40 working merge peek into detail, remove peek command
