@@ -490,8 +490,8 @@ test_hook_user_prompt_snake_case() {
   assert_contains "has session ID" "sess-snake1" "$last_event"
 }
 
-test_hook_stop_emits_done() {
-  echo "test: hook stop emits done on session end"
+test_hook_stop_emits_idle() {
+  echo "test: hook stop emits idle on session end"
   local dir
   dir=$(make_project "golf2")
   cd "$dir"
@@ -500,7 +500,7 @@ test_hook_stop_emits_done() {
   echo '{"stop_hook_active": false}' | "$TEND" hook stop
   local last
   last=$(tail -1 "$dir/.tend/events")
-  assert_contains "emits done" "done" "$last"
+  assert_contains "emits idle" "idle" "$last"
 }
 
 test_hook_stop_respects_active() {
@@ -528,7 +528,7 @@ test_hook_stop_with_session_id() {
   local last
   last=$(tail -1 "$dir/.tend/events")
   assert_contains "has session ID" "sess-stop1" "$last"
-  assert_contains "emits done" "done" "$last"
+  assert_contains "emits idle" "idle" "$last"
 }
 
 test_ack_clears_done() {
@@ -953,7 +953,7 @@ run_all() {
     test_hook_session_start
     test_hook_user_prompt
     test_hook_user_prompt_snake_case
-    test_hook_stop_emits_done
+    test_hook_stop_emits_idle
     test_hook_stop_respects_active
     test_hook_stop_with_session_id
     test_ack_clears_done

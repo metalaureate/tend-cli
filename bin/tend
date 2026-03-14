@@ -1037,12 +1037,12 @@ _tend_cmd_board() {
       fi
     fi
 
-    # Count states
+    # Count states (use active_count for working to count sessions, not projects)
     case "$state" in
       done)    (( ready++ )); (( needs++ )) ;;
       stuck)   (( stuck_count++ )); (( needs++ )) ;;
       waiting) (( needs++ )) ;;
-      working) (( working_count++ )) ;;
+      working) (( working_count += active_count > 0 ? active_count : 1 )) ;;
       unknown) (( idle_count++ )) ;;
       idle|"") (( idle_count++ )) ;;
     esac
@@ -1117,7 +1117,7 @@ _tend_cmd_board() {
         done)    (( ready++ )); (( needs++ )) ;;
         stuck)   (( stuck_count++ )); (( needs++ )) ;;
         waiting) (( needs++ )) ;;
-        working) (( working_count++ )) ;;
+        working) (( working_count += active_count > 0 ? active_count : 1 )) ;;
         idle|"") (( idle_count++ )) ;;
       esac
 
@@ -1649,9 +1649,9 @@ _tend_hook_stop() {
     local ts
     ts=$(_tend_ts_local)
     if [[ -n "$session_id" ]]; then
-      echo "$ts $session_id done session ended" >> "$project_path/.tend/events"
+      echo "$ts $session_id idle session ended" >> "$project_path/.tend/events"
     else
-      echo "$ts done session ended" >> "$project_path/.tend/events"
+      echo "$ts idle session ended" >> "$project_path/.tend/events"
     fi
   fi
 }
