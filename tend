@@ -390,19 +390,16 @@ _tend_cmd_init() {
   mkdir -p "$tend_dir"
 
   local file
-  for file in events TODO queue; do
+  for file in events TODO; do
     if [[ ! -f "$tend_dir/$file" ]]; then
       touch "$tend_dir/$file"
     fi
   done
 
-  # Gitignore events and queue (high-churn, machine-local)
+  # Gitignore events (high-churn, machine-local)
   local gitignore="$project_path/.gitignore"
   if [[ ! -f "$gitignore" ]] || ! grep -qxF ".tend/events" "$gitignore" 2>/dev/null; then
     echo ".tend/events" >> "$gitignore"
-  fi
-  if ! grep -qxF ".tend/queue" "$gitignore" 2>/dev/null; then
-    echo ".tend/queue" >> "$gitignore"
   fi
 
   # Add tend integration to AGENTS.md
@@ -438,12 +435,6 @@ _tend_cmd_init() {
       {
         "type": "command",
         "command": "tend hook session-start"
-      }
-    ],
-    "PostToolUse": [
-      {
-        "type": "command",
-        "command": "tend hook check-queue"
       }
     ],
     "Stop": [
@@ -518,8 +509,8 @@ This project uses Tend for workflow coordination.
 
 ### On Startup
 
-1. Read \`.tend/queue\` for any queued messages from the developer. Process them, then clear the file.
-2. Read \`.tend/TODO\` to understand the current backlog.
+1. Read `.tend/TODO` — propose pending items to the developer and ask what to work on.
+2. Review recent git history for context on what's already been done.
 
 ### Emitting State Changes
 
@@ -547,11 +538,6 @@ echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
 ### On Completion
 
 - If there are items in `.tend/TODO`, note the next item but wait for the developer to assign it.
-### Queue (\`.tend/queue\`)
-
-The developer may send you messages via \`tend say\`. These appear in \`.tend/queue\`.
-If VS Code hooks are configured, queued messages are delivered automatically.
-Otherwise, check the file at the start of each session and clear it after reading.
 AGENTS_EOF
 }
 
@@ -971,37 +957,6 @@ _tend_cmd_ack() {
   echo "✓ Acknowledged $project_name"
 }
 
-# --- tend say ---
-_tend_cmd_say() {
-  local project_name="" message=""
-
-  if [[ $# -ge 2 ]] && _tend_resolve_project_path "$1" &>/dev/null; then
-    project_name="$1"
-    shift
-  fi
-
-  message="$*"
-
-  if [[ -z "$message" ]]; then
-    echo >&2 "Usage: tend say [project] \"message\""
-    exit 1
-  fi
-
-  local project_path
-  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
-  project_name=$(basename "$project_path")
-
-  if [[ ! -d "$project_path/.tend" ]]; then
-    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init' first."
-    exit 1
-  fi
-
-  local ts
-  ts=$(_tend_ts_local)
-  echo "[$ts] $message" >> "$project_path/.tend/queue"
-  echo "✉ Queued for $project_name: $message"
-}
-
 # --- tend switch ---
 _tend_cmd_switch() {
   local project_name="${1:-}"
@@ -1079,46 +1034,28 @@ _tend_hook_session_start() {
   fi
 
   local context=""
-  local queue_file="$project_path/.tend/queue"
   local todo_file="$project_path/.tend/TODO"
-
-  if [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]; then
-    local queue_content
-    queue_content=$(cat "$queue_file")
-    > "$queue_file"
-    context="Messages from the developer (act on these):\n${queue_content}"
-  fi
 
   if [[ -f "$todo_file" ]] && [[ -s "$todo_file" ]]; then
     local todo_content
     todo_content=$(cat "$todo_file")
+    context="Current backlog (.tend/TODO) — propose these to the developer:\n${todo_content}"
+  fi
+
+  # Include recent git activity for context
+  local git_log
+  git_log=$(git -C "$project_path" log --oneline -10 --format="%h %s (%ar)" 2>/dev/null) || true
+  if [[ -n "$git_log" ]]; then
     if [[ -n "$context" ]]; then
       context="${context}\n\n"
     fi
-    context="${context}Current backlog (.tend/TODO):\n${todo_content}"
+    context="${context}Recent commits:\n${git_log}"
   fi
 
   if [[ -n "$context" ]]; then
     local escaped
     escaped=$(_tend_json_escape "$context")
     printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$escaped"
-  fi
-}
-
-_tend_hook_check_queue() {
-  cat > /dev/null
-  local project_path
-  project_path=$(_tend_resolve_project_path "" 2>/dev/null) || return 0
-
-  local queue_file="$project_path/.tend/queue"
-
-  if [[ -f "$queue_file" ]] && [[ -s "$queue_file" ]]; then
-    local content
-    content=$(cat "$queue_file")
-    > "$queue_file"
-    local escaped
-    escaped=$(_tend_json_escape "$content")
-    printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"Message from the developer (act on this): %s"}}\n' "$escaped"
   fi
 }
 
@@ -1150,10 +1087,9 @@ _tend_cmd_hook() {
   local subcmd="${1:-}"
   case "$subcmd" in
     session-start) _tend_hook_session_start ;;
-    check-queue)   _tend_hook_check_queue ;;
     stop)          _tend_hook_stop ;;
     *)
-      echo >&2 "Usage: tend hook <session-start|check-queue|stop>"
+      echo >&2 "Usage: tend hook <session-start|stop>"
       exit 1
       ;;
   esac
@@ -1176,11 +1112,10 @@ Usage:
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
   tend status                   Status indicator (○ or ●N)
   tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
-  tend ack [project]               Clear done/stuck/waiting → idle
-  tend say [project] "msg"      Queue a message for the agent
+  tend ack [project]            Clear done/stuck/waiting → idle
   tend switch <project>         Focus VSCode window for project
   tend sync [project]           Generate reconciliation prompt
-  tend hook <subcmd>            Lifecycle hooks (session-start|check-queue|stop)
+  tend hook <subcmd>            Lifecycle hooks (session-start|stop)
   tend version                  Show version
   tend help                     Show this help
 EOF
@@ -1198,7 +1133,6 @@ main() {
     status)    _tend_cmd_status ;;
     todo)      shift; _tend_cmd_todo "$@" ;;
     ack)       shift; _tend_cmd_ack "$@" ;;
-    say)       shift; _tend_cmd_say "$@" ;;
     switch|sw) shift; _tend_cmd_switch "$@" ;;
     sync)      shift; _tend_cmd_sync "$@" ;;
     hook)      shift; _tend_cmd_hook "$@" ;;

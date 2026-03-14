@@ -54,7 +54,6 @@ No config files. No database. No daemon.
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend switch <project>` | Focus the editor window |
-| `tend say <project> "msg"` | Send a message to an agent without switching |
 | `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `tend ack [project]` | Clear done/stuck/waiting → idle |
@@ -83,7 +82,6 @@ If a `working` event is older than 30 minutes, the project shows as `unknown` (c
 ```
 .tend/
 ├── events    # Append-only event log (gitignored)
-├── queue     # Inbound messages from the developer (gitignored)
 └── TODO      # Ordered backlog (committed)
 ```
 
@@ -121,20 +119,13 @@ The shell prompt indicator (`○` / `●N`) means you often don't even need the 
 - **Then disappear.** No persistent UI. No daemon. No background process.
 
 
-### `tend say` — Talk to Agents Without Switching
-
-`tend say my-app "try the auth approach from PR #192"` sends a message to the agent on another project without leaving your current train of thought. The message lands in `.tend/queue`, and the agent picks it up at its next stopping point.
-
-With VS Code agent hooks or Claude Code hooks, delivery is automatic — the agent sees queued messages the moment it finishes its current turn. `tend init` generates the hook configuration at `.github/hooks/tend.json`.
-
 ### Lifecycle Hooks
 
-`tend init` creates `.github/hooks/tend.json`, which wires three hooks into VS Code's agent lifecycle (also compatible with Claude Code):
+`tend init` creates `.github/hooks/tend.json`, which wires two hooks into VS Code's agent lifecycle (also compatible with Claude Code):
 
 | Hook | What it does |
 |---|---|
-| `SessionStart` | Reads `.tend/queue` and `.tend/TODO`, injects them as context |
-| `PostToolUse` | Checks `.tend/queue` for new messages mid-session |
+| `SessionStart` | Reads `.tend/TODO` and recent git history, proposes backlog items to the developer |
 | `Stop` | Emits `idle` to `.tend/events` when the agent finishes |
 
 Hooks are powered by `tend hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.

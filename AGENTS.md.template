@@ -4,8 +4,8 @@ This project uses [Tend](https://github.com/tend-cli/tend) for workflow coordina
 
 ### On Startup
 
-1. Read `.tend/queue` for any queued instructions. Execute them, then clear the file.
-2. Read `.tend/TODO` to understand the current backlog.
+1. Read `.tend/TODO` — propose pending items to the developer and ask what to work on.
+2. Review recent git history for context on what's already been done.
 3. Emit: `tend emit working "<description of what you're starting>"`
 
 ### During Work
