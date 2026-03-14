@@ -465,29 +465,16 @@ test_hook_session_start() {
   assert_contains "emits working" "working" "$last_event"
 }
 
-test_hook_stop_emits_idle() {
-  echo "test: hook stop emits idle event"
+test_hook_stop_is_noop() {
+  echo "test: hook stop does not emit events"
   local dir
   dir=$(make_project "golf2")
   cd "$dir"
   "$TEND" init
   "$TEND" emit working "building feature"
-  echo '{"stop_hook_active": false}' | "$TEND" hook stop
-  local last
-  last=$(tail -1 "$dir/.tend/events")
-  assert_contains "emits idle" "idle" "$last"
-}
-
-test_hook_stop_respects_active() {
-  echo "test: hook stop skips when stop_hook_active is true"
-  local dir
-  dir=$(make_project "hotel2")
-  cd "$dir"
-  "$TEND" init
-  "$TEND" emit working "building feature"
   local before_count
   before_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
-  echo '{"stop_hook_active": true}' | "$TEND" hook stop
+  echo '{}' | "$TEND" hook stop
   local after_count
   after_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
   assert_eq "no new event" "$before_count" "$after_count"
@@ -551,19 +538,6 @@ test_hook_session_start_with_session_id() {
   last_event=$(tail -1 "$dir/.tend/events")
   assert_contains "event has session ID" "sess-abc123" "$last_event"
   assert_contains "event has working state" "working" "$last_event"
-}
-
-test_hook_stop_with_session_id() {
-  echo "test: hook stop includes session ID in event"
-  local dir
-  dir=$(make_project "quebec2")
-  cd "$dir"
-  "$TEND" init
-  echo '{"sessionId":"sess-abc123","hookEventName":"Stop","stop_hook_active":false}' | "$TEND" hook stop
-  local last_event
-  last_event=$(tail -1 "$dir/.tend/events")
-  assert_contains "event has session ID" "sess-abc123" "$last_event"
-  assert_contains "event has idle state" "idle" "$last_event"
 }
 
 test_multi_session_aggregate() {
@@ -717,13 +691,11 @@ run_all() {
     test_init_gitignores_events
     test_init_creates_hooks_config
     test_hook_session_start
-    test_hook_stop_emits_idle
-    test_hook_stop_respects_active
+    test_hook_stop_is_noop
     test_ack_clears_done
     test_ack_with_project_name
     test_ack_reduces_attention_count
     test_hook_session_start_with_session_id
-    test_hook_stop_with_session_id
     test_multi_session_aggregate
     test_multi_session_partial_stop
     test_ack_resets_all_sessions

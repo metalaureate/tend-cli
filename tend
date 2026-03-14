@@ -1060,27 +1060,10 @@ _tend_hook_session_start() {
 }
 
 _tend_hook_stop() {
-  local input
-  input=$(cat)
-
-  if printf '%s' "$input" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
-    return 0
-  fi
-
-  local project_path
-  project_path=$(_tend_resolve_project_path "" 2>/dev/null) || return 0
-
-  if [[ -d "$project_path/.tend" ]]; then
-    local session_id
-    session_id=$(_tend_extract_session_id "$input")
-    local ts
-    ts=$(_tend_ts_local)
-    if [[ -n "$session_id" ]]; then
-      echo "$ts $session_id idle" >> "$project_path/.tend/events"
-    else
-      echo "$ts idle" >> "$project_path/.tend/events"
-    fi
-  fi
+  # No-op: idle is handled by stale threshold and explicit `tend ack`.
+  # VS Code fires Stop after every turn, which would incorrectly
+  # overwrite working state between turns.
+  cat > /dev/null
 }
 
 _tend_cmd_hook() {
