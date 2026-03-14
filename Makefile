@@ -1,6 +1,6 @@
 PREFIX ?= $(HOME)/bin
 
-.PHONY: install uninstall
+.PHONY: install uninstall relay-install relay-dev relay-deploy
 
 install:
 	@cp bin/tend $(PREFIX)/tend
@@ -18,3 +18,14 @@ install:
 uninstall:
 	@rm -f $(PREFIX)/tend $(PREFIX)/td
 	@echo "✓ Removed tend and td from $(PREFIX)"
+
+relay-install:
+	@cd relay && npm install
+	@echo "✓ Relay dependencies installed"
+
+relay-dev:
+	@cd relay && npx wrangler dev
+
+relay-deploy:
+	@cd relay && npx wrangler deploy
+	@echo "✓ Relay deployed"

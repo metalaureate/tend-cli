@@ -240,6 +240,230 @@ _tend_is_stale() {
   (( delta > TEND_STALE_THRESHOLD ))
 }
 
+# ─── Relay Helpers ───────────────────────────────────────────────────────────
+
+TEND_RELAY_URL="${TEND_RELAY_URL:-https://relay.tend.dev}"
+TEND_RELAY_TOKEN_FILE="${HOME}/.tend/relay_token"
+TEND_RELAY_CACHE_DIR="${HOME}/.tend/relay_cache"
+
+# Read the relay token from file or env
+_tend_relay_token() {
+  if [[ -n "${TEND_RELAY_TOKEN:-}" ]]; then
+    echo "$TEND_RELAY_TOKEN"
+    return
+  fi
+  if [[ -f "$TEND_RELAY_TOKEN_FILE" ]]; then
+    cat "$TEND_RELAY_TOKEN_FILE"
+    return
+  fi
+  return 1
+}
+
+# POST an event to the relay
+_tend_relay_emit() {
+  local project="$1" state="$2" message="${3:-}" session_id="${4:-}"
+  local token
+  token="${TEND_RELAY_TOKEN:-}"
+  [[ -z "$token" ]] && return 1
+
+  local ts
+  ts=$(_tend_ts_local)
+
+  local json="{\"project\":\"$project\",\"state\":\"$state\",\"message\":\"$message\",\"timestamp\":\"$ts\""
+  if [[ -n "$session_id" ]]; then
+    json+=",\"session_id\":\"$session_id\""
+  fi
+  json+="}"
+
+  curl -s -f -X POST "${TEND_RELAY_URL}/v1/events" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "$json" >/dev/null 2>&1
+}
+
+# Fetch relay projects list and cache events locally
+_tend_relay_sync() {
+  local token
+  token=$(_tend_relay_token 2>/dev/null) || return 0
+
+  mkdir -p "$TEND_RELAY_CACHE_DIR"
+
+  # Fetch project list
+  local projects_json
+  projects_json=$(curl -s -f -X GET "${TEND_RELAY_URL}/v1/projects" \
+    -H "Authorization: Bearer $token" 2>/dev/null) || return 0
+
+  # Parse project names and fetch events for each
+  local project_list
+  project_list=$(python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read())
+for p in data.get('projects', []):
+    print(p)
+" <<< "$projects_json" 2>/dev/null) || return 0
+
+  while IFS= read -r project; do
+    [[ -z "$project" ]] && continue
+    _tend_relay_fetch_project "$project" "$token"
+  done <<< "$project_list"
+}
+
+# Fetch events for one relay project and write to cache
+_tend_relay_fetch_project() {
+  local project="$1" token="$2"
+  local cache_file="$TEND_RELAY_CACHE_DIR/$project"
+
+  # Get since timestamp from last cached event
+  local since_param=""
+  if [[ -f "$cache_file" ]]; then
+    local last_ts
+    last_ts=$(tail -1 "$cache_file" 2>/dev/null | cut -d' ' -f1)
+    [[ -n "$last_ts" ]] && since_param="?since=$last_ts"
+  fi
+
+  local events_json
+  events_json=$(curl -s -f -X GET "${TEND_RELAY_URL}/v1/events/${project}${since_param}" \
+    -H "Authorization: Bearer $token" 2>/dev/null) || return 0
+
+  # Convert JSON events to tend event format and append to cache
+  python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read())
+for e in data.get('events', []):
+    ts = e.get('timestamp', '')
+    sid = e.get('session_id', '')
+    state = e.get('state', '')
+    msg = e.get('message', '')
+    if sid:
+        print(f'{ts} {sid} {state} {msg}'.rstrip())
+    else:
+        print(f'{ts} {state} {msg}'.rstrip())
+" <<< "$events_json" >> "$cache_file" 2>/dev/null || true
+}
+
+# List relay-only projects (on relay but not in local registry)
+_tend_relay_projects() {
+  [[ ! -d "$TEND_RELAY_CACHE_DIR" ]] && return
+  local local_projects
+  local_projects=$(_tend_discover_projects 2>/dev/null) || true
+
+  for cache_file in "$TEND_RELAY_CACHE_DIR"/*; do
+    [[ -f "$cache_file" ]] || continue
+    local relay_project
+    relay_project=$(basename "$cache_file")
+    # Check if any local project has this basename
+    local found=false
+    while IFS= read -r lp; do
+      [[ -z "$lp" ]] && continue
+      if [[ "$(basename "$lp")" == "$relay_project" ]]; then
+        found=true
+        break
+      fi
+    done <<< "$local_projects"
+    if ! $found; then
+      echo "$relay_project"
+    fi
+  done
+}
+
+# Get aggregate state for a relay-only project from cache
+_tend_relay_project_state() {
+  local project_name="$1"
+  local cache_file="$TEND_RELAY_CACHE_DIR/$project_name"
+
+  TEND_AGG_STATE="" TEND_AGG_MSG="" TEND_AGG_TS="" TEND_AGG_ACTIVE=0
+
+  if [[ ! -f "$cache_file" ]] || [[ ! -s "$cache_file" ]]; then
+    return 1
+  fi
+
+  # Reuse the same awk aggregation as _tend_project_state
+  local result
+  result=$(awk '
+    function is_state(s) {
+      return (s == "working" || s == "done" || s == "stuck" || s == "waiting" || s == "idle")
+    }
+    function priority(s) {
+      if (s == "stuck") return 5
+      if (s == "done") return 4
+      if (s == "waiting") return 3
+      if (s == "working") return 2
+      return 0
+    }
+    {
+      ts = $1
+      if ($2 == "*") {
+        for (k in sess) delete sess[k]
+        for (k in sess_ts) delete sess_ts[k]
+        for (k in sess_msg) delete sess_msg[k]
+        sess["_"] = $3
+        sess_ts["_"] = ts
+        sess_msg["_"] = ""
+      } else if (is_state($2)) {
+        sess["_cli"] = $2
+        sess_ts["_cli"] = ts
+        msg = ""
+        for (i = 3; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+        sess_msg["_cli"] = msg
+      } else if (is_state($3)) {
+        sess[$2] = $3
+        sess_ts[$2] = ts
+        msg = ""
+        for (i = 4; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+        sess_msg[$2] = msg
+      }
+      last_ts = ts
+    }
+    END {
+      if (length(sess) == 0) exit 1
+      best = "idle"; best_p = 0; best_msg = ""; active = 0
+      working_ts = ""
+      for (s in sess) {
+        p = priority(sess[s])
+        if (sess[s] != "idle") active++
+        if (sess[s] == "working") {
+          working_ts = (working_ts ? working_ts "," : "") sess_ts[s]
+        }
+        if (p > best_p) {
+          best_p = p
+          best = sess[s]
+          best_msg = sess_msg[s]
+        }
+      }
+      printf "%s\t%s\t%s\t%d\t%s\n", last_ts, best, best_msg, active, working_ts
+    }
+  ' "$cache_file")
+
+  if [[ -z "$result" ]]; then
+    return 1
+  fi
+
+  TEND_AGG_TS=$(printf '%s' "$result" | cut -f1)
+  TEND_AGG_STATE=$(printf '%s' "$result" | cut -f2)
+  TEND_AGG_MSG=$(printf '%s' "$result" | cut -f3)
+  TEND_AGG_ACTIVE=$(printf '%s' "$result" | cut -f4)
+  local working_ts
+  working_ts=$(printf '%s' "$result" | cut -f5)
+
+  if [[ "$TEND_AGG_STATE" == "working" && -n "$working_ts" ]]; then
+    local all_stale=true
+    local old_ifs="$IFS"
+    IFS=','
+    for wts in $working_ts; do
+      if ! _tend_is_stale "$wts"; then
+        all_stale=false
+        break
+      fi
+    done
+    IFS="$old_ifs"
+    if $all_stale; then
+      TEND_AGG_STATE="unknown"
+    fi
+  fi
+
+  return 0
+}
+
 # Check if a state is a "needs attention" state
 _tend_needs_attention() {
   local state="$1"
@@ -254,8 +478,27 @@ _tend_project_state() {
 
   TEND_AGG_STATE="" TEND_AGG_MSG="" TEND_AGG_TS="" TEND_AGG_ACTIVE=0
 
-  if [[ ! -f "$events_file" ]] || [[ ! -s "$events_file" ]]; then
+  # Check for relay cache for this project (merge local + relay)
+  local project_name
+  project_name=$(basename "$project_path")
+  local relay_cache="$TEND_RELAY_CACHE_DIR/$project_name"
+
+  local has_local=false has_relay=false
+  [[ -f "$events_file" ]] && [[ -s "$events_file" ]] && has_local=true
+  [[ -f "$relay_cache" ]] && [[ -s "$relay_cache" ]] && has_relay=true
+
+  if ! $has_local && ! $has_relay; then
     return 1
+  fi
+
+  # Build input: merge local + relay events, sorted by timestamp
+  local merged_input
+  if $has_local && $has_relay; then
+    merged_input=$(sort -t' ' -k1,1 "$events_file" "$relay_cache")
+  elif $has_local; then
+    merged_input=$(cat "$events_file")
+  else
+    merged_input=$(cat "$relay_cache")
   fi
 
   local result
@@ -315,7 +558,7 @@ _tend_project_state() {
       }
       printf "%s\t%s\t%s\t%d\t%s\n", last_ts, best, best_msg, active, working_ts
     }
-  ' "$events_file")
+  ' <<< "$merged_input")
 
   if [[ -z "$result" ]]; then
     return 1
@@ -579,6 +822,18 @@ _tend_cmd_emit() {
       ;;
   esac
 
+  # Relay mode: POST to relay when TEND_RELAY_TOKEN is set
+  if [[ -n "${TEND_RELAY_TOKEN:-}" ]]; then
+    local project_name
+    project_name=$(_tend_resolve_project_name "" 2>/dev/null) || project_name="${PWD##*/}"
+    local session_id="${TEND_SESSION_ID:-}"
+    if _tend_relay_emit "$project_name" "$state" "$message" "$session_id"; then
+      return 0
+    fi
+    echo >&2 "tend: relay unreachable, falling back to local"
+    # Fall through to local write if .tend/ exists
+  fi
+
   local project_path
   project_path=$(_tend_resolve_project_path "") || exit 1
 
@@ -609,6 +864,17 @@ _tend_cmd_status() {
     fi
   done <<< "$projects"
 
+  # Also count relay-only projects (from cache, no network)
+  local relay_project
+  while IFS= read -r relay_project; do
+    [[ -z "$relay_project" ]] && continue
+    if _tend_relay_project_state "$relay_project"; then
+      if _tend_needs_attention "$TEND_AGG_STATE"; then
+        (( count++ ))
+      fi
+    fi
+  done <<< "$(_tend_relay_projects 2>/dev/null)"
+
   if (( count == 0 )); then
     echo "○"
   else
@@ -618,10 +884,20 @@ _tend_cmd_status() {
 
 # --- tend (board) ---
 _tend_cmd_board() {
+  # Refresh relay cache (network call, before rendering)
+  _tend_relay_sync 2>/dev/null || true
+
   local projects
   projects=$(_tend_discover_projects) || true
 
+  # Check for relay-only projects too
+  local relay_only
+  relay_only=$(_tend_relay_projects 2>/dev/null) || true
+  local has_local_projects=true
   if [[ -z "$projects" ]]; then
+    has_local_projects=false
+  fi
+  if [[ -z "$projects" && -z "$relay_only" ]]; then
     echo "  No tended projects found"
     echo "  Run 'tend init' inside a project to start tending it"
     return
@@ -675,12 +951,16 @@ _tend_cmd_board() {
 
   local needs=0 ready=0 working_count=0 idle_count=0 stuck_count=0
   local project
+  local -a switch_paths=()
+  local project_num=0
 
   while IFS= read -r project; do
     [[ -z "$project" ]] && continue
     local project_path="$project"
     local project_name
     project_name=$(basename "$project_path")
+    (( project_num++ ))
+    switch_paths+=( "$project_path" )
 
     local state="" msg="" ts="" duration_str="" active_count=0
 
@@ -760,16 +1040,80 @@ _tend_cmd_board() {
 
     # Truncate detail to fit terminal
     local term_width=${COLUMNS:-80}
-    local prefix_width=44  # 2 indent + 2 icon + 1 sp + 20 name + 2 sp + 15 label + 2 sp
+    local prefix_width=47  # 2 indent + 3 num + 2 icon + 1 sp + 20 name + 2 sp + 15 label + 2 sp
     local max_detail=$(( term_width - prefix_width ))
     if (( max_detail < 10 )); then max_detail=10; fi
     if (( ${#detail} > max_detail )); then
       detail="${detail:0:$(( max_detail - 3 ))}..."
     fi
 
-    printf "  %s%s %s  %-15s %s%s\n" \
-      "$color" "$icon" "$display_name" "$label" "$detail" "$C_RESET"
+    local num_prefix
+    num_prefix=$(printf "%2d." "$project_num")
+    printf "  %s%s%s %s  %-15s %s%s\n" \
+      "$color" "$num_prefix" "$icon" "$display_name" "$label" "$detail" "$C_RESET"
   done <<< "$projects"
+
+  # Render relay-only projects
+  if [[ -n "$relay_only" ]]; then
+    while IFS= read -r relay_project; do
+      [[ -z "$relay_project" ]] && continue
+
+      local state="" msg="" ts="" duration_str="" active_count=0
+
+      if _tend_relay_project_state "$relay_project"; then
+        state="$TEND_AGG_STATE"
+        msg="$TEND_AGG_MSG"
+        ts="$TEND_AGG_TS"
+        active_count="$TEND_AGG_ACTIVE"
+
+        if [[ "$state" == "unknown" && -n "$ts" ]]; then
+          local ago; ago=$(_tend_ago "$ts")
+          duration_str="was: ${msg} (${ago} ago)"; msg=""
+        elif [[ "$state" == "working" && -n "$ts" ]]; then
+          local ago; ago=$(_tend_ago "$ts")
+          duration_str="(${ago})"
+        elif [[ "$state" == "idle" && -n "$ts" ]]; then
+          local ago; ago=$(_tend_ago "$ts")
+          if [[ -n "$msg" ]]; then duration_str="${msg} (${ago} ago)"; else duration_str="${ago} ago"; fi
+          msg=""
+        elif [[ "$state" == "done" && -n "$ts" ]]; then
+          duration_str=""
+        fi
+      fi
+
+      case "$state" in
+        done)    (( ready++ )); (( needs++ )) ;;
+        stuck)   (( stuck_count++ )); (( needs++ )) ;;
+        waiting) (( needs++ )) ;;
+        working) (( working_count++ )) ;;
+        idle|"") (( idle_count++ )) ;;
+      esac
+
+      local icon color label
+      icon=$(_tend_state_icon "$state")
+      color=$(_tend_state_color "$state")
+      label=$(_tend_state_label "$state")
+      if (( active_count > 1 )); then label="${active_count} ${state}"; fi
+
+      local display_name
+      display_name=$(printf "%-19.19s" "$relay_project")
+      display_name="${display_name}↗"
+
+      local detail=""
+      if [[ -n "$msg" && -n "$duration_str" ]]; then detail="$msg $duration_str"
+      elif [[ -n "$msg" ]]; then detail="$msg"
+      elif [[ -n "$duration_str" ]]; then detail="$duration_str"; fi
+
+      local term_width=${COLUMNS:-80}
+      local prefix_width=47
+      local max_detail=$(( term_width - prefix_width ))
+      if (( max_detail < 10 )); then max_detail=10; fi
+      if (( ${#detail} > max_detail )); then detail="${detail:0:$(( max_detail - 3 ))}..."; fi
+
+      printf "  %s   %s %s  %-15s %s%s\n" \
+        "$color" "$icon" "$display_name" "$label" "$detail" "$C_RESET"
+    done <<< "$relay_only"
+  fi
 
   # Footer
   echo ""
@@ -790,6 +1134,27 @@ _tend_cmd_board() {
 
   echo "  $footer"
   echo ""
+
+  # Interactive switch prompt (only when both stdin and stdout are a terminal)
+  if [[ -t 0 && -t 1 && ${#switch_paths[@]} -gt 0 ]]; then
+    local choice
+    printf "  ${C_GREY}[#] switch, [enter] dismiss:${C_RESET} "
+    read -r choice
+    if [[ -n "$choice" && "$choice" =~ ^[0-9]+$ ]]; then
+      if (( choice >= 1 && choice <= ${#switch_paths[@]} )); then
+        local target="${switch_paths[$((choice - 1))]}"
+        local target_name
+        target_name=$(basename "$target")
+        if command -v code &>/dev/null; then
+          code "$target" && echo "  ▶ Focused: $target_name"
+        else
+          echo >&2 "  tend: 'code' command not found"
+        fi
+      else
+        echo >&2 "  tend: invalid project number"
+      fi
+    fi
+  fi
 }
 
 # --- tend <project> (detail view) ---
@@ -899,6 +1264,158 @@ _tend_cmd_detail() {
     echo ""
   fi
 
+}
+
+# --- tend peek ---
+_tend_cmd_peek() {
+  local project_name="${1:-}"
+  local project_path=""
+  local is_relay_only=false
+
+  # Try to resolve as a local project
+  if project_path=$(_tend_resolve_project_path "$project_name" 2>/dev/null); then
+    project_name=$(basename "$project_path")
+  elif [[ -n "$project_name" && -f "$TEND_RELAY_CACHE_DIR/$project_name" ]]; then
+    is_relay_only=true
+  else
+    project_path=$(_tend_resolve_project_path "" 2>/dev/null) || {
+      echo >&2 "tend: not inside a project"
+      exit 1
+    }
+    project_name=$(basename "$project_path")
+  fi
+
+  local upper_name
+  upper_name=$(echo "$project_name" | tr '[:lower:]' '[:upper:]')
+
+  echo ""
+  echo "  ${C_BOLD}${upper_name}${C_RESET} — session breakdown"
+  echo ""
+
+  # Gather local events
+  local local_events=""
+  if ! $is_relay_only && [[ -n "$project_path" ]]; then
+    local events_file="$project_path/.tend/events"
+    if [[ -f "$events_file" ]] && [[ -s "$events_file" ]]; then
+      local_events=$(cat "$events_file")
+    fi
+  fi
+
+  # Gather relay cache events
+  local relay_events=""
+  local relay_cache="$TEND_RELAY_CACHE_DIR/$project_name"
+  if [[ -f "$relay_cache" ]] && [[ -s "$relay_cache" ]]; then
+    relay_events=$(cat "$relay_cache")
+  fi
+
+  if [[ -z "$local_events" && -z "$relay_events" ]]; then
+    echo "  No events found"
+    echo ""
+    return
+  fi
+
+  # Parse sessions from local events using awk — output: session_id TAB state TAB ts TAB message TAB source
+  local all_sessions=""
+  if [[ -n "$local_events" ]]; then
+    all_sessions+=$(awk '
+      function is_state(s) { return (s == "working" || s == "done" || s == "stuck" || s == "waiting" || s == "idle") }
+      {
+        ts = $1
+        if ($2 == "*") {
+          # Reset marker — clear everything
+          for (k in sess) delete sess[k]
+          for (k in sess_ts) delete sess_ts[k]
+          for (k in sess_msg) delete sess_msg[k]
+        } else if (is_state($2)) {
+          sess["_cli"] = $2; sess_ts["_cli"] = ts
+          msg = ""; for (i = 3; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+          sess_msg["_cli"] = msg
+        } else if (is_state($3)) {
+          sess[$2] = $3; sess_ts[$2] = ts
+          msg = ""; for (i = 4; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+          sess_msg[$2] = msg
+        }
+      }
+      END {
+        for (s in sess) {
+          printf "%s\t%s\t%s\t%s\tlocal\n", s, sess[s], sess_ts[s], sess_msg[s]
+        }
+      }
+    ' <<< "$local_events")
+    all_sessions+=$'\n'
+  fi
+
+  if [[ -n "$relay_events" ]]; then
+    all_sessions+=$(awk '
+      function is_state(s) { return (s == "working" || s == "done" || s == "stuck" || s == "waiting" || s == "idle") }
+      {
+        ts = $1
+        if ($2 == "*") {
+          for (k in sess) delete sess[k]
+          for (k in sess_ts) delete sess_ts[k]
+          for (k in sess_msg) delete sess_msg[k]
+        } else if (is_state($2)) {
+          sess["_cli"] = $2; sess_ts["_cli"] = ts
+          msg = ""; for (i = 3; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+          sess_msg["_cli"] = msg
+        } else if (is_state($3)) {
+          sess[$2] = $3; sess_ts[$2] = ts
+          msg = ""; for (i = 4; i <= NF; i++) msg = (msg ? msg " " $i : $i)
+          sess_msg[$2] = msg
+        }
+      }
+      END {
+        for (s in sess) {
+          printf "%s\t%s\t%s\t%s\trelay\n", s, sess[s], sess_ts[s], sess_msg[s]
+        }
+      }
+    ' <<< "$relay_events")
+  fi
+
+  # Render each session
+  local session_count=0
+  while IFS=$'\t' read -r sid state ts msg source; do
+    [[ -z "$sid" ]] && continue
+    (( session_count++ ))
+
+    local icon color label
+    icon=$(_tend_state_icon "$state")
+    color=$(_tend_state_color "$state")
+    label=$(_tend_state_label "$state")
+
+    # Format session ID for display
+    local display_sid="$sid"
+    if [[ "$sid" == "_cli" ]]; then
+      display_sid="cli"
+    elif (( ${#sid} > 16 )); then
+      display_sid="${sid:0:8}…${sid: -4}"
+    fi
+
+    local source_tag=""
+    if [[ "$source" == "relay" ]]; then
+      source_tag=" ↗"
+    fi
+
+    local ago=""
+    if [[ -n "$ts" ]]; then
+      ago=$(_tend_ago "$ts")
+    fi
+
+    printf "  %s%s %-14s  %-20s %s" "$color" "$icon" "$label" "$display_sid$source_tag" "$C_RESET"
+    if [[ -n "$msg" ]]; then
+      printf "  %s" "$msg"
+    fi
+    if [[ -n "$ago" ]]; then
+      printf "  ${C_GREY}(%s)${C_RESET}" "$ago"
+    fi
+    echo ""
+  done <<< "$all_sessions"
+
+  if (( session_count == 0 )); then
+    echo "  No active sessions"
+  fi
+
+  echo ""
 }
 
 # --- tend todo ---
@@ -1125,6 +1642,94 @@ _tend_cmd_version() {
   echo "tend $TEND_VERSION"
 }
 
+# --- tend relay ---
+_tend_cmd_relay() {
+  local subcmd="${1:-}"
+  shift || true
+
+  case "$subcmd" in
+    setup)
+      local relay_url="${TEND_RELAY_URL}"
+      echo "Registering with relay at ${relay_url}..."
+      local response
+      response=$(curl -s -f -X POST "${relay_url}/v1/register" 2>&1) || {
+        echo >&2 "tend: failed to reach relay at ${relay_url}"
+        exit 1
+      }
+      local token
+      token=$(python3 -c "
+import json, sys
+data = json.loads(sys.stdin.read())
+print(data['token'])
+" <<< "$response" 2>/dev/null) || {
+        echo >&2 "tend: unexpected response from relay"
+        exit 1
+      }
+      mkdir -p "$(dirname "$TEND_RELAY_TOKEN_FILE")"
+      echo "$token" > "$TEND_RELAY_TOKEN_FILE"
+      chmod 600 "$TEND_RELAY_TOKEN_FILE"
+      echo ""
+      echo "✓ Token stored in ${TEND_RELAY_TOKEN_FILE}"
+      echo ""
+      echo "Your relay token:"
+      echo "  $token"
+      echo ""
+      echo "Set this on remote environments:"
+      echo "  export TEND_RELAY_TOKEN=\"$token\""
+      echo ""
+      ;;
+    status)
+      local token
+      token=$(_tend_relay_token 2>/dev/null) || {
+        echo "Relay: not configured"
+        echo "Run 'tend relay setup' to register"
+        return
+      }
+      local masked="${token:0:8}...${token: -4}"
+      echo "Relay:  ${TEND_RELAY_URL}"
+      echo "Token:  ${masked}"
+      if [[ -d "$TEND_RELAY_CACHE_DIR" ]]; then
+        local cache_count
+        cache_count=$(find "$TEND_RELAY_CACHE_DIR" -type f 2>/dev/null | wc -l | tr -d ' ')
+        echo "Cached: ${cache_count} project(s)"
+      else
+        echo "Cache:  empty"
+      fi
+      ;;
+    pull)
+      local token
+      token=$(_tend_relay_token 2>/dev/null) || {
+        echo >&2 "tend: relay not configured. Run 'tend relay setup' first."
+        exit 1
+      }
+      echo "Syncing relay events..."
+      _tend_relay_sync
+      echo "✓ Cache refreshed"
+      ;;
+    token)
+      local token
+      token=$(_tend_relay_token 2>/dev/null) || {
+        echo >&2 "tend: relay not configured. Run 'tend relay setup' first."
+        exit 1
+      }
+      echo "$token"
+      ;;
+    "")
+      echo "Usage: tend relay <setup|status|pull|token>"
+      echo ""
+      echo "  setup    Register with relay, get a token"
+      echo "  status   Show relay configuration"
+      echo "  pull     Force-refresh event cache from relay"
+      echo "  token    Print raw token (for copying to remote envs)"
+      ;;
+    *)
+      echo >&2 "tend: unknown relay command '$subcmd'"
+      echo >&2 "Usage: tend relay <setup|status|pull|token>"
+      exit 1
+      ;;
+  esac
+}
+
 # --- tend help ---
 _tend_cmd_help() {
   cat <<'EOF'
@@ -1133,6 +1738,7 @@ Tend — What's running? What needs me?
 Usage:
   tend                          Show the departures board
   tend <project>                Show project detail
+  tend peek [project]           Show per-session breakdown
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
   tend status                   Status indicator (○ or ●N)
@@ -1140,6 +1746,7 @@ Usage:
   tend ack [project]            Clear done/stuck/waiting → idle
   tend switch <project>         Focus VSCode window for project
   tend sync [project]           Generate reconciliation prompt
+  tend relay <subcmd>           Relay management (setup|status|pull|token)
   tend hook <subcmd>            Lifecycle hooks (session-start|user-prompt|stop)
   tend version                  Show version
   tend help                     Show this help
@@ -1155,11 +1762,13 @@ main() {
     "")        _tend_cmd_board ;;
     init)      shift; _tend_cmd_init "$@" ;;
     emit)      shift; _tend_cmd_emit "$@" ;;
+    peek)      shift; _tend_cmd_peek "$@" ;;
     status)    _tend_cmd_status ;;
     todo)      shift; _tend_cmd_todo "$@" ;;
     ack)       shift; _tend_cmd_ack "$@" ;;
     switch|sw) shift; _tend_cmd_switch "$@" ;;
     sync)      shift; _tend_cmd_sync "$@" ;;
+    relay)     shift; _tend_cmd_relay "$@" ;;
     hook)      shift; _tend_cmd_hook "$@" ;;
     version)   _tend_cmd_version ;;
     help|-h|--help) _tend_cmd_help ;;

@@ -296,7 +296,7 @@ test_status_working_not_attention() {
 }
 
 test_board_shows_projects() {
-  echo "test: board shows tended projects"
+  echo "test: board shows numbered projects"
   local dir
   dir=$(make_project "papa")
   cd "$dir"
@@ -307,6 +307,8 @@ test_board_shows_projects() {
   assert_contains "shows project name" "papa" "$out"
   assert_contains "shows working state" "agent working" "$out"
   assert_contains "shows message" "coding" "$out"
+  assert_contains "shows project number" " 1." "$out"
+  assert_not_contains "no prompt in non-tty" "switch" "$out"
 }
 
 test_board_empty() {
@@ -703,6 +705,194 @@ test_project_name_resolution() {
   assert_contains "substring match works" "MY-COOL-APP" "$out"
 }
 
+# ─── Relay Tests ─────────────────────────────────────────────────────────────
+
+test_relay_help() {
+  echo "test: tend relay shows usage"
+  local out
+  out=$("$TEND" relay)
+  assert_contains "shows usage" "setup" "$out"
+  assert_contains "shows subcommands" "pull" "$out"
+}
+
+test_relay_emit_with_token() {
+  echo "test: tend emit posts to relay when TEND_RELAY_TOKEN is set"
+  local dir
+  dir=$(make_project "relay-proj")
+  (cd "$dir" && "$TEND" init relay-proj) >/dev/null 2>&1
+
+  # Create a mock curl that logs what it received
+  local mock_dir="$TEST_DIR/mock_bin"
+  mkdir -p "$mock_dir"
+  cat > "$mock_dir/curl" <<'MOCK'
+#!/usr/bin/env bash
+# Log all args to a file for inspection
+echo "$@" >> "$HOME/curl_log.txt"
+echo '{"ok":true}'
+exit 0
+MOCK
+  chmod +x "$mock_dir/curl"
+
+  local out
+  out=$(cd "$dir" && PATH="$mock_dir:$PATH" TEND_RELAY_TOKEN="tnd_test123" TEND_RELAY_URL="http://localhost:9999" "$TEND" emit working "test relay emit" 2>&1)
+
+  assert_file_exists "curl was called" "$HOME/curl_log.txt"
+  local curl_args
+  curl_args=$(cat "$HOME/curl_log.txt")
+  assert_contains "posts to relay URL" "localhost:9999/v1/events" "$curl_args"
+  assert_contains "sends auth header" "Bearer tnd_test123" "$curl_args"
+  assert_contains "sends state" "working" "$curl_args"
+}
+
+test_relay_emit_fallback_on_failure() {
+  echo "test: tend emit falls back to local when relay fails"
+  local dir
+  dir=$(make_project "fallback-proj")
+  (cd "$dir" && "$TEND" init fallback-proj) >/dev/null 2>&1
+
+  # Create a mock curl that fails
+  local mock_dir="$TEST_DIR/mock_bin"
+  mkdir -p "$mock_dir"
+  cat > "$mock_dir/curl" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+  chmod +x "$mock_dir/curl"
+
+  local out
+  out=$(cd "$dir" && PATH="$mock_dir:$PATH" TEND_RELAY_TOKEN="tnd_test123" TEND_RELAY_URL="http://localhost:9999" "$TEND" emit working "fallback test" 2>&1)
+
+  assert_contains "warns about fallback" "falling back" "$out"
+
+  # Verify it wrote locally
+  local events
+  events=$(cat "$dir/.tend/events")
+  assert_contains "wrote to local events" "working fallback test" "$events"
+}
+
+test_relay_status_not_configured() {
+  echo "test: tend relay status when not configured"
+  local out
+  out=$("$TEND" relay status)
+  assert_contains "shows not configured" "not configured" "$out"
+}
+
+test_relay_board_with_cache() {
+  echo "test: board shows relay-only projects from cache"
+  local dir
+  dir=$(make_project "local-proj")
+  (cd "$dir" && "$TEND" init local-proj) >/dev/null 2>&1
+  echo "2026-03-14T14:00:00 working building" >> "$dir/.tend/events"
+
+  # Create relay cache with a relay-only project
+  mkdir -p "$HOME/.tend/relay_cache"
+  echo "2026-03-14T14:10:00 working remote task" > "$HOME/.tend/relay_cache/remote-proj"
+
+  # Create mock curl that returns empty (relay sync won't find anything new)
+  local mock_dir="$TEST_DIR/mock_bin"
+  mkdir -p "$mock_dir"
+  cat > "$mock_dir/curl" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+  chmod +x "$mock_dir/curl"
+
+  local out
+  out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" 2>&1)
+
+  assert_contains "shows local project" "local-proj" "$out"
+  assert_contains "shows relay project with arrow" "remote-proj" "$out"
+}
+
+test_relay_status_counts_cache() {
+  echo "test: status counts relay cache projects"
+  # Create relay cache with a needs-attention project
+  mkdir -p "$HOME/.tend/relay_cache"
+  echo "2026-03-14T14:10:00 done task complete" > "$HOME/.tend/relay_cache/remote-done"
+
+  # Create mock curl that fails (no live sync)
+  local mock_dir="$TEST_DIR/mock_bin"
+  mkdir -p "$mock_dir"
+  cat > "$mock_dir/curl" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+  chmod +x "$mock_dir/curl"
+
+  local out
+  out=$(PATH="$mock_dir:$PATH" "$TEND" status)
+  assert_eq "counts relay done as attention" "●1" "$out"
+}
+
+test_peek_shows_sessions() {
+  echo "test: peek shows per-session breakdown"
+  local dir
+  dir=$(make_project "peek-proj")
+  (cd "$dir" && "$TEND" init peek-proj) >/dev/null 2>&1
+  echo "2026-03-14T14:00:00 sess-A working building auth" >> "$dir/.tend/events"
+  echo "2026-03-14T14:05:00 sess-B working running tests" >> "$dir/.tend/events"
+
+  local out
+  out=$(cd "$dir" && "$TEND" peek)
+  assert_contains "shows project name" "PEEK-PROJ" "$out"
+  assert_contains "shows session A state" "working" "$out"
+  assert_contains "shows session A message" "building auth" "$out"
+  assert_contains "shows session B message" "running tests" "$out"
+}
+
+test_peek_mixed_local_and_relay() {
+  echo "test: peek shows both local and relay sessions"
+  local dir
+  dir=$(make_project "mixed-proj")
+  (cd "$dir" && "$TEND" init mixed-proj) >/dev/null 2>&1
+  echo "2026-03-14T14:00:00 local-sess working local task" >> "$dir/.tend/events"
+
+  # Add relay cache for same project
+  mkdir -p "$HOME/.tend/relay_cache"
+  echo "2026-03-14T14:05:00 cloud-sess working cloud task" > "$HOME/.tend/relay_cache/mixed-proj"
+
+  # Mock curl to prevent network calls
+  local mock_dir="$TEST_DIR/mock_bin"
+  mkdir -p "$mock_dir"
+  cat > "$mock_dir/curl" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+  chmod +x "$mock_dir/curl"
+
+  local out
+  out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" peek)
+  assert_contains "shows local session" "local task" "$out"
+  assert_contains "shows relay session" "cloud task" "$out"
+  assert_contains "relay has arrow marker" "↗" "$out"
+}
+
+test_merged_project_state() {
+  echo "test: project state merges local and relay events"
+  local dir
+  dir=$(make_project "merge-proj")
+  (cd "$dir" && "$TEND" init merge-proj) >/dev/null 2>&1
+  echo "2026-03-14T14:00:00 local-sess working local work" >> "$dir/.tend/events"
+
+  # Relay cache has a stuck session for same project
+  mkdir -p "$HOME/.tend/relay_cache"
+  echo "2026-03-14T14:05:00 cloud-sess stuck need approval" > "$HOME/.tend/relay_cache/merge-proj"
+
+  # Mock curl
+  local mock_dir="$TEST_DIR/mock_bin"
+  mkdir -p "$mock_dir"
+  cat > "$mock_dir/curl" <<'MOCK'
+#!/usr/bin/env bash
+exit 1
+MOCK
+  chmod +x "$mock_dir/curl"
+
+  # Status should show ●1 because stuck is needs-attention
+  local out
+  out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" status)
+  assert_eq "merged state counts stuck" "●1" "$out"
+}
+
 # ─── Runner ──────────────────────────────────────────────────────────────────
 
 run_all() {
@@ -756,6 +946,15 @@ run_all() {
     test_old_format_backward_compat
     test_board_sorts_by_recency
     test_project_name_resolution
+    test_relay_help
+    test_relay_emit_with_token
+    test_relay_emit_fallback_on_failure
+    test_relay_status_not_configured
+    test_relay_board_with_cache
+    test_relay_status_counts_cache
+    test_peek_shows_sessions
+    test_peek_mixed_local_and_relay
+    test_merged_project_state
   )
 
   for t in "${tests[@]}"; do
