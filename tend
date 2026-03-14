@@ -239,7 +239,71 @@ _tend_cmd_init() {
     fi
   done
 
+  # Add tend integration to AGENTS.md
+  local agents_file="$project_path/AGENTS.md"
+  local tend_marker="## Tend Integration"
+
+  if [[ ! -f "$agents_file" ]]; then
+    _tend_write_agents_block "$agents_file"
+    echo "✓ Created AGENTS.md with tend integration in $project_name"
+  elif ! grep -q "$tend_marker" "$agents_file" 2>/dev/null; then
+    echo "" >> "$agents_file"
+    _tend_write_agents_block_content >> "$agents_file"
+    echo "✓ Added tend integration to AGENTS.md in $project_name"
+  else
+    echo "✓ AGENTS.md already has tend integration in $project_name"
+  fi
+
   echo "✓ Initialized .tend/ in $project_name"
+}
+
+# Write the full AGENTS.md file (for new files)
+_tend_write_agents_block() {
+  local file="$1"
+  _tend_write_agents_block_content > "$file"
+}
+
+# Output the tend integration block
+_tend_write_agents_block_content() {
+  cat <<'AGENTS_EOF'
+## Tend Integration
+
+This project uses Tend for workflow coordination.
+
+### On Startup
+
+1. Read `.tend/queue` for any queued instructions. Execute them, then clear the file.
+2. Read `.tend/TODO` to understand the current backlog.
+3. Read `.tend/NOTES` for project context and known gotchas.
+
+### Emitting State Changes
+
+When your work state changes, append a line to `.tend/events`:
+
+```
+<ISO-8601-timestamp> <state> <message>
+```
+
+States: `working`, `done`, `stuck`, `waiting`, `idle`
+
+Use the tend CLI if available:
+```bash
+tend emit working "<what you're starting>"
+tend emit done "<summary of what you completed>"
+tend emit stuck "<what you need from the human>"
+tend emit idle
+```
+
+Or append directly:
+```bash
+echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
+```
+
+### On Completion
+
+- Log completed work to `.tend/DONE` with a timestamp.
+- If there are items in `.tend/TODO`, note the next item but wait for the developer to assign it.
+AGENTS_EOF
 }
 
 # --- tend emit ---
