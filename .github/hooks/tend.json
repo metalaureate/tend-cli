@@ -6,6 +6,12 @@
         "command": "tend hook session-start"
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "type": "command",
+        "command": "tend hook user-prompt"
+      }
+    ],
     "Stop": [
       {
         "type": "command",

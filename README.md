@@ -121,12 +121,13 @@ The shell prompt indicator (`○` / `●N`) means you often don't even need the 
 
 ### Lifecycle Hooks
 
-`tend init` creates `.github/hooks/tend.json`, which wires two hooks into VS Code's agent lifecycle (also compatible with Claude Code):
+`tend init` creates `.github/hooks/tend.json`, which wires three hooks into VS Code's agent lifecycle (also compatible with Claude Code):
 
 | Hook | What it does |
 |---|---|
 | `SessionStart` | Reads `.tend/TODO` and recent git history, proposes backlog items to the developer |
-| `Stop` | Emits `idle` to `.tend/events` when the agent finishes |
+| `UserPromptSubmit` | Emits `working` to `.tend/events` each time the user sends a prompt |
+| `Stop` | Emits `idle` to `.tend/events` when the agent session ends |
 
 Hooks are powered by `tend hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
 

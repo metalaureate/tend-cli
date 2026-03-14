@@ -443,11 +443,12 @@ test_init_creates_hooks_config() {
   local content
   content=$(cat "$dir/.github/hooks/tend.json")
   assert_contains "has SessionStart" "SessionStart" "$content"
+  assert_contains "has UserPromptSubmit" "UserPromptSubmit" "$content"
   assert_contains "has Stop" "Stop" "$content"
 }
 
 test_hook_session_start() {
-  echo "test: hook session-start reads TODO and recent git, emits working"
+  echo "test: hook session-start reads TODO and recent git"
   local dir
   dir=$(make_project "delta2")
   cd "$dir"
@@ -459,22 +460,44 @@ test_hook_session_start() {
   out=$(echo '{}' | "$TEND" hook session-start)
   assert_contains "includes TODO" "auth bug" "$out"
   assert_contains "proposes items" "propose" "$out"
-  # Should have emitted working event
+}
+
+test_hook_user_prompt() {
+  echo "test: hook user-prompt emits working"
+  local dir
+  dir=$(make_project "echo2")
+  cd "$dir"
+  "$TEND" init
+  echo '{"sessionId":"sess-test1"}' | "$TEND" hook user-prompt
   local last_event
   last_event=$(tail -1 "$dir/.tend/events")
   assert_contains "emits working" "working" "$last_event"
+  assert_contains "has session ID" "sess-test1" "$last_event"
 }
 
-test_hook_stop_is_noop() {
-  echo "test: hook stop does not emit events"
+test_hook_stop_emits_idle() {
+  echo "test: hook stop emits idle on session end"
   local dir
   dir=$(make_project "golf2")
   cd "$dir"
   "$TEND" init
   "$TEND" emit working "building feature"
+  echo '{"stop_hook_active": false}' | "$TEND" hook stop
+  local last
+  last=$(tail -1 "$dir/.tend/events")
+  assert_contains "emits idle" "idle" "$last"
+}
+
+test_hook_stop_respects_active() {
+  echo "test: hook stop skips when stop_hook_active is true"
+  local dir
+  dir=$(make_project "hotel2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "building feature"
   local before_count
   before_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
-  echo '{}' | "$TEND" hook stop
+  echo '{"stop_hook_active": true}' | "$TEND" hook stop
   local after_count
   after_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
   assert_eq "no new event" "$before_count" "$after_count"
@@ -527,17 +550,18 @@ test_ack_reduces_attention_count() {
 }
 
 test_hook_session_start_with_session_id() {
-  echo "test: hook session-start includes session ID in event"
+  echo "test: hook session-start does not emit events"
   local dir
   dir=$(make_project "papa2")
   cd "$dir"
   "$TEND" init
+  local before_count
+  before_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
   local out
   out=$(echo '{"sessionId":"sess-abc123","hookEventName":"SessionStart"}' | "$TEND" hook session-start)
-  local last_event
-  last_event=$(tail -1 "$dir/.tend/events")
-  assert_contains "event has session ID" "sess-abc123" "$last_event"
-  assert_contains "event has working state" "working" "$last_event"
+  local after_count
+  after_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
+  assert_eq "no events emitted" "$before_count" "$after_count"
 }
 
 test_multi_session_aggregate() {
@@ -691,7 +715,9 @@ run_all() {
     test_init_gitignores_events
     test_init_creates_hooks_config
     test_hook_session_start
-    test_hook_stop_is_noop
+    test_hook_user_prompt
+    test_hook_stop_emits_idle
+    test_hook_stop_respects_active
     test_ack_clears_done
     test_ack_with_project_name
     test_ack_reduces_attention_count
