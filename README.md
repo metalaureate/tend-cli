@@ -2,50 +2,46 @@
 
 **A pull-based CLI for developers running multiple AI agents.**
 
-*`ps` for cognitive work. What's running? What needs me?*
-
----
-
-## Install
-
-```bash
-# Clone and install
-git clone <repo-url> && cd tend-cli
-make install
-
-# Or just copy the script
-cp tend /usr/local/bin/tend
-```
-
-No config files. No database. No daemon.
+*What's running? What needs me?*
 
 ---
 
 ## Quick Start
 
 ```bash
-# Initialize tend in a project (sets up .tend/, AGENTS.md, shell prompt)
 cd ~/projects/my-app
 tend init
-
-# Check the board from anywhere
-tend
-#   TEND                               Thu Mar 13, 14:32
-#
-#   ◐ my-app               working        building auth scaffold (3m)
-#   ○ other-project         idle           update deps (2h ago)
-#
-#   0 needs you · 1 working · 1 idle
-
-# Drill into a project
-tend my-app
-
-# Capture a TODO
-tend todo "refactor the model layer"
-
-# Jump to a project's editor window
-tend switch my-app
 ```
+
+That's it. `tend init` sets up everything: `.tend/` directory, AGENTS.md integration, shell prompt indicator, and project registry.
+
+Now run `tend` from anywhere:
+
+```
+TEND                               Thu Mar 13, 14:32
+
+◐ my-app               working        building auth scaffold (3m)
+○ other-project         idle           update deps (2h ago)
+
+0 needs you · 1 working · 1 idle
+```
+
+```bash
+tend my-app          # drill into a project
+tend todo "fix auth"  # queue work for the agent
+tend switch my-app   # focus the editor window
+```
+
+---
+
+## Install
+
+```bash
+git clone <repo-url> && cd tend-cli
+make install
+```
+
+No config files. No database. No daemon.
 
 ---
 
@@ -53,20 +49,20 @@ tend switch my-app
 
 | Command | Description |
 |---|---|
-| `tend` | Show the departures board — all projects at a glance |
-| `tend <project>` | Drill into a project — recent events, TODOs |
-| `tend init [project]` | Initialize `.tend/`, configure AGENTS.md and shell prompt |
-| `tend emit <state> "msg"` | Emit an event: `working`, `done`, `stuck`, `waiting`, `idle` |
-| `tend status` | Status indicator: `○` or `●N` |
+| `tend` | Show the departures board |
+| `tend <project>` | Drill into a project |
+| `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
-| `tend switch <project>` | Focus the editor window for a project |
-| `tend sync [project]` | Generate a reconciliation prompt (pipe to agent or clipboard) |
+| `tend switch <project>` | Focus the editor window |
+| `tend sync [project]` | Generate a reconciliation prompt |
+| `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
+| `tend status` | Status indicator: `○` or `●N` |
 
 ---
 
-## The Event Protocol
+## How It Works
 
-Tend's core is a one-line-per-event append-only log at `.tend/events`:
+Agents emit state changes to `.tend/events` — a one-line-per-event append-only log:
 
 ```
 2026-03-13T14:20:00 working refactoring narrative engine
@@ -76,50 +72,26 @@ Tend's core is a one-line-per-event append-only log at `.tend/events`:
 
 Five states: `working`, `done`, `stuck`, `waiting`, `idle`.
 
-`tend init` automatically adds the event protocol to your project's `AGENTS.md`, so agents know how to emit state changes.
+`tend init` adds the protocol to your project's AGENTS.md so agents emit automatically. For projects without events, tend falls back to `git log` to infer activity.
 
----
+If a `working` event is older than 30 minutes, the project shows as `unknown` (configurable via `TEND_STALE_THRESHOLD`).
 
-## What `tend init` Does
-
-1. Creates `.tend/` with `events` and `TODO` files
-2. Adds a `## Tend Integration` block to your project's `AGENTS.md` (creates it if missing, appends if it exists, skips if already present)
-3. Adds `.tend/events` to `.gitignore` (events are local state, TODO is committed)
-4. Registers the project in `~/.tend/projects` for board discovery
-5. Adds a shell prompt indicator (`○` / `●N`) to your zshrc or bashrc
-
----
-
-## File Structure
+### File Structure
 
 ```
-project-root/
-├── .tend/
-│   ├── events    # Append-only event log (gitignored)
-│   └── TODO      # Ordered backlog (committed)
+.tend/
+├── events    # Append-only event log (gitignored)
+└── TODO      # Ordered backlog (committed)
 ```
 
-All files are plain text. Timestamps use ISO 8601. No YAML, no JSON.
-
----
-
-## How It Works
-
-**Two detection layers**, in priority order:
-
-1. **Event protocol** — `tail -1 .tend/events` gives precise, agent-reported state
-2. **Git fallback** — `git log` infers activity for projects without events
-
-**Staleness detection:** If a `working` event is older than 30 minutes (configurable via `TEND_STALE_THRESHOLD`), the project shows as `unknown` instead.
-
-**`tend status` is events-only.** No git, no network, no process checks. It reads the last line of each project's events file and counts needs-attention states. Must complete in under 100ms.
+Plain text. ISO 8601 timestamps. No YAML, no JSON.
 
 ---
 
 ## Design Philosophy
 
-- **Pull, not push.** Tend never interrupts. No notifications, no badges, no live updates.
-- **Scan, don't read.** The board is designed for a 3-second glance.
+- **Pull, not push.** No notifications, no badges, no live updates.
+- **Scan, don't read.** The board is a 3-second glance.
 - **Then disappear.** No persistent UI. No daemon. No background process.
 
 ---
