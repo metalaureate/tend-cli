@@ -88,11 +88,40 @@ Plain text. ISO 8601 timestamps. No YAML, no JSON.
 
 ---
 
-## Design Philosophy
+## Why Tend Exists
 
-- **Pull, not push.** No notifications, no badges, no live updates.
-- **Scan, don't read.** The board is a 3-second glance.
+AI agents take 5–30 minutes per task and frequently need human input — tool approvals, course corrections, next-task assignment. Without a signal, the developer falls into a **compulsive polling loop**: checking each project to see if its agent is done, stuck, or drifting. Not because it's time, but because they *can't know* without looking.
+
+This polling is triggered by uncertainty, not necessity. Each check is a context switch. Each context switch degrades focus. The developer who should be spending 80% of their time in deep, expert-level work inside one project ends up spending 80% in shallow supervisory mode across many.
+
+Every existing tool solves this by building a **dashboard** — a persistent UI with live panels, notification badges, and real-time streaming. For developers with high switching costs, this makes it worse. A dashboard is a permanent invitation to poll. A notification badge is an interrupt.
+
+### The Departures Board
+
+Tend uses a different metaphor: **public transit, not mission control.**
+
+- You're on a train (deep work in one project).
+- The train reaches a station (natural pause: agent is running, you've finished a thought, you need a break).
+- You glance at the departures board (run `tend`).
+- The board shows you: what's arrived, what's delayed, what's departing on time.
+- You handle what needs handling, and get back on a train.
+
+The shell prompt indicator (`○` / `●N`) is the bridge between "never interrupt" and "never anxious." It's already in your visual field after every command. When it says `○`, you have permission to stay deep. The uncertainty — which is what drives the polling — is gone.
+
+### The Chef, Not the Manager
+
+Before agents, the chef could only cook one dish at a time. Now they have extra hands at every station — but the hands need tasting notes, course corrections, and the occasional "no, not that spice." The restaurant serves almost no fixed menu; every dish is custom, called in by someone who wants something specific. The chef can't hand off judgment — they *are* the judgment.
+
+Tend keeps track of which stations need the chef's palate right now.
+
+It doesn't help you plan. It doesn't decompose work. It doesn't suggest what to do next. It assumes you already know — because you're the expert — and keeps track of where all the pans are on the stove so you don't burn anything while your attention is on the dish that matters most.
+
+### Design Principles
+
+- **Pull, not push.** No notifications, no badges, no live updates. Tend speaks only when spoken to.
+- **Scan, don't read.** The board is a 3-second glance. Status icons are the primary signal.
 - **Then disappear.** No persistent UI. No daemon. No background process.
+- **Sub-10-second round trip.** Prompt shows `●2` → `tend` to scan → `tend switch` to jump → handle it → back to deep work.
 
 ---
 
