@@ -286,7 +286,51 @@ _tend_cmd_init() {
   # Register project in tend registry
   _tend_register_project "$project_path"
 
+  # Add shell prompt integration
+  _tend_setup_shell
+
   echo "✓ Initialized .tend/ in $project_name"
+}
+
+# Add tend status indicator to shell rc files
+_tend_setup_shell() {
+  local tend_shell_marker="# --- Tend status indicator ---"
+  local did_setup=false
+
+  # zsh
+  if [[ -f "$HOME/.zshrc" ]]; then
+    if ! grep -q "$tend_shell_marker" "$HOME/.zshrc" 2>/dev/null; then
+      cat >> "$HOME/.zshrc" <<'SHELL_EOF'
+
+# --- Tend status indicator ---
+_tend_precmd() { _TEND_S="$(tend status 2>/dev/null)"; }
+precmd_functions+=(_tend_precmd)
+RPROMPT='$_TEND_S'
+SHELL_EOF
+      did_setup=true
+      echo "✓ Added tend status to ~/.zshrc (shows in right prompt)"
+    fi
+  fi
+
+  # bash
+  for rcfile in "$HOME/.bashrc" "$HOME/.bash_profile"; do
+    if [[ -f "$rcfile" ]]; then
+      if ! grep -q "$tend_shell_marker" "$rcfile" 2>/dev/null; then
+        cat >> "$rcfile" <<'SHELL_EOF'
+
+# --- Tend status indicator ---
+_tend_prompt() { _TEND_S="$(tend status 2>/dev/null)"; PS1="${PS1%\\$ *}$_TEND_S \$ "; }
+PROMPT_COMMAND="_tend_prompt${PROMPT_COMMAND:+;$PROMPT_COMMAND}"
+SHELL_EOF
+        did_setup=true
+        echo "✓ Added tend status to ~/${rcfile##*/}"
+      fi
+    fi
+  done
+
+  if $did_setup; then
+    echo "  Restart your shell or run: source ~/.zshrc"
+  fi
 }
 
 # Write the full AGENTS.md file (for new files)
