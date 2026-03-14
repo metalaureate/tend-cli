@@ -260,7 +260,7 @@ test_emit_requires_init() {
 }
 
 test_status_no_attention() {
-  echo "test: status shows ○ when nothing needs attention"
+  echo "test: status shows ◉N when only working agents"
   local dir
   dir=$(make_project "lima")
   cd "$dir"
@@ -268,11 +268,11 @@ test_status_no_attention() {
   "$TEND" emit working "building"
   local out
   out=$("$TEND" status)
-  assert_eq "shows ○" "○" "$out"
+  assert_eq "shows ◉1" "◉1" "$out"
 }
 
 test_status_needs_attention() {
-  echo "test: status shows ●N for needs-attention states"
+  echo "test: status shows per-state icons for done/stuck"
   local dir1 dir2
   dir1=$(make_project "mike")
   dir2=$(make_project "november")
@@ -280,11 +280,12 @@ test_status_needs_attention() {
   cd "$dir2" && "$TEND" init && "$TEND" emit stuck "approval needed"
   local out
   out=$("$TEND" status)
-  assert_eq "shows ●2" "●2" "$out"
+  assert_contains "shows stuck icon" "▲1" "$out"
+  assert_contains "shows done icon" "◆1" "$out"
 }
 
 test_status_working_not_attention() {
-  echo "test: status doesn't count working as needs-attention"
+  echo "test: status shows ◉N for working agents"
   local dir
   dir=$(make_project "oscar")
   cd "$dir"
@@ -292,7 +293,7 @@ test_status_working_not_attention() {
   "$TEND" emit working "building"
   local out
   out=$("$TEND" status)
-  assert_eq "working is ○" "○" "$out"
+  assert_eq "working is ◉1" "◉1" "$out"
 }
 
 test_board_shows_projects() {
@@ -570,7 +571,7 @@ test_ack_reduces_attention_count() {
   "$TEND" emit stuck "need approval"
   local before
   before=$("$TEND" status)
-  assert_eq "shows ●1 before" "●1" "$before"
+  assert_eq "shows ▲1 before" "▲1" "$before"
   "$TEND" ack
   local after
   after=$("$TEND" status)
@@ -604,7 +605,7 @@ test_multi_session_aggregate() {
   echo "$ts sess-2 working writing tests" >> "$dir/.tend/events"
   local out
   out=$("$TEND" status)
-  assert_eq "working not needs-attention" "○" "$out"
+  assert_eq "working shows ◉" "◉2" "$out"
   out=$("$TEND")
   assert_contains "shows working" "working" "$out"
   assert_contains "shows multi-agent count" "2 working" "$out"
@@ -841,7 +842,7 @@ MOCK
 
   local out
   out=$(PATH="$mock_dir:$PATH" "$TEND" status)
-  assert_eq "counts relay done as attention" "●1" "$out"
+  assert_eq "counts relay done as attention" "◆1" "$out"
 }
 
 test_detail_shows_sessions() {
@@ -907,10 +908,121 @@ exit 1
 MOCK
   chmod +x "$mock_dir/curl"
 
-  # Status should show ●1 because stuck is needs-attention
+  # Status should show ▲1 because stuck is needs-attention
   local out
   out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" status)
-  assert_eq "merged state counts stuck" "●1" "$out"
+  assert_eq "merged state counts stuck" "▲1" "$out"
+}
+
+# ─── Gamification Tests ──────────────────────────────────────────────────────
+
+test_gamification_on_by_default() {
+  echo "test: gamification is shown by default"
+  local dir
+  dir=$(make_project "gami-alpha")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "coding away"
+  local out
+  out=$("$TEND")
+  assert_contains "pot line shown"    "working"     "$out"
+  assert_contains "stats line shown"  "done today"  "$out"
+}
+
+test_gamification_disabled_by_env() {
+  echo "test: TEND_NO_GAMIFICATION=1 suppresses gamification"
+  local dir
+  dir=$(make_project "gami-beta")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "coding away"
+  local out
+  out=$(TEND_NO_GAMIFICATION=1 "$TEND")
+  assert_not_contains "no pot line"   "──────"      "$out"
+  assert_not_contains "no stats line" "done today"  "$out"
+}
+
+test_gamification_stats_dones() {
+  echo "test: gamification stats count today's done events"
+  local dir
+  dir=$(make_project "gami-gamma")
+  cd "$dir"
+  "$TEND" init
+  local today
+  today=$(date +%Y-%m-%d)
+  printf '%sT10:00:00 done finished task one\n%sT11:00:00 done finished task two\n%sT12:00:00 working on next task\n' \
+    "$today" "$today" "$today" > "$dir/.tend/events"
+  local out
+  out=$("$TEND")
+  assert_contains "dones counted" "2 done today" "$out"
+}
+
+test_gamification_streak_single_day() {
+  echo "test: gamification shows 1-day streak when today has dones"
+  local dir
+  dir=$(make_project "gami-delta")
+  cd "$dir"
+  "$TEND" init
+  local today
+  today=$(date +%Y-%m-%d)
+  printf '%sT09:00:00 done completed something\n%sT10:00:00 working continuing\n' \
+    "$today" "$today" > "$dir/.tend/events"
+  local out
+  out=$("$TEND")
+  assert_contains "1-day streak shown" "1-day streak" "$out"
+}
+
+test_gamification_pot_fire() {
+  echo "test: gamification shows fire for agents waiting > 15 min"
+  local dir
+  dir=$(make_project "gami-epsilon")
+  cd "$dir"
+  "$TEND" init
+  local old_ts
+  old_ts=$(date -v-20M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || \
+           date -d "20 minutes ago" +"%Y-%m-%dT%H:%M:%S")
+  printf '%s waiting blocked on review\n' "$old_ts" > "$dir/.tend/events"
+  local out
+  out=$("$TEND")
+  assert_contains "fire state shown" "overdue" "$out"
+}
+
+test_gamification_pot_simmering() {
+  echo "test: gamification shows working for working agents"
+  local dir
+  dir=$(make_project "gami-zeta")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit working "building feature"
+  local out
+  out=$("$TEND")
+  assert_contains "working shown" "working" "$out"
+}
+
+test_gamification_pot_cold() {
+  echo "test: gamification shows idle when no agents active"
+  local dir
+  dir=$(make_project "gami-eta")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit idle
+  local out
+  out=$("$TEND")
+  assert_contains "idle shown" "idle" "$out"
+}
+
+test_gamification_open_todos() {
+  echo "test: gamification counts open TODOs"
+  local dir
+  dir=$(make_project "gami-theta")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" todo "fix the login bug"
+  "$TEND" todo "add unit tests"
+  "$TEND" emit working "coding"
+  local out
+  out=$("$TEND")
+  assert_contains "open todos shown" "2 open TODOs" "$out"
 }
 
 # ─── Runner ──────────────────────────────────────────────────────────────────
@@ -976,6 +1088,14 @@ run_all() {
     test_detail_shows_sessions
     test_detail_mixed_local_and_relay
     test_merged_project_state
+    test_gamification_on_by_default
+    test_gamification_disabled_by_env
+    test_gamification_stats_dones
+    test_gamification_streak_single_day
+    test_gamification_pot_fire
+    test_gamification_pot_simmering
+    test_gamification_pot_cold
+    test_gamification_open_todos
   )
 
   for t in "${tests[@]}"; do
