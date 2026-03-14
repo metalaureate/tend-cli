@@ -949,9 +949,8 @@ test_gamification_stats_dones() {
   "$TEND" init
   local today
   today=$(date +%Y-%m-%d)
-  printf '%sT10:00:00 done finished task one\n%sT11:00:00 done finished task two\n' \
-    "$today" "$today" >> "$dir/.tend/events"
-  "$TEND" emit working "on next task"
+  printf '%sT10:00:00 done finished task one\n%sT11:00:00 done finished task two\n%sT12:00:00 working on next task\n' \
+    "$today" "$today" "$today" > "$dir/.tend/events"
   local out
   out=$("$TEND")
   assert_contains "dones counted" "2 done today" "$out"
@@ -981,7 +980,7 @@ test_gamification_pot_fire() {
   local old_ts
   old_ts=$(date -v-20M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || \
            date -d "20 minutes ago" +"%Y-%m-%dT%H:%M:%S")
-  echo "$old_ts waiting blocked on review" > "$dir/.tend/events"
+  printf '%s waiting blocked on review\n' "$old_ts" > "$dir/.tend/events"
   local out
   out=$("$TEND")
   assert_contains "fire state shown" "on fire" "$out"
