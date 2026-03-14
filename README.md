@@ -1,6 +1,6 @@
 # Tend
 
-**A pull-based CLI for developers running multiple AI agents.**
+**Lightweight attention infrastructure for humans and agents.**
 
 *What's running? What needs me?*
 
