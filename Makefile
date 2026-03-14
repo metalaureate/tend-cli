@@ -1,4 +1,4 @@
-PREFIX ?= /usr/local/bin
+PREFIX ?= $(HOME)/bin
 
 .PHONY: install uninstall
 
