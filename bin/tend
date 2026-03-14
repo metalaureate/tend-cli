@@ -1049,8 +1049,8 @@ _tend_cmd_board() {
 
     local num_prefix
     num_prefix=$(printf "%2d." "$project_num")
-    printf "  %s%s%s %s  %-15s %s%s\n" \
-      "$color" "$num_prefix" "$icon" "$display_name" "$label" "$detail" "$C_RESET"
+    printf "  %s %s  %s%s %-15s%s%s\n" \
+      "$num_prefix" "$display_name" "$color" "$icon" "$label" "$detail" "$C_RESET"
   done <<< "$projects"
 
   # Render relay-only projects
@@ -1110,8 +1110,8 @@ _tend_cmd_board() {
       if (( max_detail < 10 )); then max_detail=10; fi
       if (( ${#detail} > max_detail )); then detail="${detail:0:$(( max_detail - 3 ))}..."; fi
 
-      printf "  %s   %s %s  %-15s %s%s\n" \
-        "$color" "$icon" "$display_name" "$label" "$detail" "$C_RESET"
+      printf "     %s  %s%s %-15s%s%s\n" \
+        "$display_name" "$color" "$icon" "$label" "$detail" "$C_RESET"
     done <<< "$relay_only"
   fi
 
