@@ -1183,16 +1183,6 @@ Usage:
   tend hook <subcmd>            Lifecycle hooks (session-start|check-queue|stop)
   tend version                  Show version
   tend help                     Show this help
-
-Environment:
-  TEND_ROOT    Root directory for projects (default: ~/projects)
-  NO_COLOR     Disable color output if set
-
-Shell prompt setup:
-  # bash
-  export PS1='... $(tend status) $ '
-  # zsh
-  PROMPT='... $(tend status) %# '
 EOF
 }
 
