@@ -74,14 +74,14 @@ _tend_ago() {
   _tend_format_duration "$delta"
 }
 
-# Discover all projects under TEND_ROOT (directories with .git)
+# Discover tended projects under TEND_ROOT (directories with .tend/)
 _tend_discover_projects() {
   local dir
   if [[ ! -d "$TEND_ROOT" ]]; then
     return
   fi
   for dir in "$TEND_ROOT"/*/; do
-    [[ -d "${dir}.git" ]] && basename "$dir"
+    [[ -d "${dir}.tend" ]] && basename "$dir"
   done
 }
 
@@ -161,6 +161,19 @@ _tend_last_event() {
   return 0
 }
 
+# Staleness threshold in seconds (default: 30 minutes)
+TEND_STALE_THRESHOLD="${TEND_STALE_THRESHOLD:-1800}"
+
+# Check if a timestamp is stale (older than threshold)
+_tend_is_stale() {
+  local ts="$1"
+  local ts_epoch now_epoch delta
+  ts_epoch=$(_tend_to_epoch "$ts")
+  now_epoch=$(date "+%s")
+  delta=$(( now_epoch - ts_epoch ))
+  (( delta > TEND_STALE_THRESHOLD ))
+}
+
 # Check if a state is a "needs attention" state
 _tend_needs_attention() {
   local state="$1"
@@ -174,6 +187,7 @@ _tend_state_icon() {
     done|waiting) echo "●" ;;
     stuck)        echo "⊘" ;;
     working)      echo "◐" ;;
+    unknown)      echo "○" ;;
     idle|"")      echo "○" ;;
     *)            echo "○" ;;
   esac
@@ -186,6 +200,7 @@ _tend_state_color() {
     done|waiting) echo "$C_AMBER" ;;
     stuck)        echo "$C_RED" ;;
     working)      echo "$C_CYAN" ;;
+    unknown)      echo "$C_GREY" ;;
     idle|"")      echo "$C_GREY" ;;
     *)            echo "$C_GREY" ;;
   esac
@@ -199,6 +214,7 @@ _tend_state_label() {
     stuck)   echo "agent stuck" ;;
     waiting) echo "agent waiting" ;;
     working) echo "agent working" ;;
+    unknown) echo "unknown" ;;
     idle)    echo "idle" ;;
     *)       echo "no signal" ;;
   esac
@@ -261,8 +277,8 @@ _tend_cmd_emit() {
   echo "$ts $state $message" >> "$events_file"
 }
 
-# --- tend prompt ---
-_tend_cmd_prompt() {
+# --- tend status ---
+_tend_cmd_status() {
   local count=0
   local projects
   projects=$(_tend_discover_projects) || true
@@ -298,8 +314,8 @@ _tend_cmd_board() {
   projects=$(_tend_discover_projects) || true
 
   if [[ -z "$projects" ]]; then
-    echo "  No projects found under $TEND_ROOT"
-    echo "  Set TEND_ROOT or create project directories with .git"
+    echo "  No tended projects found under $TEND_ROOT"
+    echo "  Run 'tend init' inside a project to start tending it"
     return
   fi
 
@@ -322,7 +338,14 @@ _tend_cmd_board() {
       msg="$TEND_EVT_MSG"
       ts="$TEND_EVT_TS"
 
-      if [[ "$state" == "working" && -n "$ts" ]]; then
+      # Detect stale working state
+      if [[ "$state" == "working" && -n "$ts" ]] && _tend_is_stale "$ts"; then
+        state="unknown"
+        local ago
+        ago=$(_tend_ago "$ts")
+        duration_str="last working: ${msg} (${ago} ago)"
+        msg=""
+      elif [[ "$state" == "working" && -n "$ts" ]]; then
         local ago
         ago=$(_tend_ago "$ts")
         duration_str="(${ago})"
@@ -353,6 +376,7 @@ _tend_cmd_board() {
       stuck)   (( stuck_count++ )); (( needs++ )) ;;
       waiting) (( needs++ )) ;;
       working) (( working_count++ )) ;;
+      unknown) (( idle_count++ )) ;;
       idle|"") (( idle_count++ )) ;;
     esac
 
@@ -787,7 +811,7 @@ Usage:
   tend <project>                Show project detail
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
-  tend prompt                   Shell prompt indicator (○ or ●N)
+  tend status                   Status indicator (○ or ●N)
   tend say <project> "msg"      Queue a message for an agent
   tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
   tend done [project] "msg"     Log a completion
@@ -804,9 +828,9 @@ Environment:
 
 Shell prompt setup:
   # bash
-  export PS1='... $(tend prompt) $ '
+  export PS1='... $(tend status) $ '
   # zsh
-  PROMPT='... $(tend prompt) %# '
+  PROMPT='... $(tend status) %# '
 EOF
 }
 
@@ -819,7 +843,7 @@ main() {
     "")        _tend_cmd_board ;;
     init)      shift; _tend_cmd_init "$@" ;;
     emit)      shift; _tend_cmd_emit "$@" ;;
-    prompt)    _tend_cmd_prompt ;;
+    status)    _tend_cmd_status ;;
     say)       shift; _tend_cmd_say "$@" ;;
     todo)      shift; _tend_cmd_todo "$@" ;;
     done)      shift; _tend_cmd_done "$@" ;;

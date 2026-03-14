@@ -23,10 +23,10 @@ Add the Tend indicator to your shell prompt. It shows `○` when nothing needs y
 
 ```bash
 # zsh — add to ~/.zshrc
-PROMPT='%~ $(tend prompt) %# '
+PROMPT='%~ $(tend status) %# '
 
 # bash — add to ~/.bashrc
-export PS1='\w $(tend prompt) \$ '
+export PS1='\w $(tend status) \$ '
 ```
 
 ### Configuration
@@ -88,7 +88,7 @@ tend switch my-app
 | `tend <project>` | Drill into a project — recent events, TODOs, notes |
 | `tend init [project]` | Initialize `.tend/` directory in a project |
 | `tend emit <state> "msg"` | Emit an event: `working`, `done`, `stuck`, `waiting`, `idle` |
-| `tend prompt` | Shell prompt indicator: `○` or `●N` |
+| `tend status` | Status indicator: `○` or `●N` |
 | `tend say <project> "msg"` | Queue a message for an agent |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend done [project] "msg"` | Log a completion |
@@ -154,7 +154,7 @@ All files are plain text. Timestamps use ISO 8601. No YAML, no JSON.
 
 Projects with no `.tend/` directory still appear on the board via git fallback.
 
-**`tend prompt` is events-only.** No git, no network, no process checks. It reads the last line of each project's events file and counts needs-attention states. Must complete in under 100ms.
+**`tend status` is events-only.** No git, no network, no process checks. It reads the last line of each project's events file and counts needs-attention states. Must complete in under 100ms.
 
 ---
 
