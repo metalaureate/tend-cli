@@ -2,7 +2,7 @@
 
 **Lightweight attention infrastructure for humans and agents.**
 
-*What's running? What needs me?*
+*Who's stuck? Who needs you?*
 
 ---
 
