@@ -262,7 +262,7 @@ _tend_cmd_init() {
   mkdir -p "$tend_dir"
 
   local file
-  for file in events queue TODO DONE NOTES; do
+  for file in events TODO DONE NOTES; do
     if [[ ! -f "$tend_dir/$file" ]]; then
       touch "$tend_dir/$file"
     fi
@@ -348,9 +348,8 @@ This project uses Tend for workflow coordination.
 
 ### On Startup
 
-1. Read `.tend/queue` for any queued instructions. Execute them, then clear the file.
-2. Read `.tend/TODO` to understand the current backlog.
-3. Read `.tend/NOTES` for project context and known gotchas.
+1. Read `.tend/TODO` to understand the current backlog.
+2. Read `.tend/NOTES` for project context and known gotchas.
 
 ### Emitting State Changes
 
@@ -677,35 +676,6 @@ _tend_cmd_detail() {
   fi
 }
 
-# --- tend say ---
-_tend_cmd_say() {
-  local project_name="${1:-}"
-  if [[ -z "$project_name" ]]; then
-    echo >&2 "Usage: tend say <project> \"message\""
-    exit 1
-  fi
-  shift
-  local message="$*"
-  if [[ -z "$message" ]]; then
-    echo >&2 "Usage: tend say <project> \"message\""
-    exit 1
-  fi
-
-  local project_path
-  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
-  project_name=$(basename "$project_path")
-
-  if [[ ! -d "$project_path/.tend" ]]; then
-    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
-    exit 1
-  fi
-
-  local ts
-  ts=$(_tend_ts_local)
-  echo "[$ts] $message" >> "$project_path/.tend/queue"
-  echo "✓ Queued for $project_name"
-}
-
 # --- tend todo ---
 _tend_cmd_todo() {
   local project_name="" message=""
@@ -860,41 +830,6 @@ _tend_cmd_switch() {
   fi
 }
 
-# --- tend approve ---
-_tend_cmd_approve() {
-  local project_name="${1:-}"
-  if [[ -z "$project_name" ]]; then
-    echo >&2 "Usage: tend approve <project>"
-    exit 1
-  fi
-
-  local project_path
-  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
-  project_name=$(basename "$project_path")
-
-  if ! _tend_last_event "$project_path"; then
-    echo >&2 "tend: no events for $project_name"
-    exit 1
-  fi
-
-  if [[ "$TEND_EVT_STATE" != "stuck" ]]; then
-    echo "  $project_name is not stuck (state: $TEND_EVT_STATE)"
-    return
-  fi
-
-  echo "⊘ $project_name: $TEND_EVT_MSG"
-  printf "  Approve? [y/n] "
-  read -r reply
-  if [[ "$reply" == "y" || "$reply" == "Y" ]]; then
-    local ts
-    ts=$(_tend_ts_local)
-    echo "[$ts] APPROVED: $TEND_EVT_MSG" >> "$project_path/.tend/queue"
-    echo "✓ Approval queued for $project_name"
-  else
-    echo "  Skipped"
-  fi
-}
-
 # --- tend sync ---
 _tend_cmd_sync() {
   local project_name="${1:-}"
@@ -954,12 +889,10 @@ Usage:
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
   tend status                   Status indicator (○ or ●N)
-  tend say <project> "msg"      Queue a message for an agent
   tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
   tend done [project] "msg"     Log a completion
   tend note [project] "msg"     Capture a note
   tend switch <project>         Focus VSCode window for project
-  tend approve <project>        Approve a stuck agent's request
   tend sync [project]           Generate reconciliation prompt
   tend version                  Show version
   tend help                     Show this help
@@ -986,12 +919,10 @@ main() {
     init)      shift; _tend_cmd_init "$@" ;;
     emit)      shift; _tend_cmd_emit "$@" ;;
     status)    _tend_cmd_status ;;
-    say)       shift; _tend_cmd_say "$@" ;;
     todo)      shift; _tend_cmd_todo "$@" ;;
     done)      shift; _tend_cmd_done "$@" ;;
     note)      shift; _tend_cmd_note "$@" ;;
     switch|sw) shift; _tend_cmd_switch "$@" ;;
-    approve)   shift; _tend_cmd_approve "$@" ;;
     sync)      shift; _tend_cmd_sync "$@" ;;
     version)   _tend_cmd_version ;;
     help|-h|--help) _tend_cmd_help ;;

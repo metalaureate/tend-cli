@@ -65,9 +65,6 @@ tend
 # Drill into a project
 tend my-app
 
-# Queue a message for an agent
-tend say my-app "when you're done, pick up the token bridge FAQ next"
-
 # Capture a TODO
 tend todo "refactor the model layer"
 
@@ -89,12 +86,10 @@ tend switch my-app
 | `tend init [project]` | Initialize `.tend/` directory in a project |
 | `tend emit <state> "msg"` | Emit an event: `working`, `done`, `stuck`, `waiting`, `idle` |
 | `tend status` | Status indicator: `○` or `●N` |
-| `tend say <project> "msg"` | Queue a message for an agent |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend done [project] "msg"` | Log a completion |
 | `tend note [project] "msg"` | Capture a note or decision |
 | `tend switch <project>` | Focus the VSCode window for a project (macOS) |
-| `tend approve <project>` | Approve a stuck agent's pending request |
 | `tend sync [project]` | Generate a reconciliation prompt (pipe to agent or clipboard) |
 
 ---
@@ -134,7 +129,6 @@ Emit state changes:
 project-root/
 ├── .tend/
 │   ├── events    # Append-only event log (the core protocol)
-│   ├── queue     # Messages from `tend say` (consumed by agent)
 │   ├── TODO      # Ordered backlog
 │   ├── DONE      # Timestamped completions
 │   └── NOTES     # Context, decisions, lessons

@@ -129,7 +129,6 @@ test_init_creates_tend_dir() {
   cd "$dir"
   "$TEND" init
   assert_file_exists "events file" "$dir/.tend/events"
-  assert_file_exists "queue file" "$dir/.tend/queue"
   assert_file_exists "TODO file" "$dir/.tend/TODO"
   assert_file_exists "DONE file" "$dir/.tend/DONE"
   assert_file_exists "NOTES file" "$dir/.tend/NOTES"
@@ -352,20 +351,6 @@ test_detail_view() {
   assert_contains "shows notes" "API returns strings" "$out"
 }
 
-test_say() {
-  echo "test: say queues a message"
-  local dir
-  dir=$(make_project "sierra")
-  cd "$dir"
-  "$TEND" init
-  local out
-  out=$("$TEND" say sierra "pick up the FAQ next")
-  assert_contains "confirms queued" "Queued for sierra" "$out"
-  local queue
-  queue=$(cat "$dir/.tend/queue")
-  assert_contains "message in queue" "pick up the FAQ next" "$queue"
-}
-
 test_todo_add() {
   echo "test: todo adds items"
   local dir
@@ -509,7 +494,6 @@ run_all() {
     test_board_empty
     test_board_staleness
     test_detail_view
-    test_say
     test_todo_add
     test_todo_show
     test_done_logs

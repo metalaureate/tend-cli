@@ -4,9 +4,8 @@ This project uses Tend for workflow coordination.
 
 ### On Startup
 
-1. Read `.tend/queue` for any queued instructions. Execute them, then clear the file.
-2. Read `.tend/TODO` to understand the current backlog.
-3. Read `.tend/NOTES` for project context and known gotchas.
+1. Read `.tend/TODO` to understand the current backlog.
+2. Read `.tend/NOTES` for project context and known gotchas.
 
 ### Emitting State Changes
 
