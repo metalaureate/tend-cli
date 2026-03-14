@@ -524,6 +524,47 @@ _tend_cmd_board() {
     return
   fi
 
+  # Detect current project (from $PWD)
+  local current_project_path=""
+  local cur
+  cur=$(pwd -P 2>/dev/null) || true
+  while [[ "$cur" != "/" ]]; do
+    if [[ -d "$cur/.git" ]]; then
+      current_project_path="$cur"
+      break
+    fi
+    cur="$(dirname "$cur")"
+  done
+
+  # Sort projects by last event time (most recent first), current project pinned to top
+  local sorted_projects
+  sorted_projects=$(
+    while IFS= read -r project; do
+      [[ -z "$project" ]] && continue
+      local ts_epoch=0
+      local events_file="$project/.tend/events"
+      if [[ -f "$events_file" ]]; then
+        local last_line
+        last_line=$(tail -1 "$events_file" 2>/dev/null) || true
+        if [[ -n "$last_line" ]]; then
+          local ts="${last_line%% *}"
+          ts_epoch=$(_tend_to_epoch "$ts") || true
+        fi
+      fi
+      # Use git fallback for epoch if no events
+      if (( ts_epoch == 0 )) && [[ -d "$project/.git" ]]; then
+        ts_epoch=$(git -C "$project" log -1 --format="%ct" 2>/dev/null) || true
+        [[ -z "$ts_epoch" ]] && ts_epoch=0
+      fi
+      # Pin current project with max epoch
+      if [[ "$project" == "$current_project_path" ]]; then
+        ts_epoch=9999999999
+      fi
+      printf '%s\t%s\n' "$ts_epoch" "$project"
+    done <<< "$projects" | sort -t$'\t' -k1 -rn | cut -f2
+  )
+  projects="$sorted_projects"
+
   # Header
   echo ""
   echo "  ${C_BOLD}TEND${C_RESET}                               $(  _tend_date_header)"
@@ -740,8 +781,13 @@ _tend_cmd_detail() {
 _tend_cmd_todo() {
   local project_name="" message=""
 
-  # If first arg looks like a project name (exists under TEND_ROOT), use it
-  if [[ $# -ge 1 ]] && _tend_resolve_project_path "$1" &>/dev/null; then
+  # With 2+ args, try first arg as project name; with 1 arg, it's either
+  # a project name (show TODOs) or a message (add TODO to current project)
+  if [[ $# -ge 2 ]] && _tend_resolve_project_path "$1" &>/dev/null; then
+    project_name="$1"
+    shift
+  elif [[ $# -eq 1 ]] && _tend_resolve_project_path "$1" &>/dev/null; then
+    # Single arg that resolves as a project: show its TODOs
     project_name="$1"
     shift
   fi
@@ -784,6 +830,24 @@ _tend_cmd_todo() {
   ts=$(_tend_ts_local)
   echo "[$ts] $message" >> "$project_path/.tend/TODO"
   echo "✓ Added to $project_name/TODO"
+}
+
+# --- tend ack ---
+_tend_cmd_ack() {
+  local project_name="${1:-}"
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if [[ ! -d "$project_path/.tend" ]]; then
+    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init' first."
+    exit 1
+  fi
+
+  local ts
+  ts=$(_tend_ts_local)
+  echo "$ts idle" >> "$project_path/.tend/events"
+  echo "✓ Acknowledged $project_name"
 }
 
 # --- tend say ---
@@ -977,6 +1041,7 @@ Usage:
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
   tend status                   Status indicator (○ or ●N)
   tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
+  tend ack [project]               Clear done/stuck/waiting → idle
   tend say [project] "msg"      Queue a message for the agent
   tend switch <project>         Focus VSCode window for project
   tend sync [project]           Generate reconciliation prompt
@@ -1007,6 +1072,7 @@ main() {
     emit)      shift; _tend_cmd_emit "$@" ;;
     status)    _tend_cmd_status ;;
     todo)      shift; _tend_cmd_todo "$@" ;;
+    ack)       shift; _tend_cmd_ack "$@" ;;
     say)       shift; _tend_cmd_say "$@" ;;
     switch|sw) shift; _tend_cmd_switch "$@" ;;
     sync)      shift; _tend_cmd_sync "$@" ;;

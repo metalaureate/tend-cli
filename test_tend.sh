@@ -375,6 +375,18 @@ test_todo_show() {
   assert_contains "shows second item" "item two" "$out"
 }
 
+test_todo_message_not_swallowed() {
+  echo "test: todo treats single non-project arg as message"
+  local dir
+  dir=$(make_project "whiskey2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" todo "refactor the auth layer"
+  local content
+  content=$(cat "$dir/.tend/TODO")
+  assert_contains "full message in TODO" "refactor the auth layer" "$content"
+}
+
 test_sync_generates_prompt() {
   echo "test: sync generates reconciliation prompt"
   local dir
@@ -566,6 +578,80 @@ test_hook_stop_respects_active() {
   assert_eq "no new event" "$before_count" "$after_count"
 }
 
+test_ack_clears_done() {
+  echo "test: ack clears done state to idle"
+  local dir
+  dir=$(make_project "india2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit done "finished feature"
+  local out
+  out=$("$TEND" ack)
+  assert_contains "confirms ack" "Acknowledged india2" "$out"
+  local last
+  last=$(tail -1 "$dir/.tend/events")
+  assert_contains "state is idle" "idle" "$last"
+}
+
+test_ack_with_project_name() {
+  echo "test: ack with explicit project name"
+  local dir1 dir2
+  dir1=$(make_project "juliet2")
+  dir2=$(make_project "kilo2")
+  cd "$dir1" && "$TEND" init && "$TEND" emit done "PR ready"
+  cd "$dir2" && "$TEND" init
+  local out
+  out=$("$TEND" ack juliet2)
+  assert_contains "confirms ack" "Acknowledged juliet2" "$out"
+  local last
+  last=$(tail -1 "$dir1/.tend/events")
+  assert_contains "state is idle" "idle" "$last"
+}
+
+test_ack_reduces_attention_count() {
+  echo "test: ack reduces attention count"
+  local dir
+  dir=$(make_project "lima2")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit stuck "need approval"
+  local before
+  before=$("$TEND" status)
+  assert_eq "shows ●1 before" "●1" "$before"
+  "$TEND" ack
+  local after
+  after=$("$TEND" status)
+  assert_eq "shows ○ after" "○" "$after"
+}
+
+test_board_sorts_by_recency() {
+  echo "test: board sorts projects by most recent first"
+  local dir1 dir2
+  dir1=$(make_project "aaa-old")
+  dir2=$(make_project "zzz-new")
+  cd "$dir1" && "$TEND" init
+  # Old event
+  local old_ts
+  old_ts=$(date -v-2H +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -d "2 hours ago" +"%Y-%m-%dT%H:%M:%S")
+  echo "$old_ts working old task" > "$dir1/.tend/events"
+  cd "$dir2" && "$TEND" init
+  "$TEND" emit working "new task"
+  local out
+  out=$("$TEND")
+  # zzz-new should appear before aaa-old since it's more recent
+  local pos_new pos_old
+  pos_new=$(echo "$out" | grep -n "zzz-new" | head -1 | cut -d: -f1)
+  pos_old=$(echo "$out" | grep -n "aaa-old" | head -1 | cut -d: -f1)
+  if [[ -n "$pos_new" && -n "$pos_old" ]] && (( pos_new < pos_old )); then
+    echo "  ✓ recent project listed first"
+    (( PASS++ ))
+  else
+    echo "  ✗ recent project listed first"
+    echo "    new at line: $pos_new, old at line: $pos_old"
+    (( FAIL++ ))
+  fi
+}
+
 test_project_name_resolution() {
   echo "test: project name resolution (prefix/substring)"
   local dir
@@ -619,6 +705,7 @@ run_all() {
     test_detail_view
     test_todo_add
     test_todo_show
+    test_todo_message_not_swallowed
     test_sync_generates_prompt
     test_unknown_command
     test_nested_project
@@ -634,6 +721,10 @@ run_all() {
     test_hook_check_queue_with_message
     test_hook_stop_emits_idle
     test_hook_stop_respects_active
+    test_ack_clears_done
+    test_ack_with_project_name
+    test_ack_reduces_attention_count
+    test_board_sorts_by_recency
     test_project_name_resolution
   )
 

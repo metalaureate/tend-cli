@@ -41,7 +41,7 @@ Run the test suite before committing any changes to the `tend` script:
 bash test_tend.sh
 ```
 
-- All 37 tests must pass (71 assertions).
+- All 42 tests must pass (80 assertions).
 - Tests use isolated temp directories — no impact on real projects or shell config.
 - If you add a new command or change behavior, add a corresponding test to `test_tend.sh`.
 - Tests should be self-contained: each test calls `setup` (creates temp dirs) and `teardown` (cleans up).

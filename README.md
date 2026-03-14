@@ -57,6 +57,7 @@ No config files. No database. No daemon.
 | `tend say <project> "msg"` | Send a message to an agent without switching |
 | `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
+| `tend ack [project]` | Clear done/stuck/waiting → idle |
 | `tend status` | Status indicator: `○` or `●N` |
 
 ---
