@@ -1,6 +1,10 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import worker from '../src/index';
+import worker, { Env } from '../src/index';
+
+declare module 'cloudflare:test' {
+  interface ProvidedEnv extends Env {}
+}
 
 async function applySchema(db: D1Database) {
   await db.exec(

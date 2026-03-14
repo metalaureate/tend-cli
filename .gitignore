@@ -1,6 +1,7 @@
 .tend/events
 .tend/queue
 .tend/*.txt
+.scratch/
 relay/node_modules/
 relay/dist/
 relay/.wrangler/

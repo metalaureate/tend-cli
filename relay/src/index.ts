@@ -138,7 +138,7 @@ async function handleGetProjects(request: Request, db: D1Database, tokenHash: st
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
