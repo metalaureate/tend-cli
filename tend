@@ -90,8 +90,12 @@ _tend_discover_projects() {
 # Register a project path in the registry
 _tend_register_project() {
   local project_path="$1"
+  # Canonicalize path to avoid case-mismatch duplicates on macOS
+  if [[ -d "$project_path" ]]; then
+    project_path=$(cd "$project_path" && pwd -P)
+  fi
   mkdir -p "$(dirname "$TEND_REGISTRY")"
-  if [[ ! -f "$TEND_REGISTRY" ]] || ! grep -qxF "$project_path" "$TEND_REGISTRY" 2>/dev/null; then
+  if [[ ! -f "$TEND_REGISTRY" ]] || ! grep -qixF "$project_path" "$TEND_REGISTRY" 2>/dev/null; then
     echo "$project_path" >> "$TEND_REGISTRY"
   fi
 }
@@ -145,8 +149,9 @@ _tend_resolve_project_path() {
     return 1
   fi
 
-  # Auto-detect from $PWD
-  local cur="$PWD"
+  # Auto-detect from $PWD (canonicalize to avoid case mismatches on macOS)
+  local cur
+  cur=$(pwd -P)
   while [[ "$cur" != "/" ]]; do
     if [[ -d "$cur/.git" ]]; then
       echo "$cur"
