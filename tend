@@ -273,6 +273,12 @@ _tend_cmd_init() {
     fi
   done
 
+  # Gitignore events (high-churn, append-only, causes merge conflicts)
+  local gitignore="$project_path/.gitignore"
+  if [[ ! -f "$gitignore" ]] || ! grep -qxF ".tend/events" "$gitignore" 2>/dev/null; then
+    echo ".tend/events" >> "$gitignore"
+  fi
+
   # Add tend integration to AGENTS.md
   local agents_file="$project_path/AGENTS.md"
   local tend_marker="## Tend Integration"
