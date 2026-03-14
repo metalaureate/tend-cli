@@ -132,6 +132,46 @@ _tend_register_project() {
   fi
 }
 
+# Get projects in board order (most recent first, current project pinned to top)
+_tend_sorted_projects() {
+  local projects
+  projects=$(_tend_discover_projects) || true
+  [[ -z "$projects" ]] && return
+
+  local current_project_path=""
+  local cur
+  cur=$(pwd -P 2>/dev/null) || true
+  while [[ "$cur" != "/" ]]; do
+    if [[ -d "$cur/.git" ]]; then
+      current_project_path="$cur"
+      break
+    fi
+    cur="$(dirname "$cur")"
+  done
+
+  while IFS= read -r project; do
+    [[ -z "$project" ]] && continue
+    local ts_epoch=0
+    local events_file="$project/.tend/events"
+    if [[ -f "$events_file" ]]; then
+      local last_line
+      last_line=$(tail -1 "$events_file" 2>/dev/null) || true
+      if [[ -n "$last_line" ]]; then
+        local ts="${last_line%% *}"
+        ts_epoch=$(_tend_to_epoch "$ts") || true
+      fi
+    fi
+    if (( ts_epoch == 0 )) && [[ -d "$project/.git" ]]; then
+      ts_epoch=$(git -C "$project" log -1 --format="%ct" 2>/dev/null) || true
+      [[ -z "$ts_epoch" ]] && ts_epoch=0
+    fi
+    if [[ "$project" == "$current_project_path" ]]; then
+      ts_epoch=9999999999
+    fi
+    printf '%s\t%s\n' "$ts_epoch" "$project"
+  done <<< "$projects" | sort -t$'\t' -k1 -rn | cut -f2
+}
+
 # Resolve a project name to its full path.
 # If an arg is given, match against registered projects (basename prefix then substring).
 # If no arg, detect from $PWD by walking up to find .git.
@@ -139,6 +179,24 @@ _tend_resolve_project_path() {
   local name="${1:-}"
 
   if [[ -n "$name" ]]; then
+    # Numeric shortcut: resolve board position to project path
+    if [[ "$name" =~ ^[0-9]+$ ]]; then
+      local nth="$name"
+      local sorted
+      sorted=$(_tend_sorted_projects)
+      local idx=0
+      while IFS= read -r path; do
+        [[ -z "$path" ]] && continue
+        (( idx++ ))
+        if (( idx == nth )); then
+          echo "$path"
+          return
+        fi
+      done <<< "$sorted"
+      echo >&2 "tend: no project at position $nth"
+      return 1
+    fi
+
     # Check registry for matches
     if [[ -f "$TEND_REGISTRY" ]]; then
       local path bname
@@ -916,33 +974,7 @@ _tend_cmd_board() {
   done
 
   # Sort projects by last event time (most recent first), current project pinned to top
-  local sorted_projects
-  sorted_projects=$(
-    while IFS= read -r project; do
-      [[ -z "$project" ]] && continue
-      local ts_epoch=0
-      local events_file="$project/.tend/events"
-      if [[ -f "$events_file" ]]; then
-        local last_line
-        last_line=$(tail -1 "$events_file" 2>/dev/null) || true
-        if [[ -n "$last_line" ]]; then
-          local ts="${last_line%% *}"
-          ts_epoch=$(_tend_to_epoch "$ts") || true
-        fi
-      fi
-      # Use git fallback for epoch if no events
-      if (( ts_epoch == 0 )) && [[ -d "$project/.git" ]]; then
-        ts_epoch=$(git -C "$project" log -1 --format="%ct" 2>/dev/null) || true
-        [[ -z "$ts_epoch" ]] && ts_epoch=0
-      fi
-      # Pin current project with max epoch
-      if [[ "$project" == "$current_project_path" ]]; then
-        ts_epoch=9999999999
-      fi
-      printf '%s\t%s\n' "$ts_epoch" "$project"
-    done <<< "$projects" | sort -t$'\t' -k1 -rn | cut -f2
-  )
-  projects="$sorted_projects"
+  projects=$(_tend_sorted_projects)
 
   # Header
   echo ""

@@ -705,6 +705,26 @@ test_project_name_resolution() {
   assert_contains "substring match works" "MY-COOL-APP" "$out"
 }
 
+test_numeric_project_resolution() {
+  echo "test: project number resolves to project"
+  local dir1 dir2
+  dir1=$(make_project "alpha-proj")
+  cd "$dir1"
+  "$TEND" init
+  "$TEND" emit working "building alpha"
+  dir2=$(make_project "beta-proj")
+  cd "$dir2"
+  "$TEND" init
+  "$TEND" emit working "building beta"
+
+  # Board should show both; use number to drill in
+  local out
+  out=$("$TEND" 1)
+  assert_contains "number resolves to project" "PROJ" "$out"
+  out=$("$TEND" 2)
+  assert_contains "second number resolves" "PROJ" "$out"
+}
+
 # ─── Relay Tests ─────────────────────────────────────────────────────────────
 
 test_relay_help() {
@@ -946,6 +966,7 @@ run_all() {
     test_old_format_backward_compat
     test_board_sorts_by_recency
     test_project_name_resolution
+    test_numeric_project_resolution
     test_relay_help
     test_relay_emit_with_token
     test_relay_emit_fallback_on_failure
