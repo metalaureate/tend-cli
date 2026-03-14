@@ -1,6 +1,6 @@
 # Tend
 
-**A pull-based CLI for developers who know what they're doing.**
+**A pull-based CLI for developers running multiple AI agents.**
 
 *`ps` for cognitive work. What's running? What needs me?*
 
