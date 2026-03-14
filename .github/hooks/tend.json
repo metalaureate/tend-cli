@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "tend hook session-start"
+      }
+    ],
+    "Stop": [
+      {
+        "type": "command",
+        "command": "tend hook stop"
+      }
+    ]
+  }
+}
