@@ -260,7 +260,7 @@ test_emit_requires_init() {
 }
 
 test_status_no_attention() {
-  echo "test: status shows ○ when nothing needs attention"
+  echo "test: status shows ◉N when only working agents"
   local dir
   dir=$(make_project "lima")
   cd "$dir"
@@ -268,11 +268,11 @@ test_status_no_attention() {
   "$TEND" emit working "building"
   local out
   out=$("$TEND" status)
-  assert_eq "shows ○" "○" "$out"
+  assert_eq "shows ◉1" "◉1" "$out"
 }
 
 test_status_needs_attention() {
-  echo "test: status shows ●N for needs-attention states"
+  echo "test: status shows per-state icons for done/stuck"
   local dir1 dir2
   dir1=$(make_project "mike")
   dir2=$(make_project "november")
@@ -280,11 +280,12 @@ test_status_needs_attention() {
   cd "$dir2" && "$TEND" init && "$TEND" emit stuck "approval needed"
   local out
   out=$("$TEND" status)
-  assert_eq "shows ●2" "●2" "$out"
+  assert_contains "shows stuck icon" "▲1" "$out"
+  assert_contains "shows done icon" "◆1" "$out"
 }
 
 test_status_working_not_attention() {
-  echo "test: status doesn't count working as needs-attention"
+  echo "test: status shows ◉N for working agents"
   local dir
   dir=$(make_project "oscar")
   cd "$dir"
@@ -292,7 +293,7 @@ test_status_working_not_attention() {
   "$TEND" emit working "building"
   local out
   out=$("$TEND" status)
-  assert_eq "working is ○" "○" "$out"
+  assert_eq "working is ◉1" "◉1" "$out"
 }
 
 test_board_shows_projects() {
@@ -570,7 +571,7 @@ test_ack_reduces_attention_count() {
   "$TEND" emit stuck "need approval"
   local before
   before=$("$TEND" status)
-  assert_eq "shows ●1 before" "●1" "$before"
+  assert_eq "shows ▲1 before" "▲1" "$before"
   "$TEND" ack
   local after
   after=$("$TEND" status)
@@ -604,7 +605,7 @@ test_multi_session_aggregate() {
   echo "$ts sess-2 working writing tests" >> "$dir/.tend/events"
   local out
   out=$("$TEND" status)
-  assert_eq "working not needs-attention" "○" "$out"
+  assert_eq "working shows ◉" "◉2" "$out"
   out=$("$TEND")
   assert_contains "shows working" "working" "$out"
   assert_contains "shows multi-agent count" "2 working" "$out"
@@ -841,7 +842,7 @@ MOCK
 
   local out
   out=$(PATH="$mock_dir:$PATH" "$TEND" status)
-  assert_eq "counts relay done as attention" "●1" "$out"
+  assert_eq "counts relay done as attention" "◆1" "$out"
 }
 
 test_peek_shows_sessions() {
@@ -907,10 +908,10 @@ exit 1
 MOCK
   chmod +x "$mock_dir/curl"
 
-  # Status should show ●1 because stuck is needs-attention
+  # Status should show ▲1 because stuck is needs-attention
   local out
   out=$(cd "$dir" && PATH="$mock_dir:$PATH" "$TEND" status)
-  assert_eq "merged state counts stuck" "●1" "$out"
+  assert_eq "merged state counts stuck" "▲1" "$out"
 }
 
 # ─── Gamification Tests ──────────────────────────────────────────────────────
