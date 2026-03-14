@@ -114,6 +114,8 @@ Before agents, the chef could only cook one dish at a time. Now they have extra 
 
 Tend keeps track of which stations need the chef's palate right now.
 
+The word *station* isn't accidental. In transit, it's where you stop to check the board. In a kitchen, it's where the work happens. Both mean the same thing: a point where the chef's attention is needed.
+
 It doesn't help you plan. It doesn't decompose work. It doesn't suggest what to do next. It assumes you already know — because you're the expert — and keeps track of where all the pans are on the stove so you don't burn anything while your attention is on the dish that matters most.
 
 ### Design Principles
