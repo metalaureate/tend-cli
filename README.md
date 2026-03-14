@@ -28,7 +28,8 @@ TEND                               Thu Mar 13, 14:32
 
 ```bash
 tend my-app          # drill into a project
-tend todo "fix auth"  # queue work for the agent
+tend peek my-app     # per-session breakdown
+tend todo "fix auth" # queue work for the agent
 tend switch my-app   # focus the editor window
 ```
 
@@ -51,6 +52,7 @@ No config files. No database. No daemon.
 |---|---|
 | `tend` | Show the departures board |
 | `tend <project>` | Drill into a project |
+| `tend peek [project]` | Per-session breakdown with source tags |
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend switch <project>` | Focus the editor window |
@@ -58,6 +60,7 @@ No config files. No database. No daemon.
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `tend ack [project]` | Clear done/stuck/waiting → idle |
 | `tend status` | Status indicator: `○` or `●N` |
+| `tend relay <subcmd>` | Manage relay connection (see below) |
 
 ---
 
@@ -86,6 +89,71 @@ If a `working` event is older than 30 minutes, the project shows as `unknown` (c
 ```
 
 Plain text. ISO 8601 timestamps. No YAML, no JSON.
+
+---
+
+## Relay — Remote Agent Support
+
+Local agents write to `.tend/events` directly — no network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Each environment has its own access patterns. Without a common protocol, the developer maintains per-environment solutions.
+
+The relay is a lightweight hosted service at `relay.tend.dev`. The agent never touches it directly. The command is always the same:
+
+```bash
+tend emit working "building auth scaffold"
+```
+
+On a local machine, that writes to `.tend/events`. On a remote machine with `TEND_RELAY_TOKEN` set, the CLI posts to the relay instead. The agent's AGENTS.md instructions don't change. The developer sets a token on the remote environment and the CLI handles the rest.
+
+### Setup
+
+```bash
+# On your laptop — one-time setup
+tend relay setup
+# → Gets a token from relay.tend.dev
+# → Stores it in ~/.tend/relay_token
+# → Prints the token for you to copy
+
+# On each remote environment — set the token
+export TEND_RELAY_TOKEN="tnd_abc123..."
+```
+
+No accounts. No passwords. No signup. Just a token.
+
+### What Happens
+
+```bash
+# Remote agent uses tend normally
+tend emit working "building auth scaffold"
+tend emit done "auth scaffold complete (PR #204)"
+
+# Back on your laptop — events appear on the board
+tend
+#   TEND                               Fri Mar 14, 14:32
+#
+#   ◐ my-app               working    building auth scaffold (3m)  ↗
+#   ○ other-project         idle       update deps (2h ago)
+```
+
+Remote projects show a `↗` indicator. `tend peek` shows per-session breakdown with source tags (local vs relay).
+
+### Relay Commands
+
+| Subcommand | Description |
+|---|---|
+| `tend relay setup` | Register with relay, store token in `~/.tend/relay_token` |
+| `tend relay status` | Show masked token, relay URL, cache info |
+| `tend relay pull` | Force-refresh event cache from relay |
+| `tend relay token` | Print raw token (for copying to remote envs) |
+
+### Performance
+
+- `tend status` (shell prompt) reads from local cache only — never hits the network, stays under 100ms
+- `tend` (departures board) refreshes the relay cache on each invocation, then renders from cache
+- No daemon. No background sync.
+
+### The Relay is Optional
+
+Local agents still just write to a file. If you never set up a relay token, everything works exactly the same. The relay is what makes one board possible when your agents are spread across environments.
 
 ---
 
@@ -132,24 +200,6 @@ The shell prompt indicator (`○` / `●N`) means you often don't even need the 
 Hooks are powered by `tend hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
 
 The `.github/hooks/` location is loaded by default in VS Code — no settings changes needed.
-
-## Coming Soon
-
-### `tend relay` — Remote Agent Support
-
-Local agents write to `.tend/events` directly — no network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Each is a different environment with its own access patterns. Without a common protocol, the developer is back to maintaining per-environment solutions.
-
-The relay is a lightweight hosted service — but the agent never touches it directly. The command is always the same:
-
-```bash
-tend emit working "building auth scaffold"
-```
-
-On a local machine, that writes to `.tend/events`. On a remote machine with `TEND_RELAY_TOKEN` set, the CLI posts to `relay.tend.dev` instead. The agent's AGENTS.md instructions don't change. The developer sets a token on the remote environment and the CLI handles the rest.
-
-`tend` pulls relay events alongside local `.tend/events` files. The board doesn't change. The shell prompt doesn't change. `ps` doesn't care where the process is running — neither does tend.
-
-The relay is optional. Local agents still just write to a file. But when your agents are spread across environments, the relay is what makes one board possible.
 
 ---
 
