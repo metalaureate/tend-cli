@@ -807,30 +807,10 @@ _tend_cmd_switch() {
   project_path=$(_tend_resolve_project_path "$project_name") || exit 1
   project_name=$(basename "$project_path")
 
-  if [[ "$(uname)" == "Darwin" ]]; then
-    osascript -e "
-      tell application \"Visual Studio Code\"
-        activate
-        set matched to false
-        repeat with w in windows
-          if name of w contains \"$project_name\" then
-            set index of w to 1
-            set matched to true
-            exit repeat
-          end if
-        end repeat
-        if not matched then
-          error \"Window not found for $project_name\"
-        end if
-      end tell
-    " 2>/dev/null && {
-      echo "▶ Focused: $project_name (VSCode)"
-    } || {
-      echo >&2 "tend: could not find VSCode window for '$project_name'"
-      exit 1
-    }
+  if command -v code &>/dev/null; then
+    code "$project_path" && echo "▶ Focused: $project_name (VSCode)"
   else
-    echo >&2 "tend switch: only macOS is supported in v0"
+    echo >&2 "tend switch: 'code' command not found. Install it from VSCode: Cmd+Shift+P → 'Shell Command: Install'"
     exit 1
   fi
 }
