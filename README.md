@@ -17,28 +17,6 @@ make install
 cp tend /usr/local/bin/tend
 ```
 
-### Shell Prompt Setup (the anxiety killer)
-
-Add the Tend indicator to your shell prompt. It shows `○` when nothing needs you and `●N` when N projects need attention — no polling required.
-
-```bash
-# zsh — add to ~/.zshrc
-PROMPT='%~ $(tend status) %# '
-
-# bash — add to ~/.bashrc
-export PS1='\w $(tend status) \$ '
-```
-
-### Configuration
-
-```bash
-# Set your projects root (default: ~/projects)
-export TEND_ROOT=~/projects
-
-# Optional: short alias
-alias td="tend"
-```
-
 No config files. No database. No daemon.
 
 ---
@@ -46,7 +24,7 @@ No config files. No database. No daemon.
 ## Quick Start
 
 ```bash
-# Initialize tend in a project
+# Initialize tend in a project (sets up .tend/, AGENTS.md, shell prompt)
 cd ~/projects/my-app
 tend init
 
@@ -65,7 +43,7 @@ tend my-app
 # Capture a TODO
 tend todo "refactor the model layer"
 
-# Jump to a project's VSCode window
+# Jump to a project's editor window
 tend switch my-app
 ```
 
@@ -77,11 +55,11 @@ tend switch my-app
 |---|---|
 | `tend` | Show the departures board — all projects at a glance |
 | `tend <project>` | Drill into a project — recent events, TODOs |
-| `tend init [project]` | Initialize `.tend/` directory in a project |
+| `tend init [project]` | Initialize `.tend/`, configure AGENTS.md and shell prompt |
 | `tend emit <state> "msg"` | Emit an event: `working`, `done`, `stuck`, `waiting`, `idle` |
 | `tend status` | Status indicator: `○` or `●N` |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
-| `tend switch <project>` | Focus the VSCode window for a project (macOS) |
+| `tend switch <project>` | Focus the editor window for a project |
 | `tend sync [project]` | Generate a reconciliation prompt (pipe to agent or clipboard) |
 
 ---
@@ -102,13 +80,23 @@ Five states: `working`, `done`, `stuck`, `waiting`, `idle`.
 
 ---
 
+## What `tend init` Does
+
+1. Creates `.tend/` with `events` and `TODO` files
+2. Adds a `## Tend Integration` block to your project's `AGENTS.md` (creates it if missing, appends if it exists, skips if already present)
+3. Adds `.tend/events` to `.gitignore` (events are local state, TODO is committed)
+4. Registers the project in `~/.tend/projects` for board discovery
+5. Adds a shell prompt indicator (`○` / `●N`) to your zshrc or bashrc
+
+---
+
 ## File Structure
 
 ```
 project-root/
 ├── .tend/
-│   ├── events    # Append-only event log (the core protocol)
-│   └── TODO      # Ordered backlog
+│   ├── events    # Append-only event log (gitignored)
+│   └── TODO      # Ordered backlog (committed)
 ```
 
 All files are plain text. Timestamps use ISO 8601. No YAML, no JSON.
@@ -117,13 +105,12 @@ All files are plain text. Timestamps use ISO 8601. No YAML, no JSON.
 
 ## How It Works
 
-**Three detection layers**, in priority order:
+**Two detection layers**, in priority order:
 
 1. **Event protocol** — `tail -1 .tend/events` gives precise, agent-reported state
 2. **Git fallback** — `git log` infers activity for projects without events
-3. **Process detection** — (planned) detect running agent processes
 
-Projects with no `.tend/` directory still appear on the board via git fallback.
+**Staleness detection:** If a `working` event is older than 30 minutes (configurable via `TEND_STALE_THRESHOLD`), the project shows as `unknown` instead.
 
 **`tend status` is events-only.** No git, no network, no process checks. It reads the last line of each project's events file and counts needs-attention states. Must complete in under 100ms.
 
