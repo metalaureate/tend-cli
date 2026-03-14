@@ -127,6 +127,29 @@ It doesn't help you plan. It doesn't decompose work. It doesn't suggest what to 
 
 ---
 
+## Coming Soon
+
+### `tend relay` — Remote Agent Support
+
+Local agents write to `.tend/events` directly — no network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Each is a different environment with its own access patterns. Without a common protocol, the developer is back to maintaining per-environment solutions.
+
+The relay is a lightweight hosted service that gives every environment the same interface:
+
+```bash
+# Remote agent emits via HTTP — same protocol, any environment
+curl -s https://relay.tend.dev/emit \
+  -H "Authorization: Bearer $TEND_TOKEN" \
+  -d project=my-app \
+  -d state=done \
+  -d message="PR ready for review"
+```
+
+`tend` pulls events from the relay alongside local `.tend/events` files. The board doesn't change. The shell prompt doesn't change. `ps` doesn't care where the process is running — neither does tend.
+
+The relay is optional. Local agents still just write to a file. But when your agents are spread across environments, the relay is what makes one board possible.
+
+---
+
 ## License
 
 MIT
