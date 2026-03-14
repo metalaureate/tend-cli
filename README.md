@@ -54,6 +54,7 @@ No config files. No database. No daemon.
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend switch <project>` | Focus the editor window |
+| `tend say <project> "msg"` | Send a message to an agent without switching |
 | `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `tend status` | Status indicator: `○` or `●N` |
@@ -90,42 +91,27 @@ Plain text. ISO 8601 timestamps. No YAML, no JSON.
 
 ## Why Tend Exists
 
-AI agents take 5–30 minutes per task and frequently need human input — tool approvals, course corrections, next-task assignment. Without a signal, the developer falls into a **compulsive polling loop**: checking each project to see if its agent is done, stuck, or drifting. Not because it's time, but because they *can't know* without looking.
+Every tool for managing AI coding agents builds a dashboard. Live panels, notification badges, real-time streaming. They assume agents run autonomously and you check in when they're done.
 
-This polling is triggered by uncertainty, not necessity. Each check is a context switch. Each context switch degrades focus. The developer who should be spending 80% of their time in deep, expert-level work inside one project ends up spending 80% in shallow supervisory mode across many.
+Some do. But the reality is a distribution. On any given day you might have two or three projects where you're actively collaborating with an agent — steering it every 5-15 minutes, reviewing its work, making judgment calls on tricky details inside a large codebase. A couple more where you're grooming a spec or a plan, kicking off revisions and checking back when the agent has a new draft for you to review. Another two where the agent can run for longer stretches before it needs you. And a couple more — cloud refactors, test suites, research jobs — that might run for hours and only need you if they get stuck.
 
-Every existing tool solves this by building a **dashboard** — a persistent UI with live panels, notification badges, and real-time streaming. For developers with high switching costs, this makes it worse. A dashboard is a permanent invitation to poll. A notification badge is an interrupt.
+The tooling for autonomous agents is already good and getting better. The unsolved problem is everything else: the projects where you and the agent are working together at varying cadences, and you need to stay in your train of thought while still being reachable by the others. A dashboard doesn't help here. It's a permanent invitation to break focus. A notification badge is an interrupt. They add vigilance, not concentration.
 
 ### The Departures Board
 
-Tend uses a different metaphor: **public transit, not mission control.**
+Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point — the agent is running, you've finished a thought, you need a break — you glance at the departures board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
 
-- You're on a train (deep work in one project).
-- The train reaches a station (natural pause: agent is running, you've finished a thought, you need a break).
-- You glance at the departures board (run `tend`).
-- The board shows you: what's arrived, what's delayed, what's departing on time.
-- You handle what needs handling, and get back on a train.
+That's `tend`. One command, one glance, then back.
 
-The shell prompt indicator (`○` / `●N`) is the bridge between "never interrupt" and "never anxious." It's already in your visual field after every command. When it says `○`, you have permission to stay deep. The uncertainty — which is what drives the polling — is gone.
-
-### The Chef, Not the Manager
-
-Before agents, the chef could only cook one dish at a time. Now they have extra hands at every station — but the hands need tasting notes, course corrections, and the occasional "no, not that spice." The restaurant serves almost no fixed menu; every dish is custom, called in by someone who wants something specific. The chef can't hand off judgment — they *are* the judgment.
-
-Tend keeps track of which stations need the chef's palate right now.
-
-The word *station* isn't accidental. In transit, it's where you stop to check the board. In a kitchen, it's where the work happens. Both mean the same thing: a point where the chef's attention is needed.
-
-It doesn't help you plan. It doesn't decompose work. It doesn't suggest what to do next. It assumes you already know — because you're the expert — and keeps track of where all the pans are on the stove so you don't burn anything while your attention is on the dish that matters most.
+The shell prompt indicator (`○` / `●N`) means you often don't even need the board. It's already in your visual field after every command. When it says `○`, nothing needs you. The uncertainty — which is what drives compulsive project-switching — is gone.
 
 ### Design Principles
 
 - **Pull, not push.** No notifications, no badges, no live updates. Tend speaks only when spoken to.
 - **Scan, don't read.** The board is a 3-second glance. Status icons are the primary signal.
+- **Act or jump.** `tend todo` to tee up a new task. `tend switch` to jump to the right window,
 - **Then disappear.** No persistent UI. No daemon. No background process.
-- **Sub-10-second round trip.** Prompt shows `●2` → `tend` to scan → `tend switch` to jump → handle it → back to deep work.
 
----
 
 ## Coming Soon
 
@@ -144,6 +130,12 @@ On a local machine, that writes to `.tend/events`. On a remote machine with `TEN
 `tend` pulls relay events alongside local `.tend/events` files. The board doesn't change. The shell prompt doesn't change. `ps` doesn't care where the process is running — neither does tend.
 
 The relay is optional. Local agents still just write to a file. But when your agents are spread across environments, the relay is what makes one board possible.
+
+### `tend say` — Talk to Agents Without Switching
+
+`tend say my-app "try the auth approach from PR #192"` sends a message to the agent on another project without leaving your current train of thought. The message lands in `.tend/queue`, and the agent picks it up at its next stopping point.
+
+Claude Code already supports this via hooks — the agent reads the queue the moment it finishes its current turn. VS Code and other IDEs are adding similar lifecycle hooks. As they do, `tend say` will work across all of them. Same command, same file, different delivery mechanism.
 
 ---
 
