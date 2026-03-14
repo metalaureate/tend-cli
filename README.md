@@ -171,6 +171,8 @@ The unsolved problem is attention management: the projects where you and the age
 
 This isn't just an efficiency problem. The builder's span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what's happening elsewhere becomes chronic.
 
+The problem isn't even specific to humans. An agent coordinating other agents — an agent CEO running an autonomous company — hits the same bottleneck. It spawns subagents across threads and environments, each working at different cadences. It needs to know which are stuck, which are done, which are running fine. Polling a dashboard wastes compute the same way it wastes human focus. The pull model, the five-state protocol, the relay — they work just as well when the coordinator is an agent. Tend is attention infrastructure, not just a developer tool.
+
 ### The Departures Board
 
 Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point — the agent is running, you've finished a thought, you need a break — you glance at the departures board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
