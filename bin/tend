@@ -300,7 +300,7 @@ _tend_is_stale() {
 
 # ─── Relay Helpers ───────────────────────────────────────────────────────────
 
-TEND_RELAY_URL="${TEND_RELAY_URL:-https://relay.tend.dev}"
+TEND_RELAY_URL="${TEND_RELAY_URL:-https://tend-relay.simon-234.workers.dev}"
 TEND_RELAY_TOKEN_FILE="${HOME}/.tend/relay_token"
 TEND_RELAY_CACHE_DIR="${HOME}/.tend/relay_cache"
 
