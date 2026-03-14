@@ -4,7 +4,7 @@
 
 set -uo pipefail
 
-TEND="$(cd "$(dirname "$0")" && pwd)/tend"
+TEND="$(cd "$(dirname "$0")" && pwd)/../bin/tend"
 PASS=0
 FAIL=0
 TEST_DIR=""

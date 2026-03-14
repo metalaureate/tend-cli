@@ -3,7 +3,7 @@ PREFIX ?= $(HOME)/bin
 .PHONY: install uninstall
 
 install:
-	@cp tend $(PREFIX)/tend
+	@cp bin/tend $(PREFIX)/tend
 	@chmod +x $(PREFIX)/tend
 	@ln -sf $(PREFIX)/tend $(PREFIX)/td 2>/dev/null || true
 	@echo "✓ Installed tend to $(PREFIX)/tend"
