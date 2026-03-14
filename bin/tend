@@ -187,7 +187,7 @@ _tend_resolve_project_path() {
       local idx=0
       while IFS= read -r path; do
         [[ -z "$path" ]] && continue
-        (( idx++ ))
+        (( ++idx ))
         if (( idx == nth )); then
           echo "$path"
           return
@@ -689,6 +689,225 @@ _tend_state_label() {
   esac
 }
 
+# ─── Gamification ────────────────────────────────────────────────────────────
+
+# Returns 0 (true) when gamification display is enabled.
+# Disable by setting TEND_NO_GAMIFICATION=1.
+_tend_gamification_enabled() {
+  [[ -z "${TEND_NO_GAMIFICATION:-}" ]]
+}
+
+# Determine overall kitchen heat from current board counters.
+# Args: working_count needs_count stuck_count oldest_wait_age_secs ready_count
+# Echoes: fire|hot|warming|simmering|ready|cold
+_tend_kitchen_heat() {
+  local working="$1" needs="$2" stuck="$3" wait_age="${4:-0}" ready="${5:-0}"
+  local hot_count=$(( needs - ready ))  # waiting + stuck (excludes done)
+  if   (( hot_count > 0 && wait_age > 900 )); then echo "fire"
+  elif (( hot_count > 0 && wait_age > 300 )); then echo "hot"
+  elif (( hot_count > 0 ));                   then echo "warming"
+  elif (( working > 0 ));                     then echo "simmering"
+  elif (( ready > 0 ));                       then echo "ready"
+  else echo "cold"
+  fi
+}
+
+# Render the single pot-status line.
+# Args: heat_state working_count hot_count (stuck+waiting, excludes done)
+_tend_pot_line() {
+  local heat="${1:-cold}" working="${2:-0}" hot="${3:-0}"
+  local icon desc color
+  case "$heat" in
+    fire)
+      icon="🔥"; color="${C_BOLD}${C_RED}"
+      desc="kitchen on fire — agents have been waiting!" ;;
+    hot)
+      icon="🔥"; color="$C_AMBER"
+      if (( hot == 1 )); then desc="getting hot — 1 agent needs you"
+      else                    desc="getting hot — ${hot} agents need you"; fi ;;
+    warming)
+      icon="🫕"; color="$C_AMBER"
+      if (( hot == 1 )); then desc="1 agent needs attention"
+      else                    desc="${hot} agents need attention"; fi ;;
+    simmering)
+      icon="🫕"; color="$C_CYAN"
+      if (( working == 1 )); then
+        desc="simmering — 1 agent cooking"
+      else
+        desc="simmering — ${working} agents cooking"
+      fi ;;
+    ready)
+      icon="🍲"; color="$C_GREEN"
+      desc="ready to serve — review results" ;;
+    cold|*)
+      icon="🫕"; color="$C_GREY"
+      desc="kitchen cold — no agents active" ;;
+  esac
+  printf "  %s%s  %s%s\n" "$color" "$icon" "$desc" "$C_RESET"
+}
+
+# Compute gamification stats from all registered project events files.
+# Sets globals: TEND_STATS_DONES_TODAY TEND_STATS_DONES_WEEK
+#               TEND_STATS_PEAK_TODAY  TEND_STATS_PEAK_WEEK
+#               TEND_STATS_STREAK      TEND_STATS_TODOS_OPEN
+_tend_gamification_stats() {
+  TEND_STATS_DONES_TODAY=0
+  TEND_STATS_DONES_WEEK=0
+  TEND_STATS_PEAK_TODAY=0
+  TEND_STATS_PEAK_WEEK=0
+  TEND_STATS_STREAK=0
+  TEND_STATS_TODOS_OPEN=0
+
+  local today
+  today=$(date +%Y-%m-%d)
+
+  # Portable week start (Monday of current ISO week)
+  local dow days_back week_start
+  dow=$(date +%u 2>/dev/null || echo 1)
+  days_back=$(( dow - 1 ))
+  if (( days_back == 0 )); then
+    week_start="$today"
+  else
+    week_start=$(date -v-${days_back}d +%Y-%m-%d 2>/dev/null || \
+                 date -d "${days_back} days ago" +%Y-%m-%d 2>/dev/null || \
+                 echo "$today")
+  fi
+
+  # Collect events files and count open TODOs across all projects
+  local -a events_files=()
+  local projects
+  projects=$(_tend_discover_projects) || true
+
+  while IFS= read -r project; do
+    [[ -z "$project" ]] && continue
+    local ef="$project/.tend/events"
+    [[ -f "$ef" ]] && [[ -s "$ef" ]] && events_files+=("$ef")
+    local tf="$project/.tend/TODO"
+    if [[ -f "$tf" ]] && [[ -s "$tf" ]]; then
+      local cnt
+      cnt=$(grep -c . "$tf" 2>/dev/null) || cnt=0
+      TEND_STATS_TODOS_OPEN=$(( TEND_STATS_TODOS_OPEN + cnt ))
+    fi
+  done <<< "$projects"
+
+  [[ ${#events_files[@]} -eq 0 ]] && return
+
+  # Parse events with awk: count dones/working sessions by date
+  local raw
+  raw=$(awk -v today="$today" -v week_start="$week_start" '
+    function is_state(s) {
+      return (s=="working"||s=="done"||s=="stuck"||s=="waiting"||s=="idle")
+    }
+    {
+      ts_date = substr($1, 1, 10)
+      if ($2 == "*") next
+      if      (is_state($2)) { state=$2; sess="_cli" }
+      else if (is_state($3)) { sess=$2; state=$3 }
+      else next
+      if (state == "done") {
+        if (ts_date == today)      today_dones++
+        if (ts_date >= week_start) week_dones++
+        done_days[ts_date] = 1
+      }
+      if (state == "working") {
+        if (ts_date == today)      today_sess[sess] = 1
+        if (ts_date >= week_start) week_sess[sess]  = 1
+      }
+    }
+    END {
+      printf "dones_today=%d\n", today_dones+0
+      printf "dones_week=%d\n",  week_dones+0
+      printf "peak_today=%d\n",  length(today_sess)
+      printf "peak_week=%d\n",   length(week_sess)
+      for (d in done_days) printf "done_day=%s\n", d
+    }
+  ' "${events_files[@]}")
+
+  # Parse key=value output
+  local done_days_list=""
+  while IFS='=' read -r key val; do
+    case "$key" in
+      dones_today) TEND_STATS_DONES_TODAY="$val" ;;
+      dones_week)  TEND_STATS_DONES_WEEK="$val"  ;;
+      peak_today)  TEND_STATS_PEAK_TODAY="$val"  ;;
+      peak_week)   TEND_STATS_PEAK_WEEK="$val"   ;;
+      done_day)    done_days_list="${done_days_list}${val}"$'\n' ;;
+    esac
+  done <<< "$raw"
+
+  # Compute streak: consecutive days ending today with at least one done
+  [[ -z "$done_days_list" ]] && return
+
+  local sorted_days
+  sorted_days=$(printf '%s' "$done_days_list" | sort -r | uniq)
+
+  local today_epoch d_epoch expected streak=0
+  today_epoch=$(_tend_to_epoch "${today}T00:00:00")
+  expected=$today_epoch
+
+  while IFS= read -r d; do
+    [[ -z "$d" ]] && continue
+    d_epoch=$(_tend_to_epoch "${d}T00:00:00")
+    if (( d_epoch == expected )); then
+      (( ++streak ))
+      expected=$(( expected - 86400 ))
+    else
+      break
+    fi
+  done <<< "$sorted_days"
+
+  TEND_STATS_STREAK=$streak
+}
+
+# Render the gamification stats footer (separator + tally lines).
+_tend_gamification_footer() {
+  _tend_gamification_stats
+
+  # Today line
+  local today_str="${TEND_STATS_DONES_TODAY} done today"
+  if (( TEND_STATS_PEAK_TODAY == 1 )); then
+    today_str+="  ·  peak 1 agent"
+  elif (( TEND_STATS_PEAK_TODAY > 1 )); then
+    today_str+="  ·  peak ${TEND_STATS_PEAK_TODAY} agents"
+  fi
+
+  # Streak indicator
+  local streak_str=""
+  if (( TEND_STATS_STREAK >= 7 )); then
+    streak_str="  ·  🔥 ${TEND_STATS_STREAK}-day streak"
+  elif (( TEND_STATS_STREAK > 0 )); then
+    streak_str="  ·  ✨ ${TEND_STATS_STREAK}-day streak"
+  fi
+
+  # Week line (only when it adds information beyond today)
+  local week_str=""
+  if (( TEND_STATS_DONES_WEEK > TEND_STATS_DONES_TODAY )); then
+    week_str="${TEND_STATS_DONES_WEEK} done this week"
+    if (( TEND_STATS_PEAK_WEEK == 1 )); then
+      week_str+="  ·  peak 1 agent"
+    elif (( TEND_STATS_PEAK_WEEK > 1 )); then
+      week_str+="  ·  peak ${TEND_STATS_PEAK_WEEK} agents"
+    fi
+  fi
+
+  # Open TODOs line
+  local todo_str=""
+  if (( TEND_STATS_TODOS_OPEN == 1 )); then
+    todo_str="1 open TODO"
+  elif (( TEND_STATS_TODOS_OPEN > 1 )); then
+    todo_str="${TEND_STATS_TODOS_OPEN} open TODOs"
+  fi
+
+  printf "  %s──────────────────────────────────────────────────%s\n" "$C_DIM" "$C_RESET"
+  printf "  %s%s%s%s\n" "$C_DIM" "$today_str" "$streak_str" "$C_RESET"
+  if [[ -n "$week_str" ]]; then
+    printf "  %s%s%s\n" "$C_DIM" "$week_str" "$C_RESET"
+  fi
+  if [[ -n "$todo_str" ]]; then
+    printf "  %s%s%s\n" "$C_DIM" "$todo_str" "$C_RESET"
+  fi
+}
+
 # ─── Commands ────────────────────────────────────────────────────────────────
 
 # --- tend init ---
@@ -917,7 +1136,7 @@ _tend_cmd_status() {
     [[ -z "$project" ]] && continue
     if _tend_project_state "$project"; then
       if _tend_needs_attention "$TEND_AGG_STATE"; then
-        (( count++ ))
+        (( ++count ))
       fi
     fi
   done <<< "$projects"
@@ -928,7 +1147,7 @@ _tend_cmd_status() {
     [[ -z "$relay_project" ]] && continue
     if _tend_relay_project_state "$relay_project"; then
       if _tend_needs_attention "$TEND_AGG_STATE"; then
-        (( count++ ))
+        (( ++count ))
       fi
     fi
   done <<< "$(_tend_relay_projects 2>/dev/null)"
@@ -982,6 +1201,7 @@ _tend_cmd_board() {
   echo ""
 
   local needs=0 ready=0 working_count=0 idle_count=0 stuck_count=0
+  local oldest_waiting_age=0
   local project
   local -a switch_paths=()
   local project_num=0
@@ -991,7 +1211,7 @@ _tend_cmd_board() {
     local project_path="$project"
     local project_name
     project_name=$(basename "$project_path")
-    (( project_num++ ))
+    (( ++project_num ))
     switch_paths+=( "$project_path" )
 
     local state="" msg="" ts="" duration_str="" active_count=0
@@ -1039,13 +1259,22 @@ _tend_cmd_board() {
 
     # Count states (use active_count for working to count sessions, not projects)
     case "$state" in
-      done)    (( ready++ )); (( needs++ )) ;;
-      stuck)   (( stuck_count++ )); (( needs++ )) ;;
-      waiting) (( needs++ )) ;;
+      done)    (( ++ready )); (( ++needs )) ;;
+      stuck)   (( ++stuck_count )); (( ++needs )) ;;
+      waiting) (( ++needs )) ;;
       working) (( working_count += active_count > 0 ? active_count : 1 )) ;;
-      unknown) (( idle_count++ )) ;;
-      idle|"") (( idle_count++ )) ;;
+      unknown) (( ++idle_count )) ;;
+      idle|"") (( ++idle_count )) ;;
     esac
+
+    # Track age of waiting/stuck agents for kitchen heat calculation
+    if [[ ( "$state" == "waiting" || "$state" == "stuck" ) && -n "$ts" ]]; then
+      local ts_e now_e age_s
+      ts_e=$(_tend_to_epoch "$ts")
+      now_e=$(date +%s)
+      age_s=$(( now_e - ts_e ))
+      (( age_s > oldest_waiting_age )) && oldest_waiting_age=$age_s
+    fi
 
     # Render line
     local icon color label
@@ -1114,12 +1343,21 @@ _tend_cmd_board() {
       fi
 
       case "$state" in
-        done)    (( ready++ )); (( needs++ )) ;;
-        stuck)   (( stuck_count++ )); (( needs++ )) ;;
-        waiting) (( needs++ )) ;;
+        done)    (( ++ready )); (( ++needs )) ;;
+        stuck)   (( ++stuck_count )); (( ++needs )) ;;
+        waiting) (( ++needs )) ;;
         working) (( working_count += active_count > 0 ? active_count : 1 )) ;;
-        idle|"") (( idle_count++ )) ;;
+        idle|"") (( ++idle_count )) ;;
       esac
+
+      # Track age of waiting/stuck relay agents for kitchen heat calculation
+      if [[ ( "$state" == "waiting" || "$state" == "stuck" ) && -n "$ts" ]]; then
+        local ts_e now_e age_s
+        ts_e=$(_tend_to_epoch "$ts")
+        now_e=$(date +%s)
+        age_s=$(( now_e - ts_e ))
+        (( age_s > oldest_waiting_age )) && oldest_waiting_age=$age_s
+      fi
 
       local icon color label
       icon=$(_tend_state_icon "$state")
@@ -1166,6 +1404,17 @@ _tend_cmd_board() {
 
   echo "  $footer"
   echo ""
+
+  # Gamification: pot banner + stats tally
+  if _tend_gamification_enabled; then
+    local kitchen_heat hot_count
+    kitchen_heat=$(_tend_kitchen_heat "$working_count" "$needs" "$stuck_count" "$oldest_waiting_age" "$ready")
+    hot_count=$(( needs - ready ))
+    _tend_pot_line "$kitchen_heat" "$working_count" "$hot_count"
+    echo ""
+    _tend_gamification_footer
+    echo ""
+  fi
 
   # Interactive switch prompt (only when both stdin and stdout are a terminal)
   if [[ -t 0 && -t 1 && ${#switch_paths[@]} -gt 0 ]]; then
