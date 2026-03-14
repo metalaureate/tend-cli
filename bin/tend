@@ -92,7 +92,8 @@ _tend_json_escape() {
 # Extract a field from JSON input (best-effort, no jq dependency)
 _tend_extract_session_id() {
   local input="$1"
-  printf '%s' "$input" | tr '\n' ' ' | sed -n 's/.*"sessionId" *: *"\([^"]*\)".*/\1/p'
+  # VS Code sends "session_id" (snake_case); also handle "sessionId" (camelCase) for compatibility
+  printf '%s' "$input" | tr '\n' ' ' | sed -n 's/.*"session_id" *: *"\([^"]*\)".*/\1/p; s/.*"sessionId" *: *"\([^"]*\)".*/\1/p' | head -1
 }
 
 _tend_hook_debug() {
@@ -264,9 +265,9 @@ _tend_project_state() {
     }
     function priority(s) {
       if (s == "stuck") return 5
-      if (s == "done") return 4
-      if (s == "waiting") return 3
-      if (s == "working") return 2
+      if (s == "waiting") return 4
+      if (s == "working") return 3
+      if (s == "done") return 2
       return 0
     }
     {

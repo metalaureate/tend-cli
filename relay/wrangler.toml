@@ -1,0 +1,8 @@
+name = "tend-relay"
+main = "src/index.ts"
+compatibility_date = "2025-03-14"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tend-relay-db"
+database_id = "placeholder-update-after-creation"

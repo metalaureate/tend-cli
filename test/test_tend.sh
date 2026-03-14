@@ -475,6 +475,19 @@ test_hook_user_prompt() {
   assert_contains "has session ID" "sess-test1" "$last_event"
 }
 
+test_hook_user_prompt_snake_case() {
+  echo "test: hook user-prompt handles session_id (snake_case)"
+  local dir
+  dir=$(make_project "echo3")
+  cd "$dir"
+  "$TEND" init
+  echo '{"session_id":"sess-snake1","hook_event_name":"UserPromptSubmit"}' | "$TEND" hook user-prompt
+  local last_event
+  last_event=$(tail -1 "$dir/.tend/events")
+  assert_contains "emits working" "working" "$last_event"
+  assert_contains "has session ID" "sess-snake1" "$last_event"
+}
+
 test_hook_stop_emits_done() {
   echo "test: hook stop emits done on session end"
   local dir
@@ -596,7 +609,7 @@ test_multi_session_aggregate() {
 }
 
 test_multi_session_partial_stop() {
-  echo "test: project shows done when one session finishes"
+  echo "test: project stays working when one session finishes"
   local dir
   dir=$(make_project "sierra2")
   cd "$dir"
@@ -608,7 +621,7 @@ test_multi_session_partial_stop() {
   echo "$ts sess-1 done" >> "$dir/.tend/events"
   local out
   out=$("$TEND")
-  assert_contains "shows done (needs attention)" "done" "$out"
+  assert_contains "still shows working" "working" "$out"
 }
 
 test_ack_resets_all_sessions() {
@@ -729,6 +742,7 @@ run_all() {
     test_init_creates_hooks_config
     test_hook_session_start
     test_hook_user_prompt
+    test_hook_user_prompt_snake_case
     test_hook_stop_emits_done
     test_hook_stop_respects_active
     test_hook_stop_with_session_id
