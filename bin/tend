@@ -92,7 +92,17 @@ _tend_json_escape() {
 # Extract a field from JSON input (best-effort, no jq dependency)
 _tend_extract_session_id() {
   local input="$1"
-  printf '%s' "$input" | sed -n 's/.*"sessionId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1
+  printf '%s' "$input" | tr '\n' ' ' | sed -n 's/.*"sessionId" *: *"\([^"]*\)".*/\1/p'
+}
+
+_tend_hook_debug() {
+  if [[ -n "${TEND_HOOK_DEBUG:-}" ]]; then
+    local hook_name="$1" input="$2"
+    local project_path
+    project_path=$(_tend_resolve_project_path "" 2>/dev/null) || return 0
+    local log="$project_path/.tend/hook_debug.log"
+    printf '%s [%s] %s\n' "$(_tend_ts_local)" "$hook_name" "$input" >> "$log"
+  fi
 }
 
 TEND_REGISTRY="${HOME}/.tend/projects"
@@ -1054,6 +1064,7 @@ _tend_hook_session_start() {
 _tend_hook_user_prompt() {
   local input
   input=$(cat)
+  _tend_hook_debug "user-prompt" "$input"
   local project_path
   project_path=$(_tend_resolve_project_path "" 2>/dev/null) || return 0
 
@@ -1073,8 +1084,9 @@ _tend_hook_user_prompt() {
 _tend_hook_stop() {
   local input
   input=$(cat)
+  _tend_hook_debug "stop" "$input"
 
-  if printf '%s' "$input" | grep -q '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+  if printf '%s' "$input" | tr '\n' ' ' | grep -q '"stop_hook_active" *: *true'; then
     return 0
   fi
 
@@ -1087,9 +1099,9 @@ _tend_hook_stop() {
     local ts
     ts=$(_tend_ts_local)
     if [[ -n "$session_id" ]]; then
-      echo "$ts $session_id idle session ended" >> "$project_path/.tend/events"
+      echo "$ts $session_id done session ended" >> "$project_path/.tend/events"
     else
-      echo "$ts idle session ended" >> "$project_path/.tend/events"
+      echo "$ts done session ended" >> "$project_path/.tend/events"
     fi
   fi
 }

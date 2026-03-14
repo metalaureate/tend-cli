@@ -475,8 +475,8 @@ test_hook_user_prompt() {
   assert_contains "has session ID" "sess-test1" "$last_event"
 }
 
-test_hook_stop_emits_idle() {
-  echo "test: hook stop emits idle on session end"
+test_hook_stop_emits_done() {
+  echo "test: hook stop emits done on session end"
   local dir
   dir=$(make_project "golf2")
   cd "$dir"
@@ -485,7 +485,7 @@ test_hook_stop_emits_idle() {
   echo '{"stop_hook_active": false}' | "$TEND" hook stop
   local last
   last=$(tail -1 "$dir/.tend/events")
-  assert_contains "emits idle" "idle" "$last"
+  assert_contains "emits done" "done" "$last"
 }
 
 test_hook_stop_respects_active() {
@@ -501,6 +501,19 @@ test_hook_stop_respects_active() {
   local after_count
   after_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
   assert_eq "no new event" "$before_count" "$after_count"
+}
+
+test_hook_stop_with_session_id() {
+  echo "test: hook stop includes session ID"
+  local dir
+  dir=$(make_project "hotel3")
+  cd "$dir"
+  "$TEND" init
+  echo '{"sessionId":"sess-stop1","stop_hook_active":false}' | "$TEND" hook stop
+  local last
+  last=$(tail -1 "$dir/.tend/events")
+  assert_contains "has session ID" "sess-stop1" "$last"
+  assert_contains "emits done" "done" "$last"
 }
 
 test_ack_clears_done() {
@@ -583,7 +596,7 @@ test_multi_session_aggregate() {
 }
 
 test_multi_session_partial_stop() {
-  echo "test: project stays working when one session stops"
+  echo "test: project shows done when one session finishes"
   local dir
   dir=$(make_project "sierra2")
   cd "$dir"
@@ -592,10 +605,10 @@ test_multi_session_partial_stop() {
   ts=$(date +"%Y-%m-%dT%H:%M:%S")
   echo "$ts sess-1 working building auth" >> "$dir/.tend/events"
   echo "$ts sess-2 working writing tests" >> "$dir/.tend/events"
-  echo "$ts sess-1 idle" >> "$dir/.tend/events"
+  echo "$ts sess-1 done" >> "$dir/.tend/events"
   local out
   out=$("$TEND")
-  assert_contains "still shows working" "working" "$out"
+  assert_contains "shows done (needs attention)" "done" "$out"
 }
 
 test_ack_resets_all_sessions() {
@@ -716,8 +729,9 @@ run_all() {
     test_init_creates_hooks_config
     test_hook_session_start
     test_hook_user_prompt
-    test_hook_stop_emits_idle
+    test_hook_stop_emits_done
     test_hook_stop_respects_active
+    test_hook_stop_with_session_id
     test_ack_clears_done
     test_ack_with_project_name
     test_ack_reduces_attention_count
