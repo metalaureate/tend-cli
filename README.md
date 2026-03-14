@@ -92,15 +92,17 @@ Plain text. ISO 8601 timestamps. No YAML, no JSON.
 
 ## Why Tend Exists
 
-Developers today are less like lone coders and more like a master blacksmith tending an ever-growing workshop of agents crafting custom and semi-custom artifacts for clients — or a head chef running a large kitchen of cooks turning out menu and off-menu dishes for a demanding clientele.
+Builders today are less like lone coders and more like a master blacksmith tending an ever-growing workshop of agents — or a head chef running a large kitchen of cooks. The scarce resource isn't code. It's the attention of the person in charge.
 
 Every tool for managing these agents builds a dashboard. Live panels, notification badges, real-time streaming. They assume agents run autonomously and you check in when they're done.
 
 Some do. But the reality is a distribution. On any given day you might have two or three projects where you're actively collaborating with an agent — steering it every 5-15 minutes, reviewing its work, making judgment calls on tricky details inside a large codebase. A couple more where you're grooming a spec or a plan, kicking off revisions and checking back when the agent has a new draft for you to review. Another two where the agent can run for longer stretches before it needs you. And a couple more — cloud refactors, test suites, research jobs, or agents running actual lines of business such as customer support or sales — that might run for hours and only need you if they get stuck.
 
-The tooling for autonomous agents is already good and getting better. And as it improves, five simultaneous projects will become ten, then twenty — expanding into all roles — to fill the only truly scarce resource: the attention of the person in charge who knows what they're doing.
+As AI agents and tooling improves, five simultaneous projects will become ten, then twenty — expanding into all roles — to fill the only truly scarce resource: the attention of the person in charge, the one responsible for success and failure.
 
-The unsolved problem is everything else: the projects where you and the agent are working together at varying cadences, and you need to stay in your train of thought while still being reachable by the others. A dashboard doesn't help here. It's a permanent invitation to break focus. A notification badge is an interrupt. They add vigilance, not concentration.
+The unsolved problem is attention management: the projects where you and the agent are working together at varying cadences, and you need to stay in your train of thought while still being reachable by the others. A dashboard doesn't help here. It's a permanent invitation to break focus. A notification badge is an interrupt. They add vigilance, not concentration.
+
+This isn't just an efficiency problem. The builder's span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what's happening elsewhere becomes chronic.
 
 ### The Departures Board
 
