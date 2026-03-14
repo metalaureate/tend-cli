@@ -50,15 +50,12 @@ No config files. No database. No daemon.
 cd ~/projects/my-app
 tend init
 
-# Tell tend what you're working on
-tend emit working "building auth scaffold"
-
 # Check the board from anywhere
 tend
 #   TEND                               Thu Mar 13, 14:32
 #
-#   ◐ my-app               agent working  building auth scaffold (3m)
-#   ○ other-project         idle           last commit: update deps (2h ago)
+#   ◐ my-app               working        building auth scaffold (3m)
+#   ○ other-project         idle           update deps (2h ago)
 #
 #   0 needs you · 1 working · 1 idle
 
