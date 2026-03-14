@@ -1,0 +1,845 @@
+#!/usr/bin/env bash
+# Tend — a pull-based CLI for developers running multiple AI agents.
+# "What's running? What needs me?"
+
+set -euo pipefail
+
+TEND_VERSION="0.1.0"
+TEND_ROOT="${TEND_ROOT:-$HOME/projects}"
+
+# ─── Colors & Formatting ────────────────────────────────────────────────────
+
+_tend_colors_enabled() {
+  [[ -t 1 ]] && [[ -z "${NO_COLOR:-}" ]]
+}
+
+if _tend_colors_enabled; then
+  C_RESET=$'\033[0m'
+  C_BOLD=$'\033[1m'
+  C_DIM=$'\033[2m'
+  C_AMBER=$'\033[33m'
+  C_CYAN=$'\033[36m'
+  C_GREEN=$'\033[32m'
+  C_RED=$'\033[31m'
+  C_GREY=$'\033[90m'
+else
+  C_RESET="" C_BOLD="" C_DIM="" C_AMBER="" C_CYAN="" C_GREEN="" C_RED="" C_GREY=""
+fi
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+_tend_ts() {
+  date -u +"%Y-%m-%dT%H:%M:%S"
+}
+
+_tend_ts_local() {
+  date +"%Y-%m-%dT%H:%M:%S"
+}
+
+_tend_date_header() {
+  date "+%a %b %d, %H:%M"
+}
+
+# Convert an ISO-8601 timestamp to epoch seconds (portable across macOS/Linux)
+_tend_to_epoch() {
+  local ts="$1"
+  if date -j -f "%Y-%m-%dT%H:%M:%S" "$ts" "+%s" 2>/dev/null; then
+    return
+  fi
+  date -d "$ts" "+%s" 2>/dev/null || echo "0"
+}
+
+# Format a duration in seconds to a human-readable string
+_tend_format_duration() {
+  local seconds="$1"
+  if (( seconds < 0 )); then seconds=0; fi
+  if (( seconds < 60 )); then
+    echo "${seconds}s"
+  elif (( seconds < 3600 )); then
+    echo "$(( seconds / 60 ))m"
+  elif (( seconds < 86400 )); then
+    echo "$(( seconds / 3600 ))h"
+  else
+    echo "$(( seconds / 86400 ))d"
+  fi
+}
+
+# Format how long ago a timestamp was
+_tend_ago() {
+  local ts="$1"
+  local ts_epoch now_epoch delta
+  ts_epoch=$(_tend_to_epoch "$ts")
+  now_epoch=$(date "+%s")
+  delta=$(( now_epoch - ts_epoch ))
+  _tend_format_duration "$delta"
+}
+
+# Discover all projects under TEND_ROOT (directories with .git)
+_tend_discover_projects() {
+  local dir
+  if [[ ! -d "$TEND_ROOT" ]]; then
+    return
+  fi
+  for dir in "$TEND_ROOT"/*/; do
+    [[ -d "${dir}.git" ]] && basename "$dir"
+  done
+}
+
+# Resolve a project name to its full path.
+# If an arg is given, match against discovered projects (prefix then substring).
+# If no arg, detect from $PWD by walking up to find .git.
+_tend_resolve_project_path() {
+  local name="${1:-}"
+
+  if [[ -n "$name" ]]; then
+    # Direct match
+    if [[ -d "$TEND_ROOT/$name/.git" ]]; then
+      echo "$TEND_ROOT/$name"
+      return
+    fi
+    # Prefix match
+    local match
+    for match in "$TEND_ROOT"/"$name"*/; do
+      if [[ -d "${match}.git" ]]; then
+        echo "${match%/}"
+        return
+      fi
+    done
+    # Substring match
+    for match in "$TEND_ROOT"/*"$name"*/; do
+      if [[ -d "${match}.git" ]]; then
+        echo "${match%/}"
+        return
+      fi
+    done
+    echo >&2 "tend: project '$name' not found under $TEND_ROOT"
+    return 1
+  fi
+
+  # Auto-detect from $PWD
+  local cur="$PWD"
+  while [[ "$cur" != "/" ]]; do
+    if [[ -d "$cur/.git" ]]; then
+      echo "$cur"
+      return
+    fi
+    cur="$(dirname "$cur")"
+  done
+  echo >&2 "tend: not inside a project (no .git found)"
+  return 1
+}
+
+# Resolve project name (basename) from path or arg
+_tend_resolve_project_name() {
+  local path
+  path=$(_tend_resolve_project_path "${1:-}") || return 1
+  basename "$path"
+}
+
+# Parse the last event line from a project's .tend/events
+# Sets globals: TEND_EVT_TS, TEND_EVT_STATE, TEND_EVT_MSG
+_tend_last_event() {
+  local project_path="$1"
+  local events_file="$project_path/.tend/events"
+
+  TEND_EVT_TS="" TEND_EVT_STATE="" TEND_EVT_MSG=""
+
+  if [[ ! -f "$events_file" ]]; then
+    return 1
+  fi
+
+  local last_line
+  last_line=$(tail -1 "$events_file" 2>/dev/null) || return 1
+  [[ -z "$last_line" ]] && return 1
+
+  TEND_EVT_TS="${last_line%% *}"
+  local rest="${last_line#* }"
+  TEND_EVT_STATE="${rest%% *}"
+  TEND_EVT_MSG="${rest#* }"
+  # If state == msg, there was no message beyond the state
+  [[ "$TEND_EVT_STATE" == "$TEND_EVT_MSG" ]] && TEND_EVT_MSG=""
+  return 0
+}
+
+# Check if a state is a "needs attention" state
+_tend_needs_attention() {
+  local state="$1"
+  [[ "$state" == "done" || "$state" == "stuck" || "$state" == "waiting" ]]
+}
+
+# Icon for a given state
+_tend_state_icon() {
+  local state="$1"
+  case "$state" in
+    done|waiting) echo "●" ;;
+    stuck)        echo "⊘" ;;
+    working)      echo "◐" ;;
+    idle|"")      echo "○" ;;
+    *)            echo "○" ;;
+  esac
+}
+
+# Color for a given state
+_tend_state_color() {
+  local state="$1"
+  case "$state" in
+    done|waiting) echo "$C_AMBER" ;;
+    stuck)        echo "$C_RED" ;;
+    working)      echo "$C_CYAN" ;;
+    idle|"")      echo "$C_GREY" ;;
+    *)            echo "$C_GREY" ;;
+  esac
+}
+
+# State label for display
+_tend_state_label() {
+  local state="$1"
+  case "$state" in
+    done)    echo "agent done" ;;
+    stuck)   echo "agent stuck" ;;
+    waiting) echo "agent waiting" ;;
+    working) echo "agent working" ;;
+    idle)    echo "idle" ;;
+    *)       echo "no signal" ;;
+  esac
+}
+
+# ─── Commands ────────────────────────────────────────────────────────────────
+
+# --- tend init ---
+_tend_cmd_init() {
+  local project_path
+  project_path=$(_tend_resolve_project_path "${1:-}") || exit 1
+  local project_name
+  project_name=$(basename "$project_path")
+
+  local tend_dir="$project_path/.tend"
+  mkdir -p "$tend_dir"
+
+  local file
+  for file in events queue TODO DONE NOTES; do
+    if [[ ! -f "$tend_dir/$file" ]]; then
+      touch "$tend_dir/$file"
+    fi
+  done
+
+  echo "✓ Initialized .tend/ in $project_name"
+}
+
+# --- tend emit ---
+_tend_cmd_emit() {
+  local state="${1:-}"
+  shift || true
+  local message="$*"
+
+  if [[ -z "$state" ]]; then
+    echo >&2 "Usage: tend emit <state> [message]"
+    echo >&2 "States: working, done, stuck, waiting, idle"
+    exit 1
+  fi
+
+  case "$state" in
+    working|done|stuck|waiting|idle) ;;
+    *)
+      echo >&2 "tend: invalid state '$state'"
+      echo >&2 "Valid states: working, done, stuck, waiting, idle"
+      exit 1
+      ;;
+  esac
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "") || exit 1
+
+  local events_file="$project_path/.tend/events"
+  if [[ ! -d "$project_path/.tend" ]]; then
+    echo >&2 "tend: .tend/ not initialized. Run 'tend init' first."
+    exit 1
+  fi
+
+  local ts
+  ts=$(_tend_ts_local)
+  echo "$ts $state $message" >> "$events_file"
+}
+
+# --- tend prompt ---
+_tend_cmd_prompt() {
+  local count=0
+  local projects
+  projects=$(_tend_discover_projects) || true
+
+  local project
+  while IFS= read -r project; do
+    [[ -z "$project" ]] && continue
+    local events_file="$TEND_ROOT/$project/.tend/events"
+    [[ ! -f "$events_file" ]] && continue
+
+    local last_line
+    last_line=$(tail -1 "$events_file" 2>/dev/null) || continue
+    [[ -z "$last_line" ]] && continue
+
+    local rest="${last_line#* }"
+    local state="${rest%% *}"
+
+    if _tend_needs_attention "$state"; then
+      (( count++ ))
+    fi
+  done <<< "$projects"
+
+  if (( count == 0 )); then
+    echo "○"
+  else
+    echo "●$count"
+  fi
+}
+
+# --- tend (board) ---
+_tend_cmd_board() {
+  local projects
+  projects=$(_tend_discover_projects) || true
+
+  if [[ -z "$projects" ]]; then
+    echo "  No projects found under $TEND_ROOT"
+    echo "  Set TEND_ROOT or create project directories with .git"
+    return
+  fi
+
+  # Header
+  echo ""
+  echo "  ${C_BOLD}TEND${C_RESET}                               $(  _tend_date_header)"
+  echo ""
+
+  local needs=0 ready=0 working_count=0 idle_count=0 stuck_count=0
+  local project
+
+  while IFS= read -r project; do
+    [[ -z "$project" ]] && continue
+    local project_path="$TEND_ROOT/$project"
+
+    local state="" msg="" ts="" duration_str=""
+
+    if _tend_last_event "$project_path"; then
+      state="$TEND_EVT_STATE"
+      msg="$TEND_EVT_MSG"
+      ts="$TEND_EVT_TS"
+
+      if [[ "$state" == "working" && -n "$ts" ]]; then
+        local ago
+        ago=$(_tend_ago "$ts")
+        duration_str="(${ago})"
+      elif [[ "$state" == "idle" && -n "$ts" ]]; then
+        local ago
+        ago=$(_tend_ago "$ts")
+        duration_str="last: ${msg} (${ago} ago)"
+        msg=""
+      elif [[ "$state" == "done" && -n "$ts" ]]; then
+        duration_str=""
+      fi
+    else
+      # No events — try git fallback
+      if [[ -d "$project_path/.git" ]]; then
+        local last_commit_msg last_commit_ago
+        last_commit_msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
+        last_commit_ago=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true
+        if [[ -n "$last_commit_msg" ]]; then
+          state="idle"
+          duration_str="last commit: ${last_commit_msg} (${last_commit_ago})"
+        fi
+      fi
+    fi
+
+    # Count states
+    case "$state" in
+      done)    (( ready++ )); (( needs++ )) ;;
+      stuck)   (( stuck_count++ )); (( needs++ )) ;;
+      waiting) (( needs++ )) ;;
+      working) (( working_count++ )) ;;
+      idle|"") (( idle_count++ )) ;;
+    esac
+
+    # Render line
+    local icon color label
+    icon=$(_tend_state_icon "$state")
+    color=$(_tend_state_color "$state")
+    label=$(_tend_state_label "$state")
+
+    # Truncate project name to 20 chars, pad to 20
+    local display_name
+    display_name=$(printf "%-20.20s" "$project")
+
+    # Build the detail string
+    local detail=""
+    if [[ -n "$msg" && -n "$duration_str" ]]; then
+      detail="$msg $duration_str"
+    elif [[ -n "$msg" ]]; then
+      detail="$msg"
+    elif [[ -n "$duration_str" ]]; then
+      detail="$duration_str"
+    fi
+
+    # Truncate detail to fit terminal (rough: 80 - 30 used = 50 chars)
+    if (( ${#detail} > 50 )); then
+      detail="${detail:0:47}..."
+    fi
+
+    printf "  %s%s %s  %-15s %s%s\n" \
+      "$color" "$icon" "$display_name" "$label" "$detail" "$C_RESET"
+  done <<< "$projects"
+
+  # Footer
+  echo ""
+  local footer_parts=()
+  (( needs > 0 )) && footer_parts+=("${C_AMBER}${needs} needs you${C_RESET}")
+  (( ready > 0 )) && footer_parts+=("${ready} ready for review")
+  (( working_count > 0 )) && footer_parts+=("${C_CYAN}${working_count} working${C_RESET}")
+  (( idle_count > 0 )) && footer_parts+=("${C_GREY}${idle_count} idle${C_RESET}")
+
+  local footer=""
+  local i
+  for (( i=0; i<${#footer_parts[@]}; i++ )); do
+    if (( i > 0 )); then
+      footer+=" · "
+    fi
+    footer+="${footer_parts[$i]}"
+  done
+
+  echo "  $footer"
+  echo ""
+}
+
+# --- tend <project> (detail view) ---
+_tend_cmd_detail() {
+  local project_name="$1"
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  local state="" msg="" ts="" icon="" color=""
+
+  if _tend_last_event "$project_path"; then
+    state="$TEND_EVT_STATE"
+    msg="$TEND_EVT_MSG"
+    ts="$TEND_EVT_TS"
+  fi
+
+  icon=$(_tend_state_icon "$state")
+  color=$(_tend_state_color "$state")
+
+  local upper_name
+  upper_name=$(echo "$project_name" | tr '[:lower:]' '[:upper:]')
+
+  echo ""
+  echo "  ${C_BOLD}${upper_name}${C_RESET}                               $color$icon $(_tend_state_label "$state")${C_RESET}"
+  echo ""
+
+  # Current task
+  if [[ -n "$msg" ]]; then
+    echo "  Current: $msg"
+  fi
+  if [[ -n "$ts" ]]; then
+    local ago
+    ago=$(_tend_ago "$ts")
+    echo "  Since:   $ts (${ago} ago)"
+  fi
+
+  # Branch
+  local branch
+  branch=$(git -C "$project_path" branch --show-current 2>/dev/null) || true
+  if [[ -n "$branch" ]]; then
+    echo "  Branch:  $branch"
+  fi
+
+  # Recent commits count (today)
+  local commit_count
+  commit_count=$(git -C "$project_path" log --oneline --since="midnight" 2>/dev/null | wc -l | tr -d ' ') || true
+  if [[ -n "$commit_count" && "$commit_count" != "0" ]]; then
+    echo "  Commits: $commit_count today"
+  fi
+
+  echo ""
+
+  # Recent events
+  local events_file="$project_path/.tend/events"
+  if [[ -f "$events_file" ]] && [[ -s "$events_file" ]]; then
+    echo "  ${C_BOLD}Recent:${C_RESET}"
+    tail -10 "$events_file" | while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      local line_ts="${line%% *}"
+      local line_rest="${line#* }"
+      local line_state="${line_rest%% *}"
+      local line_msg="${line_rest#* }"
+      [[ "$line_state" == "$line_msg" ]] && line_msg=""
+      # Extract just the time part
+      local time_part="${line_ts##*T}"
+      local line_color
+      line_color=$(_tend_state_color "$line_state")
+      printf "    %s  %s%s %s%s\n" "$time_part" "$line_color" "$line_state" "$line_msg" "$C_RESET"
+    done
+    echo ""
+  fi
+
+  # TODO
+  local todo_file="$project_path/.tend/TODO"
+  if [[ -f "$todo_file" ]] && [[ -s "$todo_file" ]]; then
+    echo "  ${C_BOLD}TODO:${C_RESET}"
+    local n=1
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      # Strip timestamp prefix if present
+      local item="$line"
+      if [[ "$item" == \[* ]]; then
+        item="${item#*] }"
+      fi
+      echo "    $n. $item"
+      (( n++ ))
+    done < "$todo_file"
+    echo ""
+  fi
+
+  # Notes (last 5)
+  local notes_file="$project_path/.tend/NOTES"
+  if [[ -f "$notes_file" ]] && [[ -s "$notes_file" ]]; then
+    echo "  ${C_BOLD}Notes:${C_RESET}"
+    tail -5 "$notes_file" | while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      local item="$line"
+      if [[ "$item" == \[* ]]; then
+        item="${item#*] }"
+      fi
+      echo "    $item"
+    done
+    echo ""
+  fi
+}
+
+# --- tend say ---
+_tend_cmd_say() {
+  local project_name="${1:-}"
+  if [[ -z "$project_name" ]]; then
+    echo >&2 "Usage: tend say <project> \"message\""
+    exit 1
+  fi
+  shift
+  local message="$*"
+  if [[ -z "$message" ]]; then
+    echo >&2 "Usage: tend say <project> \"message\""
+    exit 1
+  fi
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if [[ ! -d "$project_path/.tend" ]]; then
+    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
+    exit 1
+  fi
+
+  local ts
+  ts=$(_tend_ts_local)
+  echo "[$ts] $message" >> "$project_path/.tend/queue"
+  echo "✓ Queued for $project_name"
+}
+
+# --- tend todo ---
+_tend_cmd_todo() {
+  local project_name="" message=""
+
+  # If first arg looks like a project name (exists under TEND_ROOT), use it
+  if [[ $# -ge 1 ]] && _tend_resolve_project_path "$1" &>/dev/null; then
+    project_name="$1"
+    shift
+  fi
+
+  message="$*"
+  if [[ -z "$message" ]]; then
+    # No message: show current TODOs
+    local project_path
+    project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+    project_name=$(basename "$project_path")
+    local todo_file="$project_path/.tend/TODO"
+    if [[ -f "$todo_file" ]] && [[ -s "$todo_file" ]]; then
+      echo "${C_BOLD}TODO ($project_name):${C_RESET}"
+      local n=1
+      while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        local item="$line"
+        if [[ "$item" == \[* ]]; then
+          item="${item#*] }"
+        fi
+        echo "  $n. $item"
+        (( n++ ))
+      done < "$todo_file"
+    else
+      echo "No TODOs for $project_name"
+    fi
+    return
+  fi
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if [[ ! -d "$project_path/.tend" ]]; then
+    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
+    exit 1
+  fi
+
+  local ts
+  ts=$(_tend_ts_local)
+  echo "[$ts] $message" >> "$project_path/.tend/TODO"
+  echo "✓ Added to $project_name/TODO"
+}
+
+# --- tend done ---
+_tend_cmd_done() {
+  local project_name="" message=""
+
+  if [[ $# -ge 2 ]]; then
+    if _tend_resolve_project_path "$1" &>/dev/null; then
+      project_name="$1"
+      shift
+    fi
+  fi
+
+  message="$*"
+  if [[ -z "$message" ]]; then
+    echo >&2 "Usage: tend done [project] \"message\""
+    exit 1
+  fi
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if [[ ! -d "$project_path/.tend" ]]; then
+    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
+    exit 1
+  fi
+
+  local ts
+  ts=$(_tend_ts_local)
+  echo "[$ts] $message" >> "$project_path/.tend/DONE"
+  echo "✓ Logged to $project_name/DONE"
+}
+
+# --- tend note ---
+_tend_cmd_note() {
+  local project_name="" message=""
+
+  if [[ $# -ge 2 ]]; then
+    if _tend_resolve_project_path "$1" &>/dev/null; then
+      project_name="$1"
+      shift
+    fi
+  fi
+
+  message="$*"
+  if [[ -z "$message" ]]; then
+    echo >&2 "Usage: tend note [project] \"message\""
+    exit 1
+  fi
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if [[ ! -d "$project_path/.tend" ]]; then
+    echo >&2 "tend: .tend/ not initialized in $project_name. Run 'tend init $project_name' first."
+    exit 1
+  fi
+
+  local ts
+  ts=$(_tend_ts_local)
+  echo "[$ts] $message" >> "$project_path/.tend/NOTES"
+  echo "✓ Added to $project_name/NOTES"
+}
+
+# --- tend switch ---
+_tend_cmd_switch() {
+  local project_name="${1:-}"
+  if [[ -z "$project_name" ]]; then
+    echo >&2 "Usage: tend switch <project>"
+    exit 1
+  fi
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if [[ "$(uname)" == "Darwin" ]]; then
+    osascript -e "
+      tell application \"Visual Studio Code\"
+        activate
+        set matched to false
+        repeat with w in windows
+          if name of w contains \"$project_name\" then
+            set index of w to 1
+            set matched to true
+            exit repeat
+          end if
+        end repeat
+        if not matched then
+          error \"Window not found for $project_name\"
+        end if
+      end tell
+    " 2>/dev/null && {
+      echo "▶ Focused: $project_name (VSCode)"
+    } || {
+      echo >&2 "tend: could not find VSCode window for '$project_name'"
+      exit 1
+    }
+  else
+    echo >&2 "tend switch: only macOS is supported in v0"
+    exit 1
+  fi
+}
+
+# --- tend approve ---
+_tend_cmd_approve() {
+  local project_name="${1:-}"
+  if [[ -z "$project_name" ]]; then
+    echo >&2 "Usage: tend approve <project>"
+    exit 1
+  fi
+
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  if ! _tend_last_event "$project_path"; then
+    echo >&2 "tend: no events for $project_name"
+    exit 1
+  fi
+
+  if [[ "$TEND_EVT_STATE" != "stuck" ]]; then
+    echo "  $project_name is not stuck (state: $TEND_EVT_STATE)"
+    return
+  fi
+
+  echo "⊘ $project_name: $TEND_EVT_MSG"
+  printf "  Approve? [y/n] "
+  read -r reply
+  if [[ "$reply" == "y" || "$reply" == "Y" ]]; then
+    local ts
+    ts=$(_tend_ts_local)
+    echo "[$ts] APPROVED: $TEND_EVT_MSG" >> "$project_path/.tend/queue"
+    echo "✓ Approval queued for $project_name"
+  else
+    echo "  Skipped"
+  fi
+}
+
+# --- tend sync ---
+_tend_cmd_sync() {
+  local project_name="${1:-}"
+  local project_path
+  project_path=$(_tend_resolve_project_path "$project_name") || exit 1
+  project_name=$(basename "$project_path")
+
+  local todo_file="$project_path/.tend/TODO"
+  local done_file="$project_path/.tend/DONE"
+
+  # Gather data
+  local git_log=""
+  git_log=$(git -C "$project_path" log --oneline -20 --format="%h %s (%ar)" 2>/dev/null) || true
+
+  local todo_content=""
+  [[ -f "$todo_file" ]] && todo_content=$(cat "$todo_file")
+
+  local done_content=""
+  [[ -f "$done_file" ]] && done_content=$(cat "$done_file")
+
+  # Generate reconciliation prompt
+  cat <<EOF
+# Tend Sync — $project_name
+
+Review the state of this project and reconcile TODO/DONE with actual git history.
+
+## Recent Git History (last 20 commits)
+$git_log
+
+## Current TODO
+$todo_content
+
+## Completed (DONE log)
+$done_content
+
+## Instructions
+1. Compare the DONE log against git history. Are there completed items that aren't logged?
+2. Compare TODO against what's been done. Are there items that should be removed or marked complete?
+3. Are there items in git history that suggest new TODOs?
+4. Produce an updated TODO list and note any discrepancies.
+EOF
+}
+
+# --- tend version ---
+_tend_cmd_version() {
+  echo "tend $TEND_VERSION"
+}
+
+# --- tend help ---
+_tend_cmd_help() {
+  cat <<'EOF'
+Tend — What's running? What needs me?
+
+Usage:
+  tend                          Show the departures board
+  tend <project>                Show project detail
+  tend init [project]           Initialize .tend/ in a project
+  tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
+  tend prompt                   Shell prompt indicator (○ or ●N)
+  tend say <project> "msg"      Queue a message for an agent
+  tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
+  tend done [project] "msg"     Log a completion
+  tend note [project] "msg"     Capture a note
+  tend switch <project>         Focus VSCode window for project
+  tend approve <project>        Approve a stuck agent's request
+  tend sync [project]           Generate reconciliation prompt
+  tend version                  Show version
+  tend help                     Show this help
+
+Environment:
+  TEND_ROOT    Root directory for projects (default: ~/projects)
+  NO_COLOR     Disable color output if set
+
+Shell prompt setup:
+  # bash
+  export PS1='... $(tend prompt) $ '
+  # zsh
+  PROMPT='... $(tend prompt) %# '
+EOF
+}
+
+# ─── Subcommand Dispatcher ───────────────────────────────────────────────────
+
+main() {
+  local cmd="${1:-}"
+
+  case "$cmd" in
+    "")        _tend_cmd_board ;;
+    init)      shift; _tend_cmd_init "$@" ;;
+    emit)      shift; _tend_cmd_emit "$@" ;;
+    prompt)    _tend_cmd_prompt ;;
+    say)       shift; _tend_cmd_say "$@" ;;
+    todo)      shift; _tend_cmd_todo "$@" ;;
+    done)      shift; _tend_cmd_done "$@" ;;
+    note)      shift; _tend_cmd_note "$@" ;;
+    switch|sw) shift; _tend_cmd_switch "$@" ;;
+    approve)   shift; _tend_cmd_approve "$@" ;;
+    sync)      shift; _tend_cmd_sync "$@" ;;
+    version)   _tend_cmd_version ;;
+    help|-h|--help) _tend_cmd_help ;;
+    *)
+      # Check if it's a project name
+      if _tend_resolve_project_path "$cmd" &>/dev/null; then
+        _tend_cmd_detail "$cmd"
+      else
+        echo >&2 "tend: unknown command '$cmd'"
+        echo >&2 "Run 'tend help' for usage"
+        exit 1
+      fi
+      ;;
+  esac
+}
+
+main "$@"

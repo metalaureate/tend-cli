@@ -1,0 +1,39 @@
+## Tend Integration
+
+This project uses [Tend](https://github.com/tend-cli/tend) for workflow coordination.
+
+### On Startup
+
+1. Read `.tend/queue` for any queued instructions. Execute them, then clear the file.
+2. Read `.tend/TODO` to understand the current backlog.
+3. Read `.tend/NOTES` for project context and known gotchas.
+4. Emit: `tend emit working "<description of what you're starting>"`
+
+### During Work
+
+- When you complete a task: `tend emit done "<summary>"`
+- When you start a new task: `tend emit working "<description>"`
+- When you need human input: `tend emit stuck "<what you need>"`
+- When you complete a task, also append to `.tend/DONE` with a timestamp.
+
+### On Completion
+
+- Emit: `tend emit idle`
+- If there are items in `.tend/TODO`, note the next item but wait for the developer to assign it (do not auto-start).
+
+### Event Format
+
+Append a single line to `.tend/events`:
+
+```
+<ISO-8601-timestamp> <state> <message>
+```
+
+States: `working`, `done`, `stuck`, `waiting`, `idle`.
+
+Example:
+```
+2026-03-13T14:20:00 working refactoring narrative engine
+2026-03-13T14:45:00 done refactored narrative engine (PR #204)
+2026-03-13T14:46:00 stuck tool approval needed: npm test
+```

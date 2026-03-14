@@ -169,4 +169,3 @@ Projects with no `.tend/` directory still appear on the board via git fallback.
 ## License
 
 MIT
-# tend-cli
