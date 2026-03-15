@@ -391,15 +391,15 @@ function Install() {
             <div><span className="text-smoke/50">$ </span><span className="text-parchment">cd ~/projects/my-app && td init</span></div>
             <div className="text-patina text-xs mt-3 pt-3 border-t border-white/5">
               ✓ Created .tend/ directory<br />
-              ✓ Configured lifecycle hooks<br />
-              ✓ Added protocol to AGENTS.md (fallback)<br />
+              ✓ Installed agent hooks (Copilot + Claude Code)<br />
+              ✓ Added protocol to AGENTS.md<br />
               ✓ Registered project
             </div>
           </div>
         </div>
 
         <p className="inst-el font-body text-smoke text-sm mt-6 leading-relaxed max-w-2xl">
-          <span className="font-mono text-anvil">td init</span> sets up the event log, configures lifecycle hooks compatible with Claude Code and Copilot, and adds the protocol to AGENTS.md as a fallback. Run <span className="font-mono text-anvil">td</span> from anywhere to see your board.
+          <span className="font-mono text-anvil">td init</span> creates the event log, installs agent hooks for both Copilot and Claude Code, and writes the protocol to AGENTS.md. Run <span className="font-mono text-anvil">td</span> from anywhere to see your board.
         </p>
 
         {/* Help output */}

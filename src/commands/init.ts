@@ -135,9 +135,23 @@ export function cmdInit(args: string[]): void {
   if (!existsSync(hooksFile)) {
     mkdirSync(hooksDir, { recursive: true });
     writeFileSync(hooksFile, HOOKS_JSON + '\n');
-    process.stdout.write('✓ Created .github/hooks/tend.json\n');
   }
 
+  // Create Claude Code hooks config
+  const claudeDir = join(projectPath, '.claude');
+  const claudeFile = join(claudeDir, 'settings.local.json');
+  if (!existsSync(claudeFile)) {
+    mkdirSync(claudeDir, { recursive: true });
+    writeFileSync(claudeFile, HOOKS_JSON + '\n');
+  } else {
+    const existing = JSON.parse(readFileSync(claudeFile, 'utf-8'));
+    if (!existing.hooks) {
+      existing.hooks = JSON.parse(HOOKS_JSON).hooks;
+      writeFileSync(claudeFile, JSON.stringify(existing, null, 2) + '\n');
+    }
+  }
+
+  process.stdout.write('✓ Installed agent hooks (Copilot + Claude Code)\n');
   process.stdout.write(`✓ Initialized .tend/ in ${projectName}\n`);
 }
 

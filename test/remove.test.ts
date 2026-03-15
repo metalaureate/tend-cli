@@ -52,6 +52,32 @@ describe('remove', () => {
     expect(existsSync(join(dir, '.github', 'hooks', 'tend.json'))).toBe(false);
   });
 
+  it('removes .claude/settings.local.json hooks', () => {
+    const dir = ctx.makeProject('delta2');
+    ctx.tend(['init'], { cwd: dir });
+    expect(existsSync(join(dir, '.claude', 'settings.local.json'))).toBe(true);
+
+    ctx.tend(['remove', '--yes'], { cwd: dir });
+    // File should be removed since it only had hooks
+    expect(existsSync(join(dir, '.claude', 'settings.local.json'))).toBe(false);
+  });
+
+  it('preserves non-hooks content in .claude/settings.local.json', () => {
+    const dir = ctx.makeProject('delta3');
+    ctx.tend(['init'], { cwd: dir });
+    // Add extra content
+    const claudeFile = join(dir, '.claude', 'settings.local.json');
+    const existing = JSON.parse(readFileSync(claudeFile, 'utf-8'));
+    existing.permissions = { allow: ['Read'] };
+    writeFileSync(claudeFile, JSON.stringify(existing, null, 2));
+
+    ctx.tend(['remove', '--yes'], { cwd: dir });
+    expect(existsSync(claudeFile)).toBe(true);
+    const content = JSON.parse(readFileSync(claudeFile, 'utf-8'));
+    expect(content.hooks).toBeUndefined();
+    expect(content.permissions.allow).toContain('Read');
+  });
+
   it('unregisters from ~/.tend/projects', () => {
     const dir = ctx.makeProject('echo-proj');
     ctx.tend(['init'], { cwd: dir });

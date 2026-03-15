@@ -42,7 +42,6 @@ export async function cmdRemove(args: string[]): Promise<void> {
   const hooksFile = join(projectPath, '.github', 'hooks', 'tend.json');
   if (existsSync(hooksFile)) {
     rmSync(hooksFile);
-    process.stdout.write('✓ Removed .github/hooks/tend.json\n');
     // Clean up empty dirs
     const hooksDir = join(projectPath, '.github', 'hooks');
     if (readdirSync(hooksDir).length === 0) {
@@ -53,6 +52,28 @@ export async function cmdRemove(args: string[]): Promise<void> {
       }
     }
   }
+
+  // 2b. Remove Claude Code hooks
+  const claudeFile = join(projectPath, '.claude', 'settings.local.json');
+  if (existsSync(claudeFile)) {
+    try {
+      const existing = JSON.parse(readFileSync(claudeFile, 'utf-8'));
+      if (existing.hooks) {
+        delete existing.hooks;
+        if (Object.keys(existing).length === 0) {
+          rmSync(claudeFile);
+          const claudeDir = join(projectPath, '.claude');
+          if (readdirSync(claudeDir).length === 0) {
+            rmSync(claudeDir, { recursive: true });
+          }
+        } else {
+          writeFileSync(claudeFile, JSON.stringify(existing, null, 2) + '\n');
+        }
+      }
+    } catch {}
+  }
+
+  process.stdout.write('✓ Removed agent hooks\n');
 
   // 3. Remove tend section from AGENTS.md
   const agentsFile = join(projectPath, 'AGENTS.md');

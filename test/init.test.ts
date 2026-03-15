@@ -108,4 +108,26 @@ describe('init', () => {
     expect(content).toContain('UserPromptSubmit');
     expect(content).toContain('Stop');
   });
+
+  it('creates .claude/settings.local.json with hooks', () => {
+    const dir = ctx.makeProject('claude1');
+    ctx.tend(['init'], { cwd: dir });
+    const claudeFile = join(dir, '.claude', 'settings.local.json');
+    expect(existsSync(claudeFile)).toBe(true);
+    const content = readFileSync(claudeFile, 'utf-8');
+    expect(content).toContain('SessionStart');
+    expect(content).toContain('tend hook');
+  });
+
+  it('merges hooks into existing .claude/settings.local.json', () => {
+    const dir = ctx.makeProject('claude2');
+    const claudeDir = join(dir, '.claude');
+    require('fs').mkdirSync(claudeDir, { recursive: true });
+    require('fs').writeFileSync(join(claudeDir, 'settings.local.json'), JSON.stringify({ permissions: { allow: ['Read'] } }, null, 2));
+    ctx.tend(['init'], { cwd: dir });
+    const content = JSON.parse(readFileSync(join(claudeDir, 'settings.local.json'), 'utf-8'));
+    expect(content.hooks).toBeDefined();
+    expect(content.hooks.SessionStart).toBeDefined();
+    expect(content.permissions.allow).toContain('Read');
+  });
 });
