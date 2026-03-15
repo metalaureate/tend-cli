@@ -69,7 +69,6 @@ No config files. No database. No daemon.
 | `tend add [project] "msg"` | Add a TODO |
 | `tend add [project]` | Show & manage TODOs (enter # to remove) |
 | `tend switch <project>` | Focus the editor window (or `tend #N`) |
-| `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `tend ack [project]` | Clear done/stuck/waiting → idle |
 | `tend status` | Status indicator: `○` or `●N` |

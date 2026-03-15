@@ -9,7 +9,6 @@ import { cmdStatus } from './commands/status.js';
 import { cmdAdd } from './commands/add.js';
 import { cmdAck } from './commands/ack.js';
 import { cmdSwitch } from './commands/switch.js';
-import { cmdSync } from './commands/sync.js';
 import { cmdRelay } from './commands/relay.js';
 import { cmdHook } from './commands/hooks.js';
 import { cmdVersion } from './commands/version.js';
@@ -49,9 +48,6 @@ async function main(): Promise<void> {
       case 'switch':
       case 'sw':
         cmdSwitch(rest);
-        break;
-      case 'sync':
-        cmdSync(rest);
         break;
       case 'relay':
         await cmdRelay(rest);
