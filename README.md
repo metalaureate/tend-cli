@@ -249,6 +249,21 @@ The `.github/hooks/` location is loaded by default in VS Code — no settings ch
 
 ---
 
+## Releasing
+
+Push a version tag to trigger the release workflow:
+
+```bash
+make bump              # patch version in package.json
+git add -A && git commit -m "v$(jq -r .version package.json)"
+git tag "v$(jq -r .version package.json)"
+git push && git push --tags
+```
+
+GitHub Actions builds binaries for macOS (arm64, x64) and Linux (x64, arm64), then creates a release at `github.com/metalaureate/tend-cli/releases`. The install script pulls from the latest release.
+
+---
+
 ## License
 
 MIT
