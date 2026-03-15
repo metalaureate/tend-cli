@@ -43,7 +43,7 @@ async function main(): Promise<void> {
         cmdAdd(rest);
         break;
       case 'ack':
-        cmdAck(rest);
+        await cmdAck(rest);
         break;
       case 'switch':
       case 'sw':

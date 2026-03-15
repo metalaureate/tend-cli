@@ -1,10 +1,11 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { appendReset } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
+import { cmdBoard } from './board.js';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
 
-export function cmdAck(args: string[]): void {
+export async function cmdAck(args: string[]): Promise<void> {
   let projectPath: string;
   try {
     projectPath = resolveProjectPath(args[0]);
@@ -21,5 +22,6 @@ export function cmdAck(args: string[]): void {
 
   const ts = tsLocal();
   appendReset(join(projectPath, '.tend', 'events'), ts);
-  process.stdout.write(`✓ Acknowledged ${projectName}\n`);
+  process.stdout.write(`✓ Acknowledged ${projectName}\n\n`);
+  await cmdBoard();
 }
