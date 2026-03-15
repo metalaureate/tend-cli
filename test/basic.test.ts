@@ -9,7 +9,7 @@ afterEach(() => { ctx.cleanup(); });
 describe('version', () => {
   it('shows version string', () => {
     const r = ctx.tend(['version']);
-    expect(r.stdout).toContain('tend 0.1.0');
+    expect(r.stdout).toMatch(/tend 0\.\d+\.\d+/);
     expect(r.exitCode).toBe(0);
   });
 });

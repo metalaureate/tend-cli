@@ -4,6 +4,7 @@
 .tend/*.log
 .scratch/
 .vite/
+bin/tend
 node_modules/
 package-lock.json
 relay/dist/

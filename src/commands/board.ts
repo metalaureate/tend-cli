@@ -62,6 +62,12 @@ export async function cmdBoard(): Promise<void> {
       ts = ps.ts;
       activeCount = ps.activeCount;
 
+      // Promote done + dirty working tree → waiting (ready for review)
+      if (state === 'done' && hasGit(project) && isDirty(project)) {
+        state = 'waiting';
+        msg = msg || 'ready for review';
+      }
+
       // For idle with no message, check for uncommitted work then git fallback
       if (state === 'idle' && !msg && hasGit(project)) {
         if (isDirty(project)) {
