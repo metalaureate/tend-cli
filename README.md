@@ -28,9 +28,13 @@ TEND                               Thu Mar 13, 14:32
 
 ```bash
 tend my-app          # project detail + sessions
+tend 1               # detail by number
 tend add "fix auth"  # queue work for the agent
-tend switch my-app   # focus the editor window
+tend #1              # switch to project 1
+tend switch my-app   # switch by name
 ```
+
+`td` is a symlink to `tend` — use either.
 
 ---
 
@@ -51,9 +55,11 @@ No config files. No database. No daemon.
 |---|---|
 | `tend` | Show the departures board |
 | `tend <project>` | Project detail + sessions |
+| `tend <N>` | Project detail by board number |
+| `tend #<N>` | Switch to project N |
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `tend add [project] "msg"` | Add a TODO (no message = show TODOs) |
-| `tend switch <project>` | Focus the editor window |
+| `tend switch <project>` | Focus the editor window (or `tend #N`) |
 | `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `tend ack [project]` | Clear done/stuck/waiting → idle |

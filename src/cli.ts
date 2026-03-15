@@ -66,8 +66,13 @@ async function main(): Promise<void> {
       case '--help':
         cmdHelp();
         break;
-      default:
-        // Check if it's a project name
+      default: {
+        // Shortcut: "tend #2" → switch to project 2
+        if (/^#\d+$/.test(cmd)) {
+          cmdSwitch([cmd.slice(1)]);
+          break;
+        }
+        // Check if it's a project name or number (detail view)
         try {
           resolveProjectPath(cmd);
           cmdDetail(cmd);
@@ -77,6 +82,7 @@ async function main(): Promise<void> {
           process.exit(1);
         }
         break;
+      }
     }
   } catch (e) {
     if (e instanceof Error) {

@@ -4,13 +4,15 @@ BUN ?= $(shell command -v bun 2>/dev/null || echo $(HOME)/.bun/bin/bun)
 .PHONY: build install uninstall test dev relay-install relay-dev relay-deploy bump
 
 bump:
-	@OLD=$$(grep -o '"version": "[^"]*"' package.json | head -1 | grep -o '[0-9]*$$'); \
-	NEW=$$((OLD + 1)); \
-	FULL=$$(grep -o '"version": "[^"]*"' package.json | head -1 | sed "s/\.[0-9]*\"/.$$NEW\"/"); \
-	VER=$$(echo $$FULL | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*'); \
-	sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$$VER\"/" package.json; \
-	sed -i '' "s/TEND_VERSION = '[^']*'/TEND_VERSION = '$$VER'/" src/core/config.ts; \
-	echo "✓ Bumped version to $$VER"
+	@VER=$$(grep -o '"version": "[^"]*"' package.json | head -1 | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*'); \
+	MAJOR=$$(echo $$VER | cut -d. -f1); \
+	MINOR=$$(echo $$VER | cut -d. -f2); \
+	PATCH=$$(echo $$VER | cut -d. -f3); \
+	NEWPATCH=$$((PATCH + 1)); \
+	NEWVER="$$MAJOR.$$MINOR.$$NEWPATCH"; \
+	sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$$NEWVER\"/" package.json; \
+	sed -i '' "s/TEND_VERSION = '[^']*'/TEND_VERSION = '$$NEWVER'/" src/core/config.ts; \
+	echo "✓ Bumped version to $$NEWVER"
 
 build: bump
 	@$(BUN) build src/cli.ts --compile --outfile bin/tend
