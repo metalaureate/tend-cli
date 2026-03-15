@@ -439,6 +439,78 @@ function Install() {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TODO — Queue work without switching context
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function TodoSection() {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.from('.todo-el', {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power3.out',
+        stagger: 0.08,
+        scrollTrigger: { trigger: ref.current, start: 'top 75%' },
+      })
+    }, ref)
+    return () => ctx.revert()
+  }, [])
+
+  return (
+    <section ref={ref} className="py-20 md:py-28 px-6 bg-parchment">
+      <div className="max-w-3xl mx-auto">
+        <p className="todo-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Backlog</p>
+
+        <h2 className="todo-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
+          Queue work without switching context.
+        </h2>
+
+        <p className="todo-el font-body text-smoke text-sm mt-6 leading-relaxed max-w-2xl">
+          You're deep in one project and think of something for another. Don't context-switch to write it down. Type it from where you are — the agent picks it up on its next session.
+        </p>
+
+        {/* Terminal demo */}
+        <div className="todo-el mt-10 bg-anvil rounded-[1.25rem] overflow-hidden shadow-xl">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+            <span className="w-2.5 h-2.5 rounded-full bg-ember/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-patina/40" />
+            <span className="font-mono text-[11px] text-smoke/40 ml-2">terminal — working in northstar</span>
+          </div>
+          <div className="p-5 font-mono text-sm space-y-1.5">
+            <div><span className="text-smoke/50">$ </span><span className="text-parchment">td add atlas-api "fix auth regression on /users endpoint"</span></div>
+            <div className="text-patina text-xs mt-2">✓ Added to atlas-api</div>
+          </div>
+        </div>
+
+        {/* What happens next */}
+        <div className="todo-el mt-6 bg-anvil rounded-[1.25rem] overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+            <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+            <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+            <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+            <span className="font-mono text-[11px] text-smoke/40 ml-2">next session in atlas-api</span>
+          </div>
+          <div className="p-5 font-mono text-xs space-y-2">
+            <div className="text-smoke/50"># Agent reads .tend/TODO on session start:</div>
+            <div className="text-parchment/80 mt-2">Pending TODOs for atlas-api:</div>
+            <div className="text-parchment/60 ml-2">1. fix auth regression on /users endpoint</div>
+            <div className="text-parchment/60 ml-2">2. add rate limiting to public API</div>
+            <div className="text-smoke/50 mt-2">Proposing item #1 to the developer...</div>
+          </div>
+        </div>
+
+        <p className="todo-el font-body text-smoke/60 text-sm mt-8 max-w-xl leading-relaxed">
+          Plain text. Committed to the repo. No app to open, no board to drag. Just lines in a file that agents read automatically.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    RELAY — Remote agents
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function Relay() {
@@ -624,6 +696,7 @@ export default function App() {
       <WhyTend />
       <PromptGlyph />
       <Install />
+      <TodoSection />
       <Relay />
       <Footer />
     </div>
