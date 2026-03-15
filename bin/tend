@@ -436,8 +436,11 @@ _tend_relay_project_state() {
   fi
 
   # Reuse the same awk aggregation as _tend_project_state
+  local now_epoch
+  now_epoch=$(date +%s)
+
   local result
-  result=$(awk '
+  result=$(awk -v now="$now_epoch" -v stale_thresh="$TEND_STALE_THRESHOLD" '
     function is_state(s) {
       return (s == "working" || s == "done" || s == "stuck" || s == "waiting" || s == "idle")
     }
@@ -447,6 +450,12 @@ _tend_relay_project_state() {
       if (s == "waiting") return 3
       if (s == "working") return 2
       return 0
+    }
+    function to_epoch(ts,    cmd, ep) {
+      cmd = "date -j -f \"%Y-%m-%dT%H:%M:%S\" \"" ts "\" +%s 2>/dev/null || date -d \"" ts "\" +%s 2>/dev/null"
+      cmd | getline ep
+      close(cmd)
+      return ep + 0
     }
     {
       ts = $1
@@ -474,6 +483,14 @@ _tend_relay_project_state() {
     }
     END {
       if (length(sess) == 0) exit 1
+      for (s in sess) {
+        if (sess[s] == "working") {
+          ep = to_epoch(sess_ts[s])
+          if (ep > 0 && (now - ep) > stale_thresh) {
+            sess[s] = "idle"
+          }
+        }
+      }
       best = "idle"; best_p = 0; best_msg = ""; active = 0
       working_ts = ""
       for (s in sess) {
@@ -500,24 +517,6 @@ _tend_relay_project_state() {
   TEND_AGG_STATE=$(printf '%s' "$result" | cut -f2)
   TEND_AGG_MSG=$(printf '%s' "$result" | cut -f3)
   TEND_AGG_ACTIVE=$(printf '%s' "$result" | cut -f4)
-  local working_ts
-  working_ts=$(printf '%s' "$result" | cut -f5)
-
-  if [[ "$TEND_AGG_STATE" == "working" && -n "$working_ts" ]]; then
-    local all_stale=true
-    local old_ifs="$IFS"
-    IFS=','
-    for wts in $working_ts; do
-      if ! _tend_is_stale "$wts"; then
-        all_stale=false
-        break
-      fi
-    done
-    IFS="$old_ifs"
-    if $all_stale; then
-      TEND_AGG_STATE="unknown"
-    fi
-  fi
 
   return 0
 }
@@ -559,8 +558,11 @@ _tend_project_state() {
     merged_input=$(cat "$relay_cache")
   fi
 
+  local now_epoch
+  now_epoch=$(date +%s)
+
   local result
-  result=$(awk '
+  result=$(awk -v now="$now_epoch" -v stale_thresh="$TEND_STALE_THRESHOLD" '
     function is_state(s) {
       return (s == "working" || s == "done" || s == "stuck" || s == "waiting" || s == "idle")
     }
@@ -570,6 +572,13 @@ _tend_project_state() {
       if (s == "working") return 3
       if (s == "done") return 2
       return 0
+    }
+    function to_epoch(ts,    cmd, ep) {
+      # Convert ISO timestamp to epoch using date command
+      cmd = "date -j -f \"%Y-%m-%dT%H:%M:%S\" \"" ts "\" +%s 2>/dev/null || date -d \"" ts "\" +%s 2>/dev/null"
+      cmd | getline ep
+      close(cmd)
+      return ep + 0
     }
     {
       ts = $1
@@ -600,6 +609,15 @@ _tend_project_state() {
     }
     END {
       if (length(sess) == 0) exit 1
+      # Demote stale working sessions to idle before aggregating
+      for (s in sess) {
+        if (sess[s] == "working") {
+          ep = to_epoch(sess_ts[s])
+          if (ep > 0 && (now - ep) > stale_thresh) {
+            sess[s] = "idle"
+          }
+        }
+      }
       best = "idle"; best_p = 0; best_msg = ""; active = 0
       working_ts = ""
       for (s in sess) {
@@ -626,25 +644,6 @@ _tend_project_state() {
   TEND_AGG_STATE=$(printf '%s' "$result" | cut -f2)
   TEND_AGG_MSG=$(printf '%s' "$result" | cut -f3)
   TEND_AGG_ACTIVE=$(printf '%s' "$result" | cut -f4)
-  local working_ts
-  working_ts=$(printf '%s' "$result" | cut -f5)
-
-  # Handle staleness: if aggregate is "working", check if ALL working sessions are stale
-  if [[ "$TEND_AGG_STATE" == "working" && -n "$working_ts" ]]; then
-    local all_stale=true
-    local old_ifs="$IFS"
-    IFS=','
-    for wts in $working_ts; do
-      if ! _tend_is_stale "$wts"; then
-        all_stale=false
-        break
-      fi
-    done
-    IFS="$old_ifs"
-    if $all_stale; then
-      TEND_AGG_STATE="unknown"
-    fi
-  fi
 
   return 0
 }
@@ -1593,6 +1592,11 @@ _tend_cmd_detail() {
     [[ -z "$sid" ]] && continue
     (( session_count++ ))
 
+    # Demote stale working sessions to idle
+    if [[ "$state" == "working" && -n "$ts" ]] && _tend_is_stale "$ts"; then
+      state="idle"
+    fi
+
     local icon color label
     icon=$(_tend_state_icon "$state")
     color=$(_tend_state_color "$state")
@@ -1949,6 +1953,9 @@ print(data['token'])
         exit 1
       }
       echo "$token"
+      echo ""
+      echo "Set in your remote environment (Codespaces, CI, etc.):"
+      echo "  export TEND_RELAY_TOKEN=\"$token\""
       ;;
     "")
       echo "Usage: tend relay <setup|status|pull|token>"
