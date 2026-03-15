@@ -945,11 +945,14 @@ _tend_cmd_init() {
     fi
   done
 
-  # Gitignore events (high-churn, machine-local)
+  # Gitignore machine-local tend artifacts
   local gitignore="$project_path/.gitignore"
-  if [[ ! -f "$gitignore" ]] || ! grep -qxF ".tend/events" "$gitignore" 2>/dev/null; then
-    echo ".tend/events" >> "$gitignore"
-  fi
+  local entry
+  for entry in ".tend/events" ".tend/hook_debug.log" ".github/hooks/" ".scratch/"; do
+    if [[ ! -f "$gitignore" ]] || ! grep -qxF "$entry" "$gitignore" 2>/dev/null; then
+      echo "$entry" >> "$gitignore"
+    fi
+  done
 
   # Add tend integration to AGENTS.md
   local agents_file="$project_path/AGENTS.md"
@@ -1351,7 +1354,9 @@ _tend_cmd_board() {
 
       # For idle with no message, check for uncommitted work before falling back to last commit
       if [[ "$state" == "idle" && -z "$msg" && -d "$project_path/.git" ]]; then
-        if [[ -n "$(git -C "$project_path" status --porcelain 2>/dev/null | head -1)" ]]; then
+        local _dirty
+        _dirty=$(git -C "$project_path" status --porcelain 2>/dev/null) || true
+        if [[ -n "$_dirty" ]]; then
           msg="uncommitted changes"
         else
           msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
@@ -1380,7 +1385,9 @@ _tend_cmd_board() {
     else
       # No events — check for uncommitted work, then try git fallback
       if [[ -d "$project_path/.git" ]]; then
-        if [[ -n "$(git -C "$project_path" status --porcelain 2>/dev/null | head -1)" ]]; then
+        local _dirty
+        _dirty=$(git -C "$project_path" status --porcelain 2>/dev/null) || true
+        if [[ -n "$_dirty" ]]; then
           state="idle"
           msg="uncommitted changes"
           duration_str=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true

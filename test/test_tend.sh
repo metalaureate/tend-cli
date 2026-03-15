@@ -472,7 +472,7 @@ test_nested_project() {
 
 
 test_init_gitignores_events() {
-  echo "test: init gitignores events"
+  echo "test: init gitignores machine-local files"
   local dir
   dir=$(make_project "bravo2")
   cd "$dir"
@@ -480,6 +480,9 @@ test_init_gitignores_events() {
   local gitignore
   gitignore=$(cat "$dir/.gitignore")
   assert_contains "events gitignored" ".tend/events" "$gitignore"
+  assert_contains "hook_debug gitignored" ".tend/hook_debug.log" "$gitignore"
+  assert_contains "hooks dir gitignored" ".github/hooks/" "$gitignore"
+  assert_contains "scratch gitignored" ".scratch/" "$gitignore"
 }
 
 test_init_creates_hooks_config() {
