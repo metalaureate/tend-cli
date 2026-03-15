@@ -69,9 +69,9 @@ function Hero() {
 
   const board = [
     { icon: '◉', name: 'tari-universe', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember' },
-    { icon: '◉', name: 'fable', state: 'working', msg: 'refactoring narrative engine', time: '12m', color: 'text-patina' },
-    { icon: '▲', name: 'social-scanner', state: 'stuck', msg: 'tool approval needed', time: '', color: 'text-ember' },
-    { icon: '◉', name: 'hestia', state: 'working', msg: 'building auth scaffold', time: '3m', color: 'text-patina' },
+    { icon: '◐', name: 'fable', state: 'working', msg: 'refactoring narrative engine', time: '12m', color: 'text-patina' },
+    { icon: '?', name: 'social-scanner', state: 'stuck', msg: 'tool approval needed', time: '', color: 'text-ember' },
+    { icon: '◐', name: 'hestia', state: 'working', msg: 'building auth scaffold', time: '3m', color: 'text-patina' },
     { icon: '◌', name: 'dead-internet', state: 'idle', msg: 'updated landing copy', time: '2h', color: 'text-smoke/50' },
     { icon: '◌', name: 'clawzempic', state: 'idle', msg: 'benchmark suite passing', time: '1d', color: 'text-smoke/50' },
   ]

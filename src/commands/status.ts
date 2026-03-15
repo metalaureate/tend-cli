@@ -2,7 +2,7 @@ import { discoverProjects } from '../core/projects.js';
 import { projectState, relayProjectState } from '../core/state.js';
 import { relayOnlyProjects } from '../core/relay.js';
 
-/** Output compact status indicator for shell prompt: ○ or ▲N ◉N ◆N */
+/** Output compact status indicator for shell prompt: ○ or ?N ◐N ◉N */
 export function cmdStatus(): void {
   let hot = 0;
   let working = 0;
@@ -53,9 +53,9 @@ export function cmdStatus(): void {
   const green = useColor ? '\x1b[32m' : '';
 
   const parts: string[] = [];
-  if (hot > 0) parts.push(`${red}▲${hot}${r}`);
-  if (working > 0) parts.push(`${cyan}◉${working}${r}`);
-  if (doneCount > 0) parts.push(`${green}◆${doneCount}${r}`);
+  if (hot > 0) parts.push(`${red}?${hot}${r}`);
+  if (working > 0) parts.push(`${cyan}◐${working}${r}`);
+  if (doneCount > 0) parts.push(`${green}◉${doneCount}${r}`);
 
   if (parts.length === 0) {
     process.stdout.write('○\n');

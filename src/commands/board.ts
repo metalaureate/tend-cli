@@ -20,11 +20,26 @@ function stateColor(state: string): string {
 }
 
 export async function cmdBoard(): Promise<void> {
+  const isTTY = process.stderr.isTTY ?? false;
+  const spinFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let spinIdx = 0;
+  let spinner: ReturnType<typeof setInterval> | undefined;
+  if (isTTY) {
+    spinner = setInterval(() => {
+      process.stderr.write(`\r  ${spinFrames[spinIdx++ % spinFrames.length]} scanning projects…`);
+    }, 80);
+  }
+
   // Relay sync (swallow errors)
   try { await relaySync(); } catch { /* ignore */ }
 
   const allProjects = discoverProjects();
   const relayOnly = relayOnlyProjects();
+
+  if (spinner) {
+    clearInterval(spinner);
+    process.stderr.write('\r\x1b[2K');
+  }
 
   if (allProjects.length === 0 && relayOnly.length === 0) {
     process.stdout.write("  No tended projects found\n  Run 'tend init' inside a project to start tending it\n");

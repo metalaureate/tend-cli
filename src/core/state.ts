@@ -1,7 +1,8 @@
 import { config } from './config.js';
 import { type TendEvent, type SessionState, type ProjectState, type State, STATE_PRIORITY } from '../types.js';
-import { isStale } from '../ui/format.js';
+import { isStale, toEpoch } from '../ui/format.js';
 import { readEvents, mergeEvents } from './events.js';
+import { lastCommitEpoch as getLastCommitEpoch } from './git.js';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -9,6 +10,7 @@ import { existsSync } from 'fs';
 export function aggregateState(
   events: TendEvent[],
   staleThreshold: number = config.staleThreshold,
+  commitEpoch?: number,
 ): ProjectState | null {
   if (events.length === 0) return null;
 
@@ -37,6 +39,10 @@ export function aggregateState(
   // Demote stale working sessions to idle
   for (const [id, sess] of sessions) {
     if (sess.state === 'working' && isStale(sess.ts, staleThreshold)) {
+      sessions.set(id, { ...sess, state: 'idle' });
+    }
+    // Demote working sessions when a newer commit exists
+    if (sess.state === 'working' && commitEpoch && toEpoch(sess.ts) < commitEpoch) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
   }
@@ -90,7 +96,8 @@ export function projectState(projectPath: string): ProjectState | null {
       ? localEvents
       : relayEvents;
 
-  return aggregateState(merged);
+  const commitEpoch = getLastCommitEpoch(projectPath) ?? undefined;
+  return aggregateState(merged, config.staleThreshold, commitEpoch);
 }
 
 /** Get aggregate state for a relay-only project (from cache only) */
@@ -110,11 +117,11 @@ export function stateIcon(state: State | ''): string {
   switch (state) {
     case 'stuck':
     case 'waiting':
-      return '▲';
+      return '?';
     case 'done':
-      return '◆';
-    case 'working':
       return '◉';
+    case 'working':
+      return '◐';
     case 'idle':
     default:
       return '◌';

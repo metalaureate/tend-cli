@@ -7,7 +7,7 @@ Usage:
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
   tend clear [project]          Clear events history for a project
-  tend status                   Status indicator (○ ◉N ▲N ◆N)
+  tend status                   Status indicator (○ ◐N ?N ◉N)
   tend add [project] "msg"      Add a TODO (or show TODOs if no message)
   tend ack [project]            Clear done/stuck/waiting → idle
   tend switch <project>         Focus VSCode window for project

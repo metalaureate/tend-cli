@@ -135,9 +135,9 @@ export function renderFooter(): string {
   // Streak indicator
   let streakStr = '';
   if (stats.streak >= 7) {
-    streakStr = `  ·  ${C.amber}▲${C.reset}${C.dim} ${stats.streak}-day streak`;
+    streakStr = `  ·  ${C.amber}◉${C.reset}${C.dim} ${stats.streak}-day streak`;
   } else if (stats.streak > 0) {
-    streakStr = `  ·  ◆ ${stats.streak}-day streak`;
+    streakStr = `  ·  ◉ ${stats.streak}-day streak`;
   }
 
   lines.push(`  ${C.dim}${todayStr}${streakStr}${C.reset}`);
