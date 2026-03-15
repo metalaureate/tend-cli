@@ -2,6 +2,14 @@
 
 This project uses [Tend](https://github.com/tend-cli/tend) for workflow coordination.
 
+### Setup
+
+If `tend` is not on PATH, install it:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/bin/tend -o /usr/local/bin/tend && chmod +x /usr/local/bin/tend
+```
+
 ### On Startup
 
 1. Read `.tend/TODO` — propose pending items to the developer and ask what to work on.
