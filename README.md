@@ -41,7 +41,15 @@ tend switch my-app   # switch by name
 ## Install
 
 ```bash
-git clone <repo-url> && cd tend-cli
+curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/install.sh | sh
+```
+
+Downloads the latest release binary for your platform (macOS arm64/x64, Linux x64/arm64). Installs to `/usr/local/bin` with a `td` symlink.
+
+Or build from source:
+
+```bash
+git clone https://github.com/metalaureate/tend-cli && cd tend-cli
 make install
 ```
 

@@ -297,7 +297,7 @@ function PromptGlyph() {
             <div className="text-smoke/40 mb-1">~/projects/northstar</div>
             <div className="flex items-center gap-2">
               <span className="text-smoke/50">$</span>
-              <span className="text-parchment/70">git push origin feat/narrative</span>
+              <span className="text-parchment/70">git push origin feat/myfeature</span>
               <span
                 className={`ml-auto transition-all duration-500 text-lg ${current.color}`}
               >
@@ -325,7 +325,7 @@ function PromptGlyph() {
         </div>
 
         <p className="glyph-el font-body text-smoke/60 text-sm mt-8 max-w-xl leading-relaxed">
-          The goal is maximizing flow state while supervising a dozen constantly working agents. Not a dashboard you monitor — a board you glance at between thoughts.
+          The goal is maximizing flow state while supervising a dozen constantly working agents. Not a dashboard you monitor — a board you glance at when you're ready to switch context.
         </p>
       </div>
     </section>
@@ -358,20 +358,36 @@ function Install() {
         <p className="inst-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Get started</p>
 
         <h2 className="inst-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-          Three commands. No config.
+          One command to install. One to set up.
         </h2>
 
-        {/* Terminal */}
+        {/* Install terminal */}
         <div className="inst-el mt-10 bg-anvil rounded-[1.25rem] overflow-hidden shadow-xl">
           <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
             <span className="w-2.5 h-2.5 rounded-full bg-ember/40" />
             <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
             <span className="w-2.5 h-2.5 rounded-full bg-patina/40" />
-            <span className="font-mono text-[11px] text-smoke/40 ml-2">terminal</span>
+            <span className="font-mono text-[11px] text-smoke/40 ml-2">install</span>
           </div>
           <div className="p-5 font-mono text-sm space-y-1.5">
-            <div><span className="text-smoke/50">$ </span><span className="text-parchment">git clone https://github.com/metalaureate/tend-cli</span></div>
-            <div><span className="text-smoke/50">$ </span><span className="text-parchment">cd tend-cli && make install</span></div>
+            <div><span className="text-smoke/50">$ </span><span className="text-parchment">curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/install.sh | sh</span></div>
+            <div className="text-patina text-xs mt-3 pt-3 border-t border-white/5">
+              Installing tend v0.1.132 (darwin/arm64)...<br />
+              ✓ Installed tend to /usr/local/bin/tend<br />
+              ✓ Symlinked td → tend
+            </div>
+          </div>
+        </div>
+
+        {/* Setup terminal */}
+        <div className="inst-el mt-6 bg-anvil rounded-[1.25rem] overflow-hidden shadow-xl">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+            <span className="w-2.5 h-2.5 rounded-full bg-ember/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-patina/40" />
+            <span className="font-mono text-[11px] text-smoke/40 ml-2">setup</span>
+          </div>
+          <div className="p-5 font-mono text-sm space-y-1.5">
             <div><span className="text-smoke/50">$ </span><span className="text-parchment">cd ~/projects/my-app && td init</span></div>
             <div className="text-patina text-xs mt-3 pt-3 border-t border-white/5">
               ✓ Created .tend/ directory<br />
@@ -383,7 +399,7 @@ function Install() {
         </div>
 
         <p className="inst-el font-body text-smoke text-sm mt-6 leading-relaxed max-w-2xl">
-          That's it. <span className="font-mono text-anvil">td init</span> sets up the event log, configures lifecycle hooks compatible with Claude Code and Copilot, and adds the protocol to AGENTS.md as a fallback. Run <span className="font-mono text-anvil">td</span> from anywhere to see your board.
+          <span className="font-mono text-anvil">td init</span> sets up the event log, configures lifecycle hooks compatible with Claude Code and Copilot, and adds the protocol to AGENTS.md as a fallback. Run <span className="font-mono text-anvil">td</span> from anywhere to see your board.
         </p>
 
         {/* Help output */}
@@ -403,7 +419,7 @@ function Install() {
                 ['td <project>', 'Project detail + agent sessions'],
                 ['td init [project]', 'Initialize .tend/ in a project'],
                 ['td clear [project]', 'Clear events history for a project'],
-                ['td add [project] "msg"', 'Add a TODO (or show TODOs if no message)'],
+                ['td add [project] "msg"', 'Queue a TODO for the agent\'s next session'],
                 ['td ack [project]', 'Clear done/stuck/waiting \u2192 idle'],
                 ['td relay <subcmd>', 'Relay management (setup|status|pull|token)'],
                 ['td version', 'Show version'],
@@ -411,7 +427,7 @@ function Install() {
               ].map(([cmd, desc]) => (
                 <div key={cmd} className="flex">
                   <span className="text-parchment/70 w-[13rem] md:w-60 shrink-0">{cmd}</span>
-                  <span className="text-smoke/40">{desc}</span>
+                  <span className="text-smoke/60">{desc}</span>
                 </div>
               ))}
             </div>
@@ -568,10 +584,7 @@ function Footer() {
       <div className="max-w-3xl mx-auto">
         {/* CTA */}
         <div className="text-center mb-16">
-          <p className="font-body text-smoke text-sm max-w-md mx-auto leading-relaxed">
-            &ldquo;I put a dot in my terminal prompt that tells me if any of my agents need me. I stopped checking.&rdquo;
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
               href="https://github.com/metalaureate/tend-cli"
               target="_blank"
