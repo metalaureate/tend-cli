@@ -1,0 +1,229 @@
+import { discoverProjects, sortedProjects, detectProject } from '../core/projects.js';
+import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
+import { relaySync, relayOnlyProjects } from '../core/relay.js';
+import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit } from '../core/git.js';
+import { ago, dateHeader, toEpoch } from '../ui/format.js';
+import { C } from '../ui/colors.js';
+import { gamificationEnabled, renderFooter } from '../ui/gamification.js';
+import { basename } from 'path';
+
+function stateColor(state: string): string {
+  const isTTY = process.stdout.isTTY ?? false;
+  const noColor = !!process.env.NO_COLOR;
+  if (!isTTY || noColor) return '';
+  switch (state) {
+    case 'stuck': case 'waiting': return '\x1b[31m';
+    case 'done': return '\x1b[32m';
+    case 'working': return '\x1b[36m';
+    default: return '\x1b[90m';
+  }
+}
+
+export async function cmdBoard(): Promise<void> {
+  // Relay sync (swallow errors)
+  try { await relaySync(); } catch { /* ignore */ }
+
+  const allProjects = discoverProjects();
+  const relayOnly = relayOnlyProjects();
+
+  if (allProjects.length === 0 && relayOnly.length === 0) {
+    process.stdout.write("  No tended projects found\n  Run 'tend init' inside a project to start tending it\n");
+    return;
+  }
+
+  const projects = sortedProjects();
+  const reset = C.reset;
+
+  // Header
+  process.stdout.write(`\n  ${C.bold}TEND${reset}                               ${dateHeader()}\n\n`);
+
+  let needs = 0;
+  let ready = 0;
+  let workingCount = 0;
+  let idleCount = 0;
+  let stuckCount = 0;
+  let oldestWaitingAge = 0;
+  let projectNum = 0;
+
+  for (const project of projects) {
+    const projectName = basename(project);
+    projectNum++;
+
+    let state = '';
+    let msg = '';
+    let ts = '';
+    let durationStr = '';
+    let activeCount = 0;
+
+    const ps = projectState(project);
+    if (ps) {
+      state = ps.state;
+      msg = ps.message;
+      ts = ps.ts;
+      activeCount = ps.activeCount;
+
+      // For idle with no message, check for uncommitted work then git fallback
+      if (state === 'idle' && !msg && hasGit(project)) {
+        if (isDirty(project)) {
+          msg = 'uncommitted changes';
+        } else {
+          msg = lastCommitMessage(project) || '';
+        }
+      }
+
+      // If event msg exists but a newer git commit exists, prefer commit
+      if (msg && ts && hasGit(project) && state !== 'working' && state !== 'stuck' && state !== 'waiting') {
+        const commitEpoch = lastCommitEpoch(project);
+        const eventEpoch = toEpoch(ts);
+        if (commitEpoch && eventEpoch && commitEpoch > eventEpoch) {
+          if (isDirty(project)) {
+            msg = 'uncommitted changes';
+          } else {
+            msg = lastCommitMessage(project) || msg;
+          }
+          ts = lastCommitTs(project) || ts;
+        }
+      }
+
+      // Duration string
+      if (ts) {
+        const agoStr = ago(ts);
+        if (state === 'working') {
+          durationStr = agoStr;
+        } else {
+          durationStr = `${agoStr} ago`;
+        }
+      }
+    } else {
+      // No events — try git fallback
+      if (hasGit(project)) {
+        if (isDirty(project)) {
+          state = 'idle';
+          msg = 'uncommitted changes';
+          const commitTs = lastCommitTs(project);
+          durationStr = commitTs ? `${ago(commitTs)} ago` : '';
+        } else {
+          const commitMsg = lastCommitMessage(project);
+          if (commitMsg) {
+            state = 'idle';
+            msg = commitMsg;
+            const commitTs = lastCommitTs(project);
+            durationStr = commitTs ? `${ago(commitTs)} ago` : '';
+          }
+        }
+      }
+    }
+
+    // Count states
+    switch (state) {
+      case 'done': ready++; break;
+      case 'stuck': stuckCount++; needs++; break;
+      case 'waiting': needs++; break;
+      case 'working': workingCount += activeCount > 0 ? activeCount : 1; break;
+      default: idleCount++; break;
+    }
+
+    // Track age of waiting/stuck
+    if ((state === 'waiting' || state === 'stuck') && ts) {
+      const ageS = Math.floor(Date.now() / 1000) - toEpoch(ts);
+      if (ageS > oldestWaitingAge) oldestWaitingAge = ageS;
+    }
+
+    // Render line
+    const icon = stateIcon(state as any || '');
+    const color = stateColor(state);
+    let label = stateLabel(state as any || '');
+    if (activeCount > 1) label = `${activeCount} ${state}`;
+
+    const displayName = projectName.padEnd(20).slice(0, 20);
+    const numPrefix = String(projectNum).padStart(2) + '.';
+
+    // Truncate detail
+    const termWidth = process.stdout.columns || 80;
+    const timeColWidth = durationStr ? durationStr.length + 3 : 0;
+    const prefixWidth = 47;
+    let maxDetail = termWidth - prefixWidth - timeColWidth;
+    if (maxDetail < 10) maxDetail = 10;
+
+    let detail = msg;
+    if (detail && detail.length > maxDetail) {
+      detail = detail.slice(0, maxDetail - 3) + '...';
+    }
+
+    let line = `  ${numPrefix} ${displayName} ${color}${icon} ${label.padEnd(15)}${reset}`;
+    if (detail) line += detail;
+    if (durationStr) line += `  ${C.grey}(${durationStr})${reset}`;
+    process.stdout.write(line + '\n');
+  }
+
+  // Relay-only projects
+  for (const relayProject of relayOnly) {
+    const ps = relayProjectState(relayProject);
+    let state = '';
+    let msg = '';
+    let ts = '';
+    let durationStr = '';
+    let activeCount = 0;
+
+    if (ps) {
+      state = ps.state;
+      msg = ps.message;
+      ts = ps.ts;
+      activeCount = ps.activeCount;
+
+      if (ts) {
+        const agoStr = ago(ts);
+        durationStr = state === 'working' ? agoStr : `${agoStr} ago`;
+      }
+    }
+
+    switch (state) {
+      case 'done': ready++; break;
+      case 'stuck': stuckCount++; needs++; break;
+      case 'waiting': needs++; break;
+      case 'working': workingCount += activeCount > 0 ? activeCount : 1; break;
+      default: idleCount++; break;
+    }
+
+    if ((state === 'waiting' || state === 'stuck') && ts) {
+      const ageS = Math.floor(Date.now() / 1000) - toEpoch(ts);
+      if (ageS > oldestWaitingAge) oldestWaitingAge = ageS;
+    }
+
+    const icon = stateIcon(state as any || '');
+    const color = stateColor(state);
+    let label = stateLabel(state as any || '');
+    if (activeCount > 1) label = `${activeCount} ${state}`;
+
+    const displayName = (relayProject.slice(0, 19) + '↗').padEnd(20);
+
+    const termWidth = process.stdout.columns || 80;
+    const timeColWidth = durationStr ? durationStr.length + 3 : 0;
+    let maxDetail = termWidth - 47 - timeColWidth;
+    if (maxDetail < 10) maxDetail = 10;
+
+    let detail = msg;
+    if (detail && detail.length > maxDetail) {
+      detail = detail.slice(0, maxDetail - 3) + '...';
+    }
+
+    let line = `     ${displayName} ${color}${icon} ${label.padEnd(15)}${reset}`;
+    if (detail) line += detail;
+    if (durationStr) line += `  ${C.grey}(${durationStr})${reset}`;
+    process.stdout.write(line + '\n');
+  }
+
+  // Footer
+  process.stdout.write('\n');
+  const footerParts: string[] = [];
+  if (needs > 0) footerParts.push(`${C.amber}${needs} needs you${C.reset}`);
+  if (ready > 0) footerParts.push(`${ready} ready for review`);
+  if (workingCount > 0) footerParts.push(`${C.cyan}${workingCount} working${C.reset}`);
+  if (idleCount > 0) footerParts.push(`${C.grey}${idleCount} idle${C.reset}`);
+  process.stdout.write(`  ${footerParts.join(' · ')}\n\n`);
+
+  // Gamification footer
+  if (gamificationEnabled()) {
+    process.stdout.write(renderFooter() + '\n\n');
+  }
+}

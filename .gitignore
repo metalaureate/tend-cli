@@ -4,8 +4,7 @@
 .tend/*.log
 .scratch/
 .vite/
-relay/node_modules/
+node_modules/
+package-lock.json
 relay/dist/
 relay/.wrangler/
-www/node_modules/
-.tend/hook_debug.log
