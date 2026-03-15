@@ -381,6 +381,26 @@ test_board_clean_shows_commit() {
   assert_not_contains "no uncommitted msg" "uncommitted" "$out"
 }
 
+test_board_newer_commit_trumps_event() {
+  echo "test: newer commit message replaces stale event message"
+  local dir
+  dir=$(make_project "xray")
+  cd "$dir"
+  "$TEND" init
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "old commit"
+  "$TEND" emit done "old done message"
+  # Make a newer commit after the done event
+  sleep 1
+  echo "new work" > "$dir/feature.txt"
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "newer commit after done"
+  local out
+  out=$("$TEND")
+  assert_contains "shows newer commit" "newer commit after done" "$out"
+  assert_not_contains "no stale event msg" "old done message" "$out"
+}
+
 test_detail_view() {
   echo "test: project detail view"
   local dir
@@ -1142,6 +1162,7 @@ run_all() {
     test_board_uncommitted_idle
     test_board_uncommitted_no_events
     test_board_clean_shows_commit
+    test_board_newer_commit_trumps_event
     test_detail_view
     test_todo_add
     test_todo_show

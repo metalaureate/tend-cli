@@ -510,7 +510,7 @@ _tend_relay_project_state() {
           }
         }
       }
-      best = "idle"; best_p = 0; best_msg = ""; active = 0
+      best = "idle"; best_p = 0; best_msg = ""; best_ts = ""; active = 0
       working_ts = ""
       for (s in sess) {
         p = priority(sess[s])
@@ -522,9 +522,11 @@ _tend_relay_project_state() {
           best_p = p
           best = sess[s]
           best_msg = sess_msg[s]
+          best_ts = sess_ts[s]
         }
       }
-      printf "%s\t%s\t%s\t%d\t%s\n", last_ts, best, best_msg, active, working_ts
+      if (best_ts == "") best_ts = last_ts
+      printf "%s\t%s\t%s\t%d\t%s\n", best_ts, best, best_msg, active, working_ts
     }
   ' "$cache_file")
 
@@ -637,7 +639,7 @@ _tend_project_state() {
           }
         }
       }
-      best = "idle"; best_p = 0; best_msg = ""; active = 0
+      best = "idle"; best_p = 0; best_msg = ""; best_ts = ""; active = 0
       working_ts = ""
       for (s in sess) {
         p = priority(sess[s])
@@ -649,9 +651,11 @@ _tend_project_state() {
           best_p = p
           best = sess[s]
           best_msg = sess_msg[s]
+          best_ts = sess_ts[s]
         }
       }
-      printf "%s\t%s\t%s\t%d\t%s\n", last_ts, best, best_msg, active, working_ts
+      if (best_ts == "") best_ts = last_ts
+      printf "%s\t%s\t%s\t%d\t%s\n", best_ts, best, best_msg, active, working_ts
     }
   ' <<< "$merged_input")
 
@@ -1365,6 +1369,26 @@ _tend_cmd_board() {
           msg="uncommitted changes"
         else
           msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
+        fi
+      fi
+
+      # If event has a message but a newer git commit exists, prefer the commit
+      if [[ -n "$msg" && -n "$ts" && -d "$project_path/.git" && "$state" != "working" && "$state" != "stuck" && "$state" != "waiting" ]]; then
+        local _commit_epoch _event_epoch
+        _commit_epoch=$(git -C "$project_path" log -1 --format="%ct" 2>/dev/null) || true
+        if [[ -n "$_commit_epoch" ]]; then
+          _event_epoch=$(_tend_to_epoch "$ts") || true
+          if [[ -n "$_event_epoch" ]] && (( _commit_epoch > _event_epoch )); then
+            # Newer commit exists — check for uncommitted work too
+            local _dirty
+            _dirty=$(git -C "$project_path" status --porcelain 2>/dev/null) || true
+            if [[ -n "$_dirty" ]]; then
+              msg="uncommitted changes"
+            else
+              msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
+            fi
+            ts=$(git -C "$project_path" log -1 --format="%ad" --date=format:"%Y-%m-%dT%H:%M:%S" 2>/dev/null) || true
+          fi
         fi
       fi
 
