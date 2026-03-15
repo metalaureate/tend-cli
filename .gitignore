@@ -3,6 +3,7 @@
 .tend/*.txt
 .tend/*.log
 .scratch/
+.vite/
 relay/node_modules/
 relay/dist/
 relay/.wrangler/
