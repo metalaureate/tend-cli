@@ -216,6 +216,9 @@ function WhyTend() {
             This isn't just an efficiency problem. The builder's span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what's happening elsewhere becomes chronic.
           </p>
           <p>
+            There's a practical problem too. Dashboards assume a desk — large monitors, a fixed workstation. But plenty of builders work nomadically. A laptop on a balcony over breakfast. A phone in a GitHub cloud session from the bath. A café table with barely room for a coffee. The terminal is the one thing that's always there, on every device, in every context. Tend lives in the terminal so your agents are wherever you are, ready for the next context switch whenever you have room for one.
+          </p>
+          <p>
             The problem isn't even specific to humans. An agent coordinating other agents — an agent CEO running an autonomous company — hits the same bottleneck. It spawns subagents across threads and environments, each working at different cadences. Polling a dashboard wastes compute the same way it wastes human focus. The pull model, the five-state protocol, the relay — they work just as well when the coordinator is an agent. Tend is attention infrastructure, not just a developer tool.
           </p>
         </div>
