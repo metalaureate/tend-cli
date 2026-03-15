@@ -13,7 +13,7 @@ bump:
 	sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$$NEWVER\"/" package.json; \
 	echo "✓ Bumped version to $$NEWVER"
 
-build: bump
+build:
 	@$(BUN) build src/cli.ts --compile --outfile bin/tend
 	@echo "✓ Built bin/tend"
 
@@ -24,7 +24,6 @@ install: build
 	@cp bin/tend $(PREFIX)/tend
 	@chmod +x $(PREFIX)/tend
 	@ln -sf $(PREFIX)/tend $(PREFIX)/td 2>/dev/null || true
-	@git add package.json && git commit --no-gpg-sign --no-verify -m "chore: bump to $$(grep -o '"version": "[^"]*"' package.json | grep -o '[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*')" >/dev/null 2>&1 || true
 	@echo "✓ Installed tend to $(PREFIX)/tend"
 	@echo "✓ Symlinked td → tend"
 
