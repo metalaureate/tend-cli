@@ -568,7 +568,7 @@ function Footer() {
           <div className="flex gap-6 text-xs">
             <a href="https://github.com/metalaureate/tend-cli" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-parchment transition-colors link-lift">GitHub</a>
             <a href="https://github.com/metalaureate/tend-cli/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-parchment transition-colors link-lift">Docs</a>
-            <a href="https://github.com/metalaureate/tend-cli/blob/main/templates/AGENTS.md.template" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-parchment transition-colors link-lift">AGENTS.md</a>
+            <a href="https://github.com/metalaureate/tend-cli/blob/main/AGENTS.md" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-parchment transition-colors link-lift">AGENTS.md</a>
           </div>
         </div>
         <div className="border-t border-white/10 pt-5 flex flex-col sm:flex-row items-center justify-between gap-3">
