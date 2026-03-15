@@ -13,7 +13,7 @@ bump:
 	sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$$NEWVER\"/" package.json; \
 	echo "✓ Bumped version to $$NEWVER"
 
-build: bump
+build:
 	@$(BUN) build src/cli.ts --compile --outfile bin/tend
 	@echo "✓ Built bin/tend"
 
