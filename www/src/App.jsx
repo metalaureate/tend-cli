@@ -183,12 +183,12 @@ function WhyTend() {
 
         <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
           The scarce resource isn't code.<br />
-          <span className="text-smoke">It's the attention of the person in charge.</span>
+          <span className="text-smoke">It's your attention.</span>
         </h2>
 
         <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
           <p>
-            Builders today are less like lone coders and more like a master blacksmith tending an ever-growing workshop of agents — or a head chef running a large kitchen of cooks.
+            Today, you're less like a lone coder and more like a master blacksmith tending an ever-growing workshop of agents — or a head chef running a large kitchen of cooks.
           </p>
           <p>
             Every tool for managing these agents builds a dashboard. Live panels, notification badges, real-time streaming. They assume agents run autonomously and you check in when they're done.
@@ -197,7 +197,7 @@ function WhyTend() {
             Some do. But the reality is a distribution. On any given day you might have two or three projects where you're actively collaborating with an agent — steering it every 5–15 minutes, reviewing its work, making judgment calls on tricky details inside a large codebase. A couple more where you're grooming a spec or a plan, kicking off revisions and checking back when the agent has a new draft. Another two where the agent can run for longer stretches before it needs you. And a couple more — cloud refactors, test suites, research jobs, or agents running actual lines of business such as customer support or sales — that might run for hours and only need you if they get stuck.
           </p>
           <p>
-            As AI agents and tooling improves, five simultaneous projects will become ten, then twenty — expanding into all roles — to fill the only truly scarce resource: the attention of the person in charge, the one responsible for success and failure.
+            As AI agents and tooling improves, five simultaneous projects will become ten, then twenty — expanding into all roles — to fill the only truly scarce resource: your attention.
           </p>
         </div>
 
@@ -213,10 +213,10 @@ function WhyTend() {
 
         <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
           <p>
-            This isn't just an efficiency problem. The builder's span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what's happening elsewhere becomes chronic.
+            This isn't just an efficiency problem. Your span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what's happening elsewhere becomes chronic.
           </p>
           <p>
-            There's a practical problem too. Dashboards assume a desk — large monitors, a fixed workstation. But plenty of builders work nomadically. A laptop on a balcony over breakfast. A phone in a GitHub cloud session from the bath. A café table with barely room for a coffee. The terminal is the one thing that's always there, on every device, in every context. Tend lives in the terminal so your agents are wherever you are, ready for the next context switch whenever you have room for one.
+            There's a practical problem too. Dashboards assume a desk — large monitors, a fixed workstation. But plenty of people work nomadically. A laptop on a balcony over breakfast. A phone in a GitHub cloud session from the bath. A café table with barely room for a coffee. The terminal is the one thing that's always there, on every device, in every context. Tend lives in the terminal so your agents are wherever you are, ready for the next context switch whenever you have room for one.
           </p>
           <p>
             The problem isn't even specific to humans. An agent coordinating other agents — an agent CEO running an autonomous company — hits the same bottleneck. It spawns subagents across threads and environments, each working at different cadences. Polling a dashboard wastes compute the same way it wastes human focus. The pull model, the five-state protocol, the relay — they work just as well when the coordinator is an agent. Tend is attention infrastructure, not just a developer tool.
