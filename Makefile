@@ -11,7 +11,6 @@ bump:
 	NEWPATCH=$$((PATCH + 1)); \
 	NEWVER="$$MAJOR.$$MINOR.$$NEWPATCH"; \
 	sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$$NEWVER\"/" package.json; \
-	sed -i '' "s/TEND_VERSION = '[^']*'/TEND_VERSION = '$$NEWVER'/" src/core/config.ts; \
 	echo "✓ Bumped version to $$NEWVER"
 
 build: bump
