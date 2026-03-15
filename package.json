@@ -1,0 +1,20 @@
+{
+  "name": "tend-cli",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Tend — a pull-based CLI for developers running multiple AI agents",
+  "bin": {
+    "tend": "bin/tend"
+  },
+  "scripts": {
+    "build": "bun build src/cli.ts --compile --outfile bin/tend",
+    "dev": "bun run src/cli.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.1.0"
+  }
+}
