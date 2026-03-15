@@ -1,7 +1,7 @@
 import { homedir } from 'os';
 import { join } from 'path';
 
-export const TEND_VERSION = '0.1.2';
+export const TEND_VERSION = '0.1.3';
 
 export const config = {
   tendRoot: process.env.TEND_ROOT || join(homedir(), 'projects'),
