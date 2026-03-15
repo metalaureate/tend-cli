@@ -653,12 +653,13 @@ _tend_project_state() {
 _tend_state_icon() {
   local state="$1"
   case "$state" in
-    done|waiting) echo "●" ;;
-    stuck)        echo "⊘" ;;
-    working)      echo "◐" ;;
-    unknown)      echo "○" ;;
-    idle|"")      echo "○" ;;
-    *)            echo "○" ;;
+    stuck)        echo "▲" ;;
+    waiting)      echo "▲" ;;
+    done)         echo "◆" ;;
+    working)      echo "◉" ;;
+    unknown)      echo "◌" ;;
+    idle|"")      echo "◌" ;;
+    *)            echo "◌" ;;
   esac
 }
 
@@ -666,8 +667,9 @@ _tend_state_icon() {
 _tend_state_color() {
   local state="$1"
   case "$state" in
-    done|waiting) echo "$C_AMBER" ;;
     stuck)        echo "$C_RED" ;;
+    waiting)      echo "$C_RED" ;;
+    done)         echo "$C_GREEN" ;;
     working)      echo "$C_CYAN" ;;
     unknown)      echo "$C_GREY" ;;
     idle|"")      echo "$C_GREY" ;;
