@@ -1430,27 +1430,6 @@ _tend_cmd_board() {
     _tend_gamification_footer
     echo ""
   fi
-
-  # Interactive switch prompt (only when both stdin and stdout are a terminal)
-  if [[ -t 0 && -t 1 && ${#switch_paths[@]} -gt 0 ]]; then
-    local choice
-    printf "  ${C_GREY}[#] switch, [enter] dismiss:${C_RESET} "
-    read -r choice
-    if [[ -n "$choice" && "$choice" =~ ^[0-9]+$ ]]; then
-      if (( choice >= 1 && choice <= ${#switch_paths[@]} )); then
-        local target="${switch_paths[$((choice - 1))]}"
-        local target_name
-        target_name=$(basename "$target")
-        if command -v code &>/dev/null; then
-          code "$target" && echo "  ▶ Focused: $target_name"
-        else
-          echo >&2 "  tend: 'code' command not found"
-        fi
-      else
-        echo >&2 "  tend: invalid project number"
-      fi
-    fi
-  fi
 }
 
 # --- tend <project> (detail view) ---
