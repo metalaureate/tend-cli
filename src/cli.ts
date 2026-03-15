@@ -14,6 +14,7 @@ import { cmdRelay } from './commands/relay.js';
 import { cmdHook } from './commands/hooks.js';
 import { cmdVersion } from './commands/version.js';
 import { cmdHelp } from './commands/help.js';
+import { cmdRemove } from './commands/remove.js';
 import { resolveProjectPath } from './core/projects.js';
 
 async function main(): Promise<void> {
@@ -54,6 +55,9 @@ async function main(): Promise<void> {
         break;
       case 'relay':
         await cmdRelay(rest);
+        break;
+      case 'remove':
+        await cmdRemove(rest);
         break;
       case 'hook':
         await cmdHook(rest);

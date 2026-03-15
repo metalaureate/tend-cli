@@ -65,6 +65,7 @@ No config files. No database. No daemon.
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `tend ack [project]` | Clear done/stuck/waiting → idle |
 | `tend status` | Status indicator: `○` or `●N` |
+| `tend remove [project]` | Remove tend from a project (with confirmation) |
 | `tend relay <subcmd>` | Manage relay connection (see below) |
 
 ---

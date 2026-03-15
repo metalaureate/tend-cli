@@ -41,6 +41,23 @@ export function registerProject(projectPath: string): void {
   appendFileSync(config.registry, projectPath + '\n');
 }
 
+/** Remove a project path from the registry */
+export function unregisterProject(projectPath: string): void {
+  try {
+    projectPath = realpathSync(projectPath);
+  } catch {
+    // keep as-is
+  }
+
+  if (!existsSync(config.registry)) return;
+
+  const content = readFileSync(config.registry, 'utf-8');
+  const lines = content.split('\n').filter(
+    (l: string) => l.trim() && l.trim().toLowerCase() !== projectPath.toLowerCase()
+  );
+  writeFileSync(config.registry, lines.join('\n') + (lines.length ? '\n' : ''));
+}
+
 /** Detect the current project from the working directory */
 export function detectProject(cwd: string = process.cwd()): string | null {
   let cur: string;

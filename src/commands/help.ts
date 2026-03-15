@@ -13,6 +13,7 @@ Usage:
   tend switch <project>         Focus VSCode window for project
   tend sync [project]           Generate reconciliation prompt
   tend relay <subcmd>           Relay management (setup|status|pull|token)
+  tend remove [project]         Remove tend from a project
   tend hook <subcmd>            Lifecycle hooks (session-start|user-prompt|stop)
   tend version                  Show version
   tend help                     Show this help
