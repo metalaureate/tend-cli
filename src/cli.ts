@@ -40,7 +40,7 @@ async function main(): Promise<void> {
         break;
       case 'add':
       case 'todo':
-        cmdAdd(rest);
+        await cmdAdd(rest);
         break;
       case 'ack':
         await cmdAck(rest);

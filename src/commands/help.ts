@@ -1,5 +1,5 @@
 export function cmdHelp(): void {
-  process.stdout.write(`Tend — What's running? What needs me?
+  process.stdout.write(`Tend — Who's stuck? Who needs you?
 
 Usage:
   tend                          Show the departures board

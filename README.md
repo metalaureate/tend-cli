@@ -58,7 +58,8 @@ No config files. No database. No daemon.
 | `tend <N>` | Project detail by board number |
 | `tend #<N>` | Switch to project N |
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
-| `tend add [project] "msg"` | Add a TODO (no message = show TODOs) |
+| `tend add [project] "msg"` | Add a TODO |
+| `tend add [project]` | Show & manage TODOs (enter # to remove) |
 | `tend switch <project>` | Focus the editor window (or `tend #N`) |
 | `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
@@ -93,6 +94,36 @@ If a `working` event is older than 30 minutes, the project shows as `unknown` (c
 ```
 
 Plain text. ISO 8601 timestamps. No YAML, no JSON.
+
+---
+
+## TODOs — Super Lightweight Cross-Agent Backlog
+
+`.tend/TODO` is a plain-text file committed to each project. Agents read it on session start; humans manage it from the terminal.
+
+```bash
+tend add "fix auth regression"        # add to current project
+tend add my-app "refactor models"     # add to a specific project
+
+tend add                              # show all TODOs across all projects
+tend add my-app                       # show TODOs for one project
+```
+
+When you run `tend add` with no message, you get a numbered list across every registered project:
+
+```
+TODO (my-app):
+  1. fix auth regression
+  2. refactor models
+TODO (other-project):
+  3. update deps
+
+Enter to dismiss, or #s to remove (e.g. 1,3):
+```
+
+Type comma-separated numbers to remove completed items, or press Enter to dismiss. That's the entire interface — no boards, no drag-and-drop, no status fields.
+
+Agents pick up TODOs automatically via the `SessionStart` lifecycle hook, which reads `.tend/TODO` and proposes backlog items to the developer. The file is just lines of text, so any agent can read or append to it.
 
 ---
 
