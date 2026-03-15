@@ -6,6 +6,7 @@ set -euo pipefail
 
 TEND_VERSION="0.1.0"
 TEND_ROOT="${TEND_ROOT:-$HOME/projects}"
+TEND_HOOK_DEBUG="1"
 
 # ─── Colors & Formatting ────────────────────────────────────────────────────
 
@@ -1348,6 +1349,15 @@ _tend_cmd_board() {
       ts="$TEND_AGG_TS"
       active_count="$TEND_AGG_ACTIVE"
 
+      # For idle with no message, check for uncommitted work before falling back to last commit
+      if [[ "$state" == "idle" && -z "$msg" && -d "$project_path/.git" ]]; then
+        if [[ -n "$(git -C "$project_path" status --porcelain 2>/dev/null | head -1)" ]]; then
+          msg="uncommitted changes"
+        else
+          msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
+        fi
+      fi
+
       # Staleness already handled by _tend_project_state
       if [[ "$state" == "unknown" && -n "$ts" ]]; then
         local ago
@@ -1368,15 +1378,21 @@ _tend_cmd_board() {
         duration_str="${ago} ago"
       fi
     else
-      # No events — try git fallback
+      # No events — check for uncommitted work, then try git fallback
       if [[ -d "$project_path/.git" ]]; then
-        local last_commit_msg last_commit_ago
-        last_commit_msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
-        last_commit_ago=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true
-        if [[ -n "$last_commit_msg" ]]; then
+        if [[ -n "$(git -C "$project_path" status --porcelain 2>/dev/null | head -1)" ]]; then
           state="idle"
-          msg="$last_commit_msg"
-          duration_str="$last_commit_ago"
+          msg="uncommitted changes"
+          duration_str=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true
+        else
+          local last_commit_msg last_commit_ago
+          last_commit_msg=$(git -C "$project_path" log --oneline -1 --format="%s" 2>/dev/null) || true
+          last_commit_ago=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true
+          if [[ -n "$last_commit_msg" ]]; then
+            state="idle"
+            msg="$last_commit_msg"
+            duration_str="$last_commit_ago"
+          fi
         fi
       fi
     fi
@@ -1979,6 +1995,20 @@ _tend_hook_stop() {
     session_id=$(_tend_extract_session_id "$input")
     local ts
     ts=$(_tend_ts_local)
+
+    # Only demote to idle if current state is "working".
+    # Preserve intentional terminal states (done, stuck, waiting).
+    local last_state=""
+    if [[ -n "$session_id" ]]; then
+      last_state=$(grep " $session_id " "$project_path/.tend/events" 2>/dev/null | tail -1 | awk '{print $3}') || true
+    else
+      last_state=$(tail -1 "$project_path/.tend/events" 2>/dev/null | awk '{print $2}') || true
+    fi
+
+    if [[ "$last_state" == "done" || "$last_state" == "stuck" || "$last_state" == "waiting" ]]; then
+      return 0
+    fi
+
     if [[ -n "$session_id" ]]; then
       echo "$ts $session_id idle session ended" >> "$project_path/.tend/events"
     else

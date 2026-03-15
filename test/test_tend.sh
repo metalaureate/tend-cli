@@ -335,6 +335,52 @@ test_board_staleness() {
   assert_contains "shows idle for stale" "idle" "$out"
 }
 
+test_board_uncommitted_idle() {
+  echo "test: board shows uncommitted changes for idle project"
+  local dir
+  dir=$(make_project "uniform")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit idle
+  # Create an uncommitted file
+  echo "wip" > "$dir/newfile.txt"
+  local out
+  out=$("$TEND")
+  assert_contains "shows uncommitted" "uncommitted changes" "$out"
+  assert_not_contains "no initial commit msg" "initial commit" "$out"
+}
+
+test_board_uncommitted_no_events() {
+  echo "test: board shows uncommitted changes for done project"
+  local dir
+  dir=$(make_project "victor")
+  cd "$dir"
+  "$TEND" init
+  "$TEND" emit done "finished task"
+  # Create uncommitted work (idle with no msg triggers the git fallback)
+  "$TEND" emit idle
+  echo "wip" > "$dir/newfile.txt"
+  local out
+  out=$("$TEND")
+  assert_contains "shows uncommitted" "uncommitted changes" "$out"
+}
+
+test_board_clean_shows_commit() {
+  echo "test: board shows last commit when working tree clean"
+  local dir
+  dir=$(make_project "whiskey")
+  cd "$dir"
+  "$TEND" init
+  # Commit the init-created files so working tree is clean
+  git -C "$dir" add -A
+  git -C "$dir" commit -q -m "add tend integration"
+  "$TEND" emit idle
+  local out
+  out=$("$TEND")
+  assert_contains "shows last commit" "add tend integration" "$out"
+  assert_not_contains "no uncommitted msg" "uncommitted" "$out"
+}
+
 test_detail_view() {
   echo "test: project detail view"
   local dir
@@ -530,6 +576,26 @@ test_hook_stop_with_session_id() {
   last=$(tail -1 "$dir/.tend/events")
   assert_contains "has session ID" "sess-stop1" "$last"
   assert_contains "emits idle" "idle" "$last"
+}
+
+test_hook_stop_preserves_done() {
+  echo "test: hook stop preserves done state"
+  local dir
+  dir=$(make_project "hotel4")
+  cd "$dir"
+  "$TEND" init
+  local ts
+  ts=$(date +%Y-%m-%dT%H:%M:%S)
+  echo "$ts sess-done1 done feature complete" >> "$dir/.tend/events"
+  local before_count
+  before_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
+  echo '{"sessionId":"sess-done1","stop_hook_active":false}' | "$TEND" hook stop
+  local after_count
+  after_count=$(wc -l < "$dir/.tend/events" | tr -d ' ')
+  assert_eq "no new event after done" "$before_count" "$after_count"
+  local last
+  last=$(tail -1 "$dir/.tend/events")
+  assert_contains "still shows done" "done" "$last"
 }
 
 test_ack_clears_done() {
@@ -1057,6 +1123,9 @@ run_all() {
     test_board_shows_projects
     test_board_empty
     test_board_staleness
+    test_board_uncommitted_idle
+    test_board_uncommitted_no_events
+    test_board_clean_shows_commit
     test_detail_view
     test_todo_add
     test_todo_show
@@ -1072,6 +1141,7 @@ run_all() {
     test_hook_stop_emits_idle
     test_hook_stop_respects_active
     test_hook_stop_with_session_id
+    test_hook_stop_preserves_done
     test_ack_clears_done
     test_ack_with_project_name
     test_ack_reduces_attention_count
