@@ -62,7 +62,7 @@ The metaphor is public transit, not mission control:
 2. **Ambient certainty.** A single glyph in your shell prompt (`○` / `●N`) tells you whether anything needs attention. You never have to wonder. The uncertainty — which is what drives compulsive polling — is gone.
 3. **Single command, any terminal.** You don't navigate to a project to check its status. You run `tend` from wherever you are and see everything.
 4. **Scan, don't read.** The output is designed for a 3-second glance. What needs me? What's fine? What's done? The answer should be visually obvious without reading sentences.
-5. **Act inline or jump precisely.** Some things can be handled from where you are — queue a message with `tend say`, assign a next task with `tend todo`. When you do need to go to a project, `tend switch` takes you directly to the right VSCode window and Space. No hunting. No guessing.
+5. **Act inline or jump precisely.** Some things can be handled from where you are — queue a message with `tend say`, assign a next task with `tend add`. When you do need to go to a project, `tend switch` takes you directly to the right VSCode window and Space. No hunting. No guessing.
 6. **Then disappear.** The tool has no persistent UI. No daemon. No background process. It runs, shows you the state, and exits.
 
 ---
@@ -221,15 +221,15 @@ $ tend say tari "when you're done with the dashboard, pick up the token bridge F
 
 This is the "shout across the kitchen" command. You don't walk over to the agent's terminal. You leave a note.
 
-### `tend todo "message"` / `tend todo <project> "message"`
+### `tend add "message"` / `tend add <project> "message"`
 
 Capture a thought. If you're inside a project directory, it auto-detects. If not, specify the project.
 
 ```
-$ tend todo "refactor the model layer"
+$ tend add "refactor the model layer"
 ✓ Added to fable/TODO
 
-$ tend todo hestia "research Supabase vs Firebase for auth"
+$ tend add hestia "research Supabase vs Firebase for auth"
 ✓ Added to hestia/TODO
 ```
 

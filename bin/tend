@@ -247,6 +247,24 @@ _tend_resolve_project_path() {
       echo "$cur"
       return
     fi
+    # Worktree: .git is a file containing "gitdir: <path>"
+    if [[ -f "$cur/.git" ]]; then
+      local gitdir
+      gitdir=$(sed -n 's/^gitdir: //p' "$cur/.git")
+      if [[ -n "$gitdir" ]]; then
+        # Resolve to absolute path if relative
+        [[ "$gitdir" != /* ]] && gitdir="$cur/$gitdir"
+        # Follow worktree gitdir back to main repo:
+        # e.g. /repo/.git/worktrees/name → /repo
+        if [[ "$gitdir" == */.git/worktrees/* ]]; then
+          local main_repo="${gitdir%%/.git/worktrees/*}"
+          if [[ -d "$main_repo/.git" ]]; then
+            echo "$main_repo"
+            return
+          fi
+        fi
+      fi
+    fi
     cur="$(dirname "$cur")"
   done
   echo >&2 "tend: not inside a project (no .git found)"
@@ -680,10 +698,10 @@ _tend_state_color() {
 _tend_state_label() {
   local state="$1"
   case "$state" in
-    done)    echo "agent done" ;;
-    stuck)   echo "agent stuck" ;;
-    waiting) echo "agent waiting" ;;
-    working) echo "agent working" ;;
+    done)    echo "done" ;;
+    stuck)   echo "stuck" ;;
+    waiting) echo "waiting" ;;
+    working) echo "working" ;;
     unknown) echo "unknown" ;;
     idle)    echo "idle" ;;
     *)       echo "no signal" ;;
@@ -703,12 +721,12 @@ _tend_gamification_enabled() {
 # Echoes: fire|hot|warming|simmering|ready|cold
 _tend_kitchen_heat() {
   local working="$1" needs="$2" stuck="$3" wait_age="${4:-0}" ready="${5:-0}"
-  local hot_count=$(( needs - ready ))  # waiting + stuck (excludes done)
-  if   (( hot_count > 0 && wait_age > 900 )); then echo "fire"
-  elif (( hot_count > 0 && wait_age > 300 )); then echo "hot"
-  elif (( hot_count > 0 ));                   then echo "warming"
-  elif (( working > 0 ));                     then echo "simmering"
-  elif (( ready > 0 ));                       then echo "ready"
+  # needs is already stuck+waiting only (done excluded)
+  if   (( needs > 0 && wait_age > 900 )); then echo "fire"
+  elif (( needs > 0 && wait_age > 300 )); then echo "hot"
+  elif (( needs > 0 ));                   then echo "warming"
+  elif (( working > 0 ));                 then echo "simmering"
+  elif (( ready > 0 ));                   then echo "ready"
   else echo "cold"
   fi
 }
@@ -1077,6 +1095,23 @@ echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
 AGENTS_EOF
 }
 
+# --- tend clear ---
+_tend_cmd_clear() {
+  local project_path
+  project_path=$(_tend_resolve_project_path "${1:-}") || exit 1
+  local project_name
+  project_name=$(basename "$project_path")
+  local events_file="$project_path/.tend/events"
+
+  if [[ ! -f "$events_file" ]]; then
+    echo "No events to clear for $project_name"
+    return 0
+  fi
+
+  > "$events_file"
+  echo "✓ Cleared events for $project_name"
+}
+
 # --- tend emit ---
 _tend_cmd_emit() {
   local state="${1:-}"
@@ -1121,7 +1156,8 @@ _tend_cmd_emit() {
 
   local ts
   ts=$(_tend_ts_local)
-  echo "$ts $state $message" >> "$events_file"
+  local session_id="${TEND_SESSION_ID:-_cli}"
+  echo "$ts $session_id $state $message" >> "$events_file"
 }
 
 # --- tend status ---
@@ -1175,6 +1211,22 @@ _tend_cmd_status() {
 
 # --- tend (board) ---
 _tend_cmd_board() {
+  # Start spinner
+  local _spin_pid=""
+  if [[ -t 1 ]]; then
+    (
+      trap 'exit 0' TERM
+      local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+      local i=0
+      while true; do
+        printf "\r  ${C_GREY}%s  scanning projects...${C_RESET}" "${frames[i++ % ${#frames[@]}]}" >&2
+        sleep 0.08
+      done
+    ) &
+    _spin_pid=$!
+    disown "$_spin_pid" 2>/dev/null
+  fi
+
   # Refresh relay cache (network call, before rendering)
   _tend_relay_sync 2>/dev/null || true
 
@@ -1189,6 +1241,11 @@ _tend_cmd_board() {
     has_local_projects=false
   fi
   if [[ -z "$projects" && -z "$relay_only" ]]; then
+    # Stop spinner before early exit
+    if [[ -n "$_spin_pid" ]]; then
+      kill "$_spin_pid" 2>/dev/null; wait "$_spin_pid" 2>/dev/null
+      printf "\r\033[K" >&2
+    fi
     echo "  No tended projects found"
     echo "  Run 'tend init' inside a project to start tending it"
     return
@@ -1208,6 +1265,12 @@ _tend_cmd_board() {
 
   # Sort projects by last event time (most recent first), current project pinned to top
   projects=$(_tend_sorted_projects)
+
+  # Stop spinner, print output
+  if [[ -n "$_spin_pid" ]]; then
+    kill "$_spin_pid" 2>/dev/null; wait "$_spin_pid" 2>/dev/null
+    printf "\r\033[K" >&2
+  fi
 
   # Header
   echo ""
@@ -1240,23 +1303,20 @@ _tend_cmd_board() {
       if [[ "$state" == "unknown" && -n "$ts" ]]; then
         local ago
         ago=$(_tend_ago "$ts")
-        duration_str="was: ${msg} (${ago} ago)"
-        msg=""
+        duration_str="${ago} ago"
+        msg="was: ${msg}"
       elif [[ "$state" == "working" && -n "$ts" ]]; then
         local ago
         ago=$(_tend_ago "$ts")
-        duration_str="(${ago})"
+        duration_str="${ago}"
       elif [[ "$state" == "idle" && -n "$ts" ]]; then
         local ago
         ago=$(_tend_ago "$ts")
-        if [[ -n "$msg" ]]; then
-          duration_str="${msg} (${ago} ago)"
-        else
-          duration_str="${ago} ago"
-        fi
-        msg=""
+        duration_str="${ago} ago"
       elif [[ "$state" == "done" && -n "$ts" ]]; then
-        duration_str=""
+        local ago
+        ago=$(_tend_ago "$ts")
+        duration_str="${ago} ago"
       fi
     else
       # No events — try git fallback
@@ -1266,14 +1326,15 @@ _tend_cmd_board() {
         last_commit_ago=$(git -C "$project_path" log --oneline -1 --format="%ar" 2>/dev/null) || true
         if [[ -n "$last_commit_msg" ]]; then
           state="idle"
-          duration_str="${last_commit_msg} (${last_commit_ago})"
+          msg="$last_commit_msg"
+          duration_str="$last_commit_ago"
         fi
       fi
     fi
 
     # Count states (use active_count for working to count sessions, not projects)
     case "$state" in
-      done)    (( ++ready )); (( ++needs )) ;;
+      done)    (( ++ready )) ;;
       stuck)   (( ++stuck_count )); (( ++needs )) ;;
       waiting) (( ++needs )) ;;
       working) (( working_count += active_count > 0 ? active_count : 1 )) ;;
@@ -1303,29 +1364,33 @@ _tend_cmd_board() {
     local display_name
     display_name=$(printf "%-20.20s" "$project_name")
 
-    # Build the detail string
-    local detail=""
-    if [[ -n "$msg" && -n "$duration_str" ]]; then
-      detail="$msg $duration_str"
-    elif [[ -n "$msg" ]]; then
-      detail="$msg"
-    elif [[ -n "$duration_str" ]]; then
-      detail="$duration_str"
-    fi
+    # Build the detail string (msg) and time column (duration_str) separately
+    local detail="$msg"
 
-    # Truncate detail to fit terminal
+    # Truncate detail to fit terminal, leaving room for time column
     local term_width=${COLUMNS:-80}
+    local time_col_width=0
+    if [[ -n "$duration_str" ]]; then
+      time_col_width=$(( ${#duration_str} + 3 ))  # 2 spaces + parens
+    fi
     local prefix_width=47  # 2 indent + 3 num + 2 icon + 1 sp + 20 name + 2 sp + 15 label + 2 sp
-    local max_detail=$(( term_width - prefix_width ))
+    local max_detail=$(( term_width - prefix_width - time_col_width ))
     if (( max_detail < 10 )); then max_detail=10; fi
-    if (( ${#detail} > max_detail )); then
+    if [[ -n "$detail" ]] && (( ${#detail} > max_detail )); then
       detail="${detail:0:$(( max_detail - 3 ))}..."
     fi
 
     local num_prefix
     num_prefix=$(printf "%2d." "$project_num")
-    printf "  %s %s  %s%s %-15s%s%s\n" \
-      "$num_prefix" "$display_name" "$color" "$icon" "$label" "$detail" "$C_RESET"
+    printf "  %s %s  %s%s %-15s%s" \
+      "$num_prefix" "$display_name" "$color" "$icon" "$label" "$C_RESET"
+    if [[ -n "$detail" ]]; then
+      printf "%s" "$detail"
+    fi
+    if [[ -n "$duration_str" ]]; then
+      printf "  ${C_GREY}(%s)${C_RESET}" "$duration_str"
+    fi
+    echo ""
   done <<< "$projects"
 
   # Render relay-only projects
@@ -1343,21 +1408,22 @@ _tend_cmd_board() {
 
         if [[ "$state" == "unknown" && -n "$ts" ]]; then
           local ago; ago=$(_tend_ago "$ts")
-          duration_str="was: ${msg} (${ago} ago)"; msg=""
+          duration_str="${ago} ago"
+          msg="was: ${msg}"
         elif [[ "$state" == "working" && -n "$ts" ]]; then
           local ago; ago=$(_tend_ago "$ts")
-          duration_str="(${ago})"
+          duration_str="${ago}"
         elif [[ "$state" == "idle" && -n "$ts" ]]; then
           local ago; ago=$(_tend_ago "$ts")
-          if [[ -n "$msg" ]]; then duration_str="${msg} (${ago} ago)"; else duration_str="${ago} ago"; fi
-          msg=""
+          duration_str="${ago} ago"
         elif [[ "$state" == "done" && -n "$ts" ]]; then
-          duration_str=""
+          local ago; ago=$(_tend_ago "$ts")
+          duration_str="${ago} ago"
         fi
       fi
 
       case "$state" in
-        done)    (( ++ready )); (( ++needs )) ;;
+        done)    (( ++ready )) ;;
         stuck)   (( ++stuck_count )); (( ++needs )) ;;
         waiting) (( ++needs )) ;;
         working) (( working_count += active_count > 0 ? active_count : 1 )) ;;
@@ -1383,19 +1449,27 @@ _tend_cmd_board() {
       display_name=$(printf "%-19.19s" "$relay_project")
       display_name="${display_name}↗"
 
-      local detail=""
-      if [[ -n "$msg" && -n "$duration_str" ]]; then detail="$msg $duration_str"
-      elif [[ -n "$msg" ]]; then detail="$msg"
-      elif [[ -n "$duration_str" ]]; then detail="$duration_str"; fi
+      local detail="$msg"
 
       local term_width=${COLUMNS:-80}
+      local time_col_width=0
+      if [[ -n "$duration_str" ]]; then
+        time_col_width=$(( ${#duration_str} + 3 ))
+      fi
       local prefix_width=47
-      local max_detail=$(( term_width - prefix_width ))
+      local max_detail=$(( term_width - prefix_width - time_col_width ))
       if (( max_detail < 10 )); then max_detail=10; fi
-      if (( ${#detail} > max_detail )); then detail="${detail:0:$(( max_detail - 3 ))}..."; fi
+      if [[ -n "$detail" ]] && (( ${#detail} > max_detail )); then detail="${detail:0:$(( max_detail - 3 ))}..."; fi
 
-      printf "     %s  %s%s %-15s%s%s\n" \
-        "$display_name" "$color" "$icon" "$label" "$detail" "$C_RESET"
+      printf "     %s  %s%s %-15s%s" \
+        "$display_name" "$color" "$icon" "$label" "$C_RESET"
+      if [[ -n "$detail" ]]; then
+        printf "%s" "$detail"
+      fi
+      if [[ -n "$duration_str" ]]; then
+        printf "  ${C_GREY}(%s)${C_RESET}" "$duration_str"
+      fi
+      echo ""
     done <<< "$relay_only"
   fi
 
@@ -1419,13 +1493,8 @@ _tend_cmd_board() {
   echo "  $footer"
   echo ""
 
-  # Gamification: pot banner + stats tally
+  # Gamification: stats tally
   if _tend_gamification_enabled; then
-    local kitchen_heat hot_count
-    kitchen_heat=$(_tend_kitchen_heat "$working_count" "$needs" "$stuck_count" "$oldest_waiting_age" "$ready")
-    hot_count=$(( needs - ready ))
-    _tend_pot_line "$kitchen_heat" "$working_count" "$hot_count"
-    echo ""
     _tend_gamification_footer
     echo ""
   fi
@@ -1552,7 +1621,8 @@ _tend_cmd_detail() {
       }
       END {
         for (s in sess) {
-          printf "%s\t%s\t%s\t%s\tlocal\n", s, sess[s], sess_ts[s], sess_msg[s]
+          m = (sess_msg[s] == "" ? "-" : sess_msg[s])
+          printf "%s\t%s\t%s\t%s\tlocal\n", s, sess[s], sess_ts[s], m
         }
       }
     ' <<< "$local_events")
@@ -1580,7 +1650,8 @@ _tend_cmd_detail() {
       }
       END {
         for (s in sess) {
-          printf "%s\t%s\t%s\t%s\trelay\n", s, sess[s], sess_ts[s], sess_msg[s]
+          m = (sess_msg[s] == "" ? "-" : sess_msg[s])
+          printf "%s\t%s\t%s\t%s\trelay\n", s, sess[s], sess_ts[s], m
         }
       }
     ' <<< "$relay_events")
@@ -1591,6 +1662,9 @@ _tend_cmd_detail() {
   while IFS=$'\t' read -r sid state ts msg source; do
     [[ -z "$sid" ]] && continue
     (( session_count++ ))
+
+    # Strip placeholder for empty messages
+    [[ "$msg" == "-" ]] && msg=""
 
     # Demote stale working sessions to idle
     if [[ "$state" == "working" && -n "$ts" ]] && _tend_is_stale "$ts"; then
@@ -1620,7 +1694,7 @@ _tend_cmd_detail() {
       ago=$(_tend_ago "$ts")
     fi
 
-    printf "    %s%s %-14s  %-20s %s" "$color" "$icon" "$label" "$display_sid$source_tag" "$C_RESET"
+    printf "    %s%s %-10s  %-20s %s" "$color" "$icon" "$label" "$display_sid$source_tag" "$C_RESET"
     if [[ -n "$msg" ]]; then
       printf "  %s" "$msg"
     fi
@@ -1658,8 +1732,8 @@ _tend_cmd_detail() {
   echo ""
 }
 
-# --- tend todo ---
-_tend_cmd_todo() {
+# --- tend add ---
+_tend_cmd_add() {
   local project_name="" message=""
 
   # With 2+ args, try first arg as project name; with 1 arg, it's either
@@ -1983,8 +2057,9 @@ Usage:
   tend <project>                Show project detail + sessions
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
+  tend clear [project]          Clear events history for a project
   tend status                   Status indicator (○ ◉N ▲N ◆N)
-  tend todo [project] "msg"     Add a TODO (or show TODOs if no message)
+  tend add [project] "msg"      Add a TODO (or show TODOs if no message)
   tend ack [project]            Clear done/stuck/waiting → idle
   tend switch <project>         Focus VSCode window for project
   tend sync [project]           Generate reconciliation prompt
@@ -2004,8 +2079,9 @@ main() {
     "")        _tend_cmd_board ;;
     init)      shift; _tend_cmd_init "$@" ;;
     emit)      shift; _tend_cmd_emit "$@" ;;
+    clear)     shift; _tend_cmd_clear "$@" ;;
     status)    _tend_cmd_status ;;
-    todo)      shift; _tend_cmd_todo "$@" ;;
+    add|todo)  shift; _tend_cmd_add "$@" ;;
     ack)       shift; _tend_cmd_ack "$@" ;;
     switch|sw) shift; _tend_cmd_switch "$@" ;;
     sync)      shift; _tend_cmd_sync "$@" ;;

@@ -406,7 +406,7 @@ function HowItWorks() {
             <p className="font-body text-smoke text-sm leading-relaxed">
               Run <span className="font-mono text-anvil">tend</span> from anywhere. The board shows what needs you.
               <span className="font-mono text-anvil"> tend switch</span> jumps to the right editor window.
-              <span className="font-mono text-anvil"> tend todo</span> queues work for the agent.
+              <span className="font-mono text-anvil"> tend add</span> queues work for the agent.
               No persistent UI. No daemon. It runs, shows you the state, and exits.
             </p>
             <div className="flex flex-wrap gap-2 mt-4">
@@ -414,7 +414,7 @@ function HowItWorks() {
                 'tend',
                 'tend <project>',
                 'tend switch',
-                'tend todo "msg"',
+                'tend add "msg"',
                 'tend emit',
                 'tend ack',
               ].map((cmd) => (
@@ -456,7 +456,7 @@ function Principles() {
   const principles = [
     { title: 'Pull, not push.', desc: 'No notifications. No badges. No live updates. Tend speaks only when spoken to.' },
     { title: 'Scan, don\'t read.', desc: 'The board is a 3-second glance. Status icons are the primary signal.' },
-    { title: 'Act or jump.', desc: 'Queue a task with tend todo. Focus the right window with tend switch. Handle it inline.' },
+    { title: 'Act or jump.', desc: 'Queue a task with tend add. Focus the right window with tend switch. Handle it inline.' },
     { title: 'Then disappear.', desc: 'No persistent UI. No daemon. No background process. It runs and exits.' },
   ]
 

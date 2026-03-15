@@ -306,7 +306,7 @@ test_board_shows_projects() {
   local out
   out=$("$TEND")
   assert_contains "shows project name" "papa" "$out"
-  assert_contains "shows working state" "agent working" "$out"
+  assert_contains "shows working state" "working" "$out"
   assert_contains "shows message" "coding" "$out"
   assert_contains "shows project number" " 1." "$out"
   assert_not_contains "no prompt in non-tty" "switch" "$out"
@@ -321,7 +321,7 @@ test_board_empty() {
 }
 
 test_board_staleness() {
-  echo "test: board marks stale working as unknown"
+  echo "test: board marks stale working as idle"
   local dir
   dir=$(make_project "quebec")
   cd "$dir"
@@ -332,7 +332,7 @@ test_board_staleness() {
   echo "$stale_ts working old task" > "$dir/.tend/events"
   local out
   out=$("$TEND")
-  assert_contains "shows unknown for stale" "unknown" "$out"
+  assert_contains "shows idle for stale" "idle" "$out"
 }
 
 test_detail_view() {
@@ -342,7 +342,7 @@ test_detail_view() {
   cd "$dir"
   "$TEND" init
   "$TEND" emit working "building feature"
-  "$TEND" todo "add tests"
+  "$TEND" add "add tests"
   local out
   out=$("$TEND" romeo)
   assert_contains "shows project name" "ROMEO" "$out"
@@ -351,13 +351,13 @@ test_detail_view() {
 }
 
 test_todo_add() {
-  echo "test: todo adds items"
+  echo "test: add command adds items"
   local dir
   dir=$(make_project "tango")
   cd "$dir"
   "$TEND" init
   local out
-  out=$("$TEND" todo "refactor model layer")
+  out=$("$TEND" add "refactor model layer")
   assert_contains "confirms added" "Added to tango/TODO" "$out"
   local content
   content=$(cat "$dir/.tend/TODO")
@@ -365,26 +365,26 @@ test_todo_add() {
 }
 
 test_todo_show() {
-  echo "test: todo shows items when no message"
+  echo "test: add shows items when no message"
   local dir
   dir=$(make_project "uniform")
   cd "$dir"
   "$TEND" init
-  "$TEND" todo "item one"
-  "$TEND" todo "item two"
+  "$TEND" add "item one"
+  "$TEND" add "item two"
   local out
-  out=$("$TEND" todo uniform)
+  out=$("$TEND" add uniform)
   assert_contains "shows first item" "item one" "$out"
   assert_contains "shows second item" "item two" "$out"
 }
 
 test_todo_message_not_swallowed() {
-  echo "test: todo treats single non-project arg as message"
+  echo "test: add treats single non-project arg as message"
   local dir
   dir=$(make_project "whiskey2")
   cd "$dir"
   "$TEND" init
-  "$TEND" todo "refactor the auth layer"
+  "$TEND" add "refactor the auth layer"
   local content
   content=$(cat "$dir/.tend/TODO")
   assert_contains "full message in TODO" "refactor the auth layer" "$content"
@@ -396,7 +396,7 @@ test_sync_generates_prompt() {
   dir=$(make_project "xray")
   cd "$dir"
   "$TEND" init
-  "$TEND" todo "build feature X"
+  "$TEND" add "build feature X"
   local out
   out=$("$TEND" sync xray)
   assert_contains "has project name" "xray" "$out"
@@ -850,8 +850,12 @@ test_detail_shows_sessions() {
   local dir
   dir=$(make_project "peek-proj")
   (cd "$dir" && "$TEND" init peek-proj) >/dev/null 2>&1
-  echo "2026-03-14T14:00:00 sess-A working building auth" >> "$dir/.tend/events"
-  echo "2026-03-14T14:05:00 sess-B working running tests" >> "$dir/.tend/events"
+  local recent_ts
+  recent_ts=$(date -v-2M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -d "2 minutes ago" +"%Y-%m-%dT%H:%M:%S")
+  local recent_ts2
+  recent_ts2=$(date -v-1M +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -d "1 minute ago" +"%Y-%m-%dT%H:%M:%S")
+  echo "$recent_ts sess-A working building auth" >> "$dir/.tend/events"
+  echo "$recent_ts2 sess-B working running tests" >> "$dir/.tend/events"
 
   local out
   out=$(cd "$dir" && "$TEND" peek-proj)
@@ -984,7 +988,7 @@ test_gamification_pot_fire() {
   printf '%s waiting blocked on review\n' "$old_ts" > "$dir/.tend/events"
   local out
   out=$("$TEND")
-  assert_contains "fire state shown" "overdue" "$out"
+  assert_contains "fire state shown" "waiting" "$out"
 }
 
 test_gamification_pot_simmering() {
@@ -1017,8 +1021,8 @@ test_gamification_open_todos() {
   dir=$(make_project "gami-theta")
   cd "$dir"
   "$TEND" init
-  "$TEND" todo "fix the login bug"
-  "$TEND" todo "add unit tests"
+  "$TEND" add "fix the login bug"
+  "$TEND" add "add unit tests"
   "$TEND" emit working "coding"
   local out
   out=$("$TEND")

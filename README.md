@@ -28,7 +28,7 @@ TEND                               Thu Mar 13, 14:32
 
 ```bash
 tend my-app          # project detail + sessions
-tend todo "fix auth" # queue work for the agent
+tend add "fix auth"  # queue work for the agent
 tend switch my-app   # focus the editor window
 ```
 
@@ -52,7 +52,7 @@ No config files. No database. No daemon.
 | `tend` | Show the departures board |
 | `tend <project>` | Project detail + sessions |
 | `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
-| `tend todo [project] "msg"` | Add a TODO (no message = show TODOs) |
+| `tend add [project] "msg"` | Add a TODO (no message = show TODOs) |
 | `tend switch <project>` | Focus the editor window |
 | `tend sync [project]` | Generate a reconciliation prompt |
 | `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
@@ -183,7 +183,7 @@ The shell prompt indicator (`○` / `●N`) means you often don't even need the 
 
 - **Pull, not push.** No notifications, no badges, no live updates. Tend speaks only when spoken to.
 - **Scan, don't read.** The board is a 3-second glance. Status icons are the primary signal.
-- **Act or jump.** `tend todo` to tee up a new task. `tend switch` to jump to the right window,
+- **Act or jump.** `tend add` to tee up a new task. `tend switch` to jump to the right window,
 - **Then disappear.** No persistent UI. No daemon. No background process.
 
 
