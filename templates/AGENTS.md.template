@@ -30,17 +30,19 @@ curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/bin/tend 
 
 ### Event Format
 
-Append a single line to `.tend/events`:
+If `tend` is not available, append a single line to `.tend/events`:
 
 ```
-<ISO-8601-timestamp> <state> <message>
+<ISO-8601-timestamp> <session-id> <state> <message>
 ```
+
+Use `$TEND_SESSION_ID` as the session ID if set, otherwise use `_cli`.
 
 States: `working`, `done`, `stuck`, `waiting`, `idle`.
 
 Example:
 ```
-2026-03-13T14:20:00 working refactoring narrative engine
-2026-03-13T14:45:00 done refactored narrative engine (PR #204)
-2026-03-13T14:46:00 stuck tool approval needed: npm test
+2026-03-13T14:20:00 _cli working refactoring narrative engine
+2026-03-13T14:45:00 _cli done refactored narrative engine (PR #204)
+2026-03-13T14:46:00 _cli stuck tool approval needed: npm test
 ```

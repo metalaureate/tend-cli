@@ -11,8 +11,10 @@ This project uses Tend for workflow coordination.
 When your work state changes, append a line to `.tend/events`:
 
 ```
-<ISO-8601-timestamp> <state> <message>
+<ISO-8601-timestamp> <session-id> <state> <message>
 ```
+
+Use `$TEND_SESSION_ID` as the session ID if set, otherwise use `_cli`.
 
 States: `working`, `done`, `stuck`, `waiting`, `idle`
 
@@ -26,7 +28,7 @@ tend emit idle
 
 Or append directly:
 ```bash
-echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
+echo "$(date +%Y-%m-%dT%H:%M:%S) ${TEND_SESSION_ID:-_cli} working <description>" >> .tend/events
 ```
 
 ### On Completion
@@ -46,3 +48,22 @@ bash test/test_tend.sh
 - If you add a new command or change behavior, add a corresponding test to `test/test_tend.sh`.
 - Tests should be self-contained: each test calls `setup` (creates temp dirs) and `teardown` (cleans up).
 - Use the existing assertion helpers: `assert_eq`, `assert_contains`, `assert_not_contains`, `assert_file_exists`, `assert_exit`.
+
+## Terminal Output (VS Code)
+
+VS Code's integrated terminal swallows stdout. **Always** redirect output to a workspace file and read it back with `read_file`:
+
+```bash
+bash test/test_tend.sh > .scratch/tests.txt 2>&1; echo "EXIT:$?" >> .scratch/tests.txt
+```
+
+Then use the `read_file` tool on `.scratch/tests.txt` to see results. Tests take ~45 seconds — use a 120-second timeout.
+
+**Never do these — output will be lost:**
+- Read terminal output directly (it gets swallowed)
+- Use `cat`, `tail`, `head`, or `grep` in the terminal to view the file
+- Pipe output (`| tail`, `| tee`)
+- Chain `sleep` commands to wait (they get interrupted)
+- Write to `/tmp` (requires manual approval each time)
+
+**One command, one `read_file` — that's it.**

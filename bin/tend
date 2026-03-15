@@ -1071,8 +1071,10 @@ This project uses Tend for workflow coordination.
 When your work state changes, append a line to `.tend/events`:
 
 ```
-<ISO-8601-timestamp> <state> <message>
+<ISO-8601-timestamp> <session-id> <state> <message>
 ```
+
+Use `$TEND_SESSION_ID` as the session ID if set, otherwise use `_cli`.
 
 States: `working`, `done`, `stuck`, `waiting`, `idle`
 
@@ -1086,7 +1088,7 @@ tend emit idle
 
 Or append directly:
 ```bash
-echo "$(date +%Y-%m-%dT%H:%M:%S) working <description>" >> .tend/events
+echo "$(date +%Y-%m-%dT%H:%M:%S) ${TEND_SESSION_ID:-_cli} working <description>" >> .tend/events
 ```
 
 ### On Completion
@@ -1211,7 +1213,12 @@ _tend_cmd_status() {
 
 # --- tend (board) ---
 _tend_cmd_board() {
-  # Start spinner
+  # Print header immediately, spinner appends to this line
+  echo ""
+  local header_line="  ${C_BOLD}TEND${C_RESET}                               $(_tend_date_header)"
+  printf '%s' "$header_line"
+
+  # Start spinner (appends to header line)
   local _spin_pid=""
   if [[ -t 1 ]]; then
     (
@@ -1219,7 +1226,7 @@ _tend_cmd_board() {
       local frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
       local i=0
       while true; do
-        printf "\r  ${C_GREY}%s  scanning projects...${C_RESET}" "${frames[i++ % ${#frames[@]}]}" >&2
+        printf "  %s\b\b\b" "${frames[i++ % ${#frames[@]}]}" >&2
         sleep 0.08
       done
     ) &
@@ -1244,8 +1251,11 @@ _tend_cmd_board() {
     # Stop spinner before early exit
     if [[ -n "$_spin_pid" ]]; then
       kill "$_spin_pid" 2>/dev/null; wait "$_spin_pid" 2>/dev/null
-      printf "\r\033[K" >&2
+      printf "\r%s  \n" "$header_line" >&2
+    else
+      echo ""
     fi
+    echo ""
     echo "  No tended projects found"
     echo "  Run 'tend init' inside a project to start tending it"
     return
@@ -1266,15 +1276,13 @@ _tend_cmd_board() {
   # Sort projects by last event time (most recent first), current project pinned to top
   projects=$(_tend_sorted_projects)
 
-  # Stop spinner, print output
+  # Stop spinner, finish header line
   if [[ -n "$_spin_pid" ]]; then
     kill "$_spin_pid" 2>/dev/null; wait "$_spin_pid" 2>/dev/null
-    printf "\r\033[K" >&2
+    printf "\r%s  \n" "$header_line"
+  else
+    echo ""
   fi
-
-  # Header
-  echo ""
-  echo "  ${C_BOLD}TEND${C_RESET}                               $(  _tend_date_header)"
   echo ""
 
   local needs=0 ready=0 working_count=0 idle_count=0 stuck_count=0
