@@ -40,10 +40,11 @@ echo "$(date +%Y-%m-%dT%H:%M:%S) ${TEND_SESSION_ID:-_cli} working <description>"
 Run the test suite before committing any changes to the `tend` script:
 
 ```bash
-bash test/test_tend.sh
+make test
 ```
 
-- All 54 tests must pass (105 assertions).
+This writes full output to `.scratch/test_results.txt` and prints the summary.
+
 - Tests use isolated temp directories — no impact on real projects or shell config.
 - If you add a new command or change behavior, add a corresponding test to `test/test_tend.sh`.
 - Tests should be self-contained: each test calls `setup` (creates temp dirs) and `teardown` (cleans up).

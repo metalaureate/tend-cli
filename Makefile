@@ -1,6 +1,6 @@
 PREFIX ?= $(HOME)/bin
 
-.PHONY: install uninstall relay-install relay-dev relay-deploy
+.PHONY: install uninstall test relay-install relay-dev relay-deploy
 
 install:
 	@cp bin/tend $(PREFIX)/tend
@@ -14,6 +14,12 @@ install:
 	@echo "  PROMPT='\%~ \$$(tend prompt) \%# '"
 	@echo "  # bash"
 	@echo "  export PS1='\\w \$$(tend prompt) \\$$$ '"
+
+test:
+	@mkdir -p .scratch
+	@bash test/test_tend.sh > .scratch/test_results.txt 2>&1; \
+		echo "EXIT:$$?" >> .scratch/test_results.txt; \
+		tail -5 .scratch/test_results.txt
 
 uninstall:
 	@rm -f $(PREFIX)/tend $(PREFIX)/td

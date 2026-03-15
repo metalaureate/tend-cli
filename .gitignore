@@ -7,3 +7,5 @@
 relay/node_modules/
 relay/dist/
 relay/.wrangler/
+www/node_modules/
+.tend/hook_debug.log

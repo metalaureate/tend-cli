@@ -948,11 +948,16 @@ _tend_cmd_init() {
   # Gitignore machine-local tend artifacts
   local gitignore="$project_path/.gitignore"
   local entry
-  for entry in ".tend/events" ".tend/hook_debug.log" ".github/hooks/" ".scratch/"; do
+  for entry in ".tend/events" ".tend/hook_debug.log" ".scratch/"; do
     if [[ ! -f "$gitignore" ]] || ! grep -qxF "$entry" "$gitignore" 2>/dev/null; then
       echo "$entry" >> "$gitignore"
     fi
   done
+
+  # Remove stale .github/hooks/ gitignore entry (hooks should be tracked for worktrees)
+  if [[ -f "$gitignore" ]] && grep -qxF ".github/hooks/" "$gitignore" 2>/dev/null; then
+    sed -i'' -e '/^\.github\/hooks\/$/d' "$gitignore"
+  fi
 
   # Add tend integration to AGENTS.md
   local agents_file="$project_path/AGENTS.md"

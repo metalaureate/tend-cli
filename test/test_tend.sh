@@ -481,8 +481,21 @@ test_init_gitignores_events() {
   gitignore=$(cat "$dir/.gitignore")
   assert_contains "events gitignored" ".tend/events" "$gitignore"
   assert_contains "hook_debug gitignored" ".tend/hook_debug.log" "$gitignore"
-  assert_contains "hooks dir gitignored" ".github/hooks/" "$gitignore"
+  assert_not_contains "hooks dir NOT gitignored" ".github/hooks/" "$gitignore"
   assert_contains "scratch gitignored" ".scratch/" "$gitignore"
+}
+
+test_init_removes_stale_hooks_gitignore() {
+  echo "test: init removes stale .github/hooks/ gitignore entry"
+  local dir
+  dir=$(make_project "bravo2b")
+  cd "$dir"
+  # Simulate old tend init that gitignored hooks
+  echo ".github/hooks/" >> "$dir/.gitignore"
+  "$TEND" init
+  local gitignore
+  gitignore=$(cat "$dir/.gitignore")
+  assert_not_contains "hooks entry removed" ".github/hooks/" "$gitignore"
 }
 
 test_init_creates_hooks_config() {
@@ -1137,6 +1150,7 @@ run_all() {
     test_unknown_command
     test_nested_project
     test_init_gitignores_events
+    test_init_removes_stale_hooks_gitignore
     test_init_creates_hooks_config
     test_hook_session_start
     test_hook_user_prompt
