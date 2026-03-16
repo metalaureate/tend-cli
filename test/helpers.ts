@@ -88,6 +88,8 @@ export function createTestContext(): TestContext {
     const projectDir = dir || join(testDir, name);
     mkdirSync(projectDir, { recursive: true });
     execFileSync('git', ['init', '-q'], { cwd: projectDir, encoding: 'utf-8', env: gitExecEnv });
+    execFileSync('git', ['config', 'user.email', 'test@test.com'], { cwd: projectDir, encoding: 'utf-8', env: gitExecEnv });
+    execFileSync('git', ['config', 'user.name', 'Test'], { cwd: projectDir, encoding: 'utf-8', env: gitExecEnv });
     execFileSync('git', ['commit', '--allow-empty', '-m', 'initial commit', '-q'], {
       cwd: projectDir,
       encoding: 'utf-8',

@@ -97,42 +97,54 @@ export function appendEvent(
   appendFileSync(filePath, line);
 }
 
-/** Return true if a sessionId represents a reset marker (`*` or `*@branch`) */
+/** Return true if a sessionId represents a reset marker (`*` or `*@user`) */
 export function isResetMarker(sessionId: string): boolean {
   return sessionId === '*' || sessionId.startsWith('*@');
 }
 
-/** Strip the `@branch` suffix from a session ID (if present) */
-export function stripBranchSuffix(sessionId: string): string {
+/** Strip the `@user` suffix from a session ID (if present) */
+export function stripUserTag(sessionId: string): string {
   const atIdx = sessionId.lastIndexOf('@');
   return atIdx === -1 ? sessionId : sessionId.slice(0, atIdx);
 }
 
 /**
- * Extract the branch name from a tagged session ID (e.g. `_cli@feature-auth` → `"feature-auth"`).
- * Returns an empty string when the session ID has no branch suffix.
+ * Extract the user tag from a session ID (e.g. `_cli@alice_example.com` → `"alice_example.com"`).
+ * Returns an empty string when the session ID has no user tag suffix.
  */
-export function branchFromSessionId(sessionId: string): string {
+export function userTagFromSessionId(sessionId: string): string {
   const atIdx = sessionId.lastIndexOf('@');
   return atIdx === -1 ? '' : sessionId.slice(atIdx + 1);
 }
 
+/** Maximum length for a sanitized user tag to keep event lines readable */
+const MAX_USER_TAG_LENGTH = 40;
+
 /**
- * Filter an event array to only include events relevant to the given branch.
- * - Events without a `@branch` tag are included on every branch (backward compat).
- * - Global reset markers (`*`) always pass through.
- * - Branch-scoped reset markers (`*@branch`) only pass for the matching branch.
- * When `branch` is null/undefined the original array is returned unchanged.
+ * Sanitize a value (e.g. a git user email) for safe use as a session tag.
+ * Replaces `@` with `_` and any non-alphanumeric non-`.`-`-` characters with `-`.
+ * Truncates to MAX_USER_TAG_LENGTH characters.
  */
-export function filterEventsByBranch(events: TendEvent[], branch: string | null | undefined): TendEvent[] {
-  if (!branch) return events;
+export function sanitizeUserTag(value: string): string {
+  return value.replace(/@/g, '_').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, MAX_USER_TAG_LENGTH);
+}
+
+/**
+ * Filter an event array to only include events relevant to the given user tag.
+ * - Events without a `@user` tag are included for every user (backward compat).
+ * - Global reset markers (`*`) always pass through.
+ * - User-scoped reset markers (`*@user`) only pass for the matching user.
+ * When `userTag` is null/undefined the original array is returned unchanged.
+ */
+export function filterEventsByUser(events: TendEvent[], userTag: string | null | undefined): TendEvent[] {
+  if (!userTag) return events;
   return events.filter(e => {
     const sid = e.sessionId;
     if (sid === '*') return true; // global reset — backward compat
-    if (sid.startsWith('*@')) return sid === `*@${branch}`; // branch-scoped reset
+    if (sid.startsWith('*@')) return sid === `*@${userTag}`; // user-scoped reset
     const atIdx = sid.lastIndexOf('@');
-    if (atIdx === -1) return true; // no branch tag — backward compat
-    return sid.slice(atIdx + 1) === branch;
+    if (atIdx === -1) return true; // no user tag — backward compat
+    return sid.slice(atIdx + 1) === userTag;
   });
 }
 
@@ -141,9 +153,9 @@ export function appendReset(filePath: string, ts: string): void {
   appendFileSync(filePath, `${ts} * idle\n`);
 }
 
-/** Append a branch-scoped reset marker */
-export function appendBranchReset(filePath: string, ts: string, branch: string): void {
-  appendFileSync(filePath, `${ts} *@${branch} idle\n`);
+/** Append a user-scoped reset marker */
+export function appendUserReset(filePath: string, ts: string, userTag: string): void {
+  appendFileSync(filePath, `${ts} *@${userTag} idle\n`);
 }
 
 /** Clear an events file */

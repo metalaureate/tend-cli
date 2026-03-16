@@ -1,7 +1,7 @@
 import { config } from './config.js';
 import { type TendEvent, type SessionState, type ProjectState, type State, STATE_PRIORITY } from '../types.js';
 import { isStale, toEpoch } from '../ui/format.js';
-import { readEvents, mergeEvents, isResetMarker, branchFromSessionId } from './events.js';
+import { readEvents, mergeEvents, isResetMarker, userTagFromSessionId } from './events.js';
 import { lastCommitEpoch as getLastCommitEpoch } from './git.js';
 import { join } from 'path';
 import { existsSync } from 'fs';
@@ -28,11 +28,11 @@ export function aggregateState(
     }
 
     if (evt.sessionId.startsWith('*@')) {
-      // Branch-scoped reset — only clear sessions tagged for this branch,
+      // User-scoped reset — only clear sessions tagged for this user,
       // plus any untagged sessions (backward compat with old event formats).
-      const branch = branchFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
+      const userTag = userTagFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
       for (const [sid] of sessions) {
-        if (branchFromSessionId(sid) === branch || branchFromSessionId(sid) === '') {
+        if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
           sessions.delete(sid);
         }
       }

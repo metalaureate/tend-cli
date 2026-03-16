@@ -1,6 +1,6 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { readEvents, mergeEvents, isResetMarker, stripBranchSuffix, branchFromSessionId } from '../core/events.js';
+import { readEvents, mergeEvents, isResetMarker, stripUserTag, userTagFromSessionId } from '../core/events.js';
 import { currentBranch, commitsToday } from '../core/git.js';
 import { ago, isStale } from '../ui/format.js';
 import { C } from '../ui/colors.js';
@@ -112,10 +112,10 @@ export function cmdDetail(name: string): void {
           continue;
         }
         if (evt.sessionId.startsWith('*@')) {
-          // Branch-scoped reset — only clear sessions tagged for that branch
-          const branch = branchFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
+          // User-scoped reset — only clear sessions tagged for that user
+          const userTag = userTagFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
           for (const [sid] of sessions) {
-            if (branchFromSessionId(sid) === branch || branchFromSessionId(sid) === '') {
+            if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
               sessions.delete(sid);
             }
           }
@@ -154,13 +154,13 @@ export function cmdDetail(name: string): void {
       const sColor = stateColor(sessState);
       const sLabel = stateLabel(sessState);
 
-      // Format session ID — show base ID with branch context where present
-      const bareId = stripBranchSuffix(s.sid);
-      const branchName = branchFromSessionId(s.sid);
+      // Format session ID — show base ID with user context where present
+      const bareId = stripUserTag(s.sid);
+      const userTag = userTagFromSessionId(s.sid);
       let displaySid = bareId;
       if (bareId === '_cli') displaySid = 'cli';
       else if (bareId.length > 16) displaySid = `${bareId.slice(0, 8)}…${bareId.slice(-4)}`;
-      if (branchName) displaySid += ` (${branchName})`;
+      if (userTag) displaySid += ` (${userTag})`;
 
       const sourceTag = s.source === 'relay' ? ' ↗' : '';
       const agoStr = s.ts ? ago(s.ts) : '';

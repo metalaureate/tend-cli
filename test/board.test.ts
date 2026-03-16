@@ -113,42 +113,42 @@ describe('board', () => {
     expect(r.stdout).toContain('uncommitted changes');
   });
 
-  it('shows sessions from all branches on board (worktree-safe)', () => {
+  it('shows sessions from multiple users on board', () => {
     const dir = ctx.makeProject('bravo-iso');
     ctx.tend(['init'], { cwd: dir });
 
-    // Emit on a feature branch (working)
-    execFileSync('git', ['checkout', '-b', 'feature-work'], { cwd: dir, env: GIT_ENV });
+    // User alice emits working
+    execFileSync('git', ['config', 'user.email', 'alice@example.com'], { cwd: dir, env: GIT_ENV });
     ctx.tend(['emit', 'working', 'feature work'], { cwd: dir });
 
-    // Switch to a second branch and emit done
-    execFileSync('git', ['checkout', '-b', 'fix-bug'], { cwd: dir, env: GIT_ENV });
+    // User bob emits done
+    execFileSync('git', ['config', 'user.email', 'bob@example.com'], { cwd: dir, env: GIT_ENV });
     ctx.tend(['emit', 'done', 'bug fixed'], { cwd: dir });
 
-    // Board from fix-bug must show the highest-priority aggregated state
-    // (working > done), proving the feature-work session is still visible
+    // Board must show the highest-priority aggregated state
+    // (working > done), proving alice's session is still visible
     const r = ctx.tend([]);
     expect(r.stdout).toContain('working');
   });
 
-  it('branch ack does not clear other branches', () => {
+  it('user ack does not clear other users\' sessions', () => {
     const dir = ctx.makeProject('charlie-iso');
     ctx.tend(['init'], { cwd: dir });
 
-    // Emit on feature branch
-    execFileSync('git', ['checkout', '-b', 'my-feature'], { cwd: dir, env: GIT_ENV });
+    // User alice emits done
+    execFileSync('git', ['config', 'user.email', 'alice@example.com'], { cwd: dir, env: GIT_ENV });
     ctx.tend(['emit', 'done', 'feature done'], { cwd: dir });
 
-    // Switch to a second branch with its own state
-    execFileSync('git', ['checkout', '-b', 'other-feature'], { cwd: dir, env: GIT_ENV });
+    // User bob emits working
+    execFileSync('git', ['config', 'user.email', 'bob@example.com'], { cwd: dir, env: GIT_ENV });
     ctx.tend(['emit', 'working', 'still working'], { cwd: dir });
 
-    // Ack from my-feature — should only clear my-feature
-    execFileSync('git', ['checkout', 'my-feature'], { cwd: dir, env: GIT_ENV });
+    // Alice acks — should only clear alice's session
+    execFileSync('git', ['config', 'user.email', 'alice@example.com'], { cwd: dir, env: GIT_ENV });
     ctx.tend(['ack'], { cwd: dir });
 
-    // Switch back to other-feature — state should be preserved (working)
-    execFileSync('git', ['checkout', 'other-feature'], { cwd: dir, env: GIT_ENV });
+    // Bob's working state should be preserved
+    execFileSync('git', ['config', 'user.email', 'bob@example.com'], { cwd: dir, env: GIT_ENV });
     const r = ctx.tend([]);
     expect(r.stdout).toContain('working');
   });

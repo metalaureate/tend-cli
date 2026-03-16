@@ -1,10 +1,10 @@
 import { resolveProjectPath, resolveProjectName } from '../core/projects.js';
-import { appendEvent } from '../core/events.js';
+import { appendEvent, sanitizeUserTag } from '../core/events.js';
 import { relayEmit } from '../core/relay.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { isValidState, type State } from '../types.js';
-import { currentBranch } from '../core/git.js';
+import { gitUserEmail } from '../core/git.js';
 import { existsSync } from 'fs';
 import { join } from 'path';
 
@@ -32,9 +32,9 @@ export async function cmdEmit(args: string[]): Promise<void> {
     } catch {
       projectName = process.cwd().split('/').pop() || 'unknown';
     }
-    const branch = currentBranch(process.cwd());
+    const rawEmail = gitUserEmail(process.cwd());
     const rawSessionId = config.sessionId || '';
-    const sessionId = branch ? `${rawSessionId}@${branch}` : rawSessionId;
+    const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
     const ok = await relayEmit(projectName, state, message, sessionId);
     if (ok) return;
     process.stderr.write('tend: relay unreachable, falling back to local\n');
@@ -56,8 +56,8 @@ export async function cmdEmit(args: string[]): Promise<void> {
   }
 
   const ts = tsLocal();
-  const branch = currentBranch(projectPath);
+  const rawEmail = gitUserEmail(projectPath);
   const rawSessionId = config.sessionId || '_cli';
-  const sessionId = branch ? `${rawSessionId}@${branch}` : rawSessionId;
+  const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
   appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, state as State, message);
 }

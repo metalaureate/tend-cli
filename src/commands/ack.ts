@@ -1,7 +1,7 @@
 import { resolveProjectPath } from '../core/projects.js';
-import { appendReset, appendBranchReset } from '../core/events.js';
+import { appendReset, appendUserReset, sanitizeUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
-import { currentBranch } from '../core/git.js';
+import { gitUserEmail } from '../core/git.js';
 import { cmdBoard } from './board.js';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
@@ -22,9 +22,9 @@ export async function cmdAck(args: string[]): Promise<void> {
   }
 
   const ts = tsLocal();
-  const branch = currentBranch(projectPath);
-  if (branch) {
-    appendBranchReset(join(projectPath, '.tend', 'events'), ts, branch);
+  const rawEmail = gitUserEmail(projectPath);
+  if (rawEmail) {
+    appendUserReset(join(projectPath, '.tend', 'events'), ts, sanitizeUserTag(rawEmail));
   } else {
     appendReset(join(projectPath, '.tend', 'events'), ts);
   }
