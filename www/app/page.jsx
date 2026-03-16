@@ -63,7 +63,7 @@ export default function Page() {
                   {board.map((row, i) => (
                     <div key={i} className="flex">
                       <span className={`${row.color} w-4 shrink-0`}>{row.icon}</span>
-                      <span className="text-parchment/70 w-[7.5rem] md:w-36 shrink-0 truncate ml-1">{row.name}</span>
+                      <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">{row.name}</span>
                       <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
                       <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
                       {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
@@ -138,7 +138,7 @@ export default function Page() {
             </div>
 
             {/* The unsolved problem */}
-            <div className="why-el mt-12 bg-parchment border border-chalk rounded-[1.5rem] p-6 md:p-8">
+            <div className="why-el mt-12 bg-parchment border border-chalk rounded-3xl p-6 md:p-8">
               <p className="font-heading font-bold text-lg md:text-xl text-anvil">
                 The unsolved problem is attention management.
               </p>
@@ -197,7 +197,7 @@ export default function Page() {
             {/* The train metaphor */}
             <div className="glyph-el mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
               {trainSteps.map((item, i) => (
-                <div key={i} className="bg-white/5 rounded-[1rem] p-5">
+                <div key={i} className="bg-white/5 rounded-2xl p-5">
                   <p className="font-heading font-bold text-parchment text-sm">{item.step}</p>
                   <p className="font-body text-smoke text-sm mt-2 leading-relaxed">{item.desc}</p>
                 </div>
@@ -276,7 +276,7 @@ export default function Page() {
                 <div className="space-y-0.5 text-smoke/60">
                   {helpCommands.map(([cmd, desc]) => (
                     <div key={cmd} className="flex">
-                      <span className="text-parchment/70 w-[13rem] md:w-60 shrink-0">{cmd}</span>
+                      <span className="text-parchment/70 w-52 md:w-60 shrink-0">{cmd}</span>
                       <span className="text-smoke/60">{desc}</span>
                     </div>
                   ))}
@@ -382,7 +382,7 @@ export default function Page() {
 
             {/* How it ties together */}
             <div className="relay-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white/5 rounded-[1rem] p-5">
+              <div className="bg-white/5 rounded-2xl p-5">
                 <p className="font-heading font-bold text-parchment text-sm">Setup: one token</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   Run <span className="font-mono text-parchment">td relay setup</span> on your laptop.
@@ -390,20 +390,20 @@ export default function Page() {
                   No accounts. No passwords. No signup.
                 </p>
               </div>
-              <div className="bg-white/5 rounded-[1rem] p-5">
+              <div className="bg-white/5 rounded-2xl p-5">
                 <p className="font-heading font-bold text-parchment text-sm">Agents don&apos;t change</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   The agent&apos;s AGENTS.md instructions stay the same. The developer sets a token on the remote environment and the CLI handles the rest. The relay is invisible plumbing.
                 </p>
               </div>
-              <div className="bg-white/5 rounded-[1rem] p-5">
+              <div className="bg-white/5 rounded-2xl p-5">
                 <p className="font-heading font-bold text-parchment text-sm">No daemon. No sync.</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   <span className="font-mono text-parchment">td</span> reads from local cache — never hits the network, stays under 100ms.
                   The board refreshes the cache on each invocation, then renders from cache.
                 </p>
               </div>
-              <div className="bg-white/5 rounded-[1rem] p-5">
+              <div className="bg-white/5 rounded-2xl p-5">
                 <p className="font-heading font-bold text-parchment text-sm">The relay is optional</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   Local agents still just write to a file. If you never set up a relay token, everything works exactly the same. The relay is what makes one board possible when your agents are spread across environments.
@@ -427,21 +427,21 @@ export default function Page() {
                 <div className="space-y-1">
                   <div className="flex">
                     <span className="text-patina w-4 shrink-0">◐</span>
-                    <span className="text-parchment/70 w-[7.5rem] md:w-36 shrink-0 truncate ml-1">my-app</span>
+                    <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">my-app</span>
                     <span className="text-patina w-16 shrink-0">working</span>
                     <span className="text-smoke/50 truncate hidden sm:block">building auth scaffold</span>
                     <span className="text-smoke/30 ml-auto pl-2 shrink-0">(3m)</span>
                   </div>
                   <div className="flex">
                     <span className="text-ember w-4 shrink-0">◉</span>
-                    <span className="text-parchment/70 w-[7.5rem] md:w-36 shrink-0 truncate ml-1">cloud-refactor</span>
+                    <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">cloud-refactor</span>
                     <span className="text-ember w-16 shrink-0">done</span>
                     <span className="text-smoke/50 truncate hidden sm:block">migration complete (PR #12)</span>
                     <span className="text-parchment/40 ml-auto pl-2 shrink-0">↗</span>
                   </div>
                   <div className="flex">
                     <span className="text-smoke/50 w-4 shrink-0">◌</span>
-                    <span className="text-parchment/70 w-[7.5rem] md:w-36 shrink-0 truncate ml-1">deep-search</span>
+                    <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">deep-search</span>
                     <span className="text-smoke/50 w-16 shrink-0">idle</span>
                     <span className="text-smoke/50 truncate hidden sm:block">analysis complete</span>
                     <span className="text-parchment/40 ml-auto pl-2 shrink-0">↗</span>
