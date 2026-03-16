@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { cmdBoard } from './commands/board.js';
+import { cmdDashboard } from './commands/dashboard.js';
 import { cmdDetail } from './commands/detail.js';
 import { cmdInit } from './commands/init.js';
 import { cmdEmit } from './commands/emit.js';
@@ -25,6 +26,9 @@ async function main(): Promise<void> {
     switch (cmd) {
       case '':
         await cmdBoard();
+        break;
+      case '-':
+        await cmdDashboard();
         break;
       case 'init':
         cmdInit(rest);
