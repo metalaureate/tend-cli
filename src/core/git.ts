@@ -60,3 +60,8 @@ export function recentLog(projectPath: string, count: number = 20): string | nul
 export function hasGit(projectPath: string): boolean {
   return existsSync(join(projectPath, '.git'));
 }
+
+/** Get git configured user email. Returns null when not set or git is unavailable. */
+export function gitUserEmail(projectPath: string): string | null {
+  return git(projectPath, 'config', 'user.email');
+}

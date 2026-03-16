@@ -1,6 +1,6 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { readEvents, mergeEvents } from '../core/events.js';
+import { readEvents, mergeEvents, isResetMarker, stripUserTag, userTagFromSessionId } from '../core/events.js';
 import { currentBranch, commitsToday } from '../core/git.js';
 import { ago, isStale } from '../ui/format.js';
 import { C } from '../ui/colors.js';
@@ -99,13 +99,26 @@ export function cmdDetail(name: string): void {
   if (localEvents.length > 0 || relayEvents.length > 0) {
     process.stdout.write(`\n  ${C.bold}Sessions:${reset}\n`);
 
-    // Build per-source session maps
+    // Build per-source session maps — all branches are shown so that sessions on
+    // other worktree branches remain visible. Branch-scoped resets only clear
+    // sessions for that particular branch.
     const renderSessions = (events: TendEvent[], source: string) => {
       const sessions = new Map<string, SessionState>();
-      
+
       for (const evt of events) {
         if (evt.sessionId === '*') {
+          // Global reset — clear all sessions
           sessions.clear();
+          continue;
+        }
+        if (evt.sessionId.startsWith('*@')) {
+          // User-scoped reset — only clear sessions tagged for that user
+          const userTag = userTagFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
+          for (const [sid] of sessions) {
+            if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
+              sessions.delete(sid);
+            }
+          }
           continue;
         }
         sessions.set(evt.sessionId, {
@@ -141,10 +154,13 @@ export function cmdDetail(name: string): void {
       const sColor = stateColor(sessState);
       const sLabel = stateLabel(sessState);
 
-      // Format session ID
-      let displaySid = s.sid;
-      if (s.sid === '_cli') displaySid = 'cli';
-      else if (s.sid.length > 16) displaySid = `${s.sid.slice(0, 8)}…${s.sid.slice(-4)}`;
+      // Format session ID — show base ID with user context where present
+      const bareId = stripUserTag(s.sid);
+      const userTag = userTagFromSessionId(s.sid);
+      let displaySid = bareId;
+      if (bareId === '_cli') displaySid = 'cli';
+      else if (bareId.length > 16) displaySid = `${bareId.slice(0, 8)}…${bareId.slice(-4)}`;
+      if (userTag) displaySid += ` (${userTag})`;
 
       const sourceTag = s.source === 'relay' ? ' ↗' : '';
       const agoStr = s.ts ? ago(s.ts) : '';

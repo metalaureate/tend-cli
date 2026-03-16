@@ -112,4 +112,44 @@ describe('board', () => {
     const r = ctx.tend([]);
     expect(r.stdout).toContain('uncommitted changes');
   });
+
+  it('shows sessions from multiple users on board', () => {
+    const dir = ctx.makeProject('bravo-iso');
+    ctx.tend(['init'], { cwd: dir });
+
+    // User alice emits working
+    execFileSync('git', ['config', 'user.email', 'alice@example.com'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'working', 'feature work'], { cwd: dir });
+
+    // User bob emits done
+    execFileSync('git', ['config', 'user.email', 'bob@example.com'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'done', 'bug fixed'], { cwd: dir });
+
+    // Board must show the highest-priority aggregated state
+    // (working > done), proving alice's session is still visible
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('working');
+  });
+
+  it('user ack does not clear other users\' sessions', () => {
+    const dir = ctx.makeProject('charlie-iso');
+    ctx.tend(['init'], { cwd: dir });
+
+    // User alice emits done
+    execFileSync('git', ['config', 'user.email', 'alice@example.com'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'done', 'feature done'], { cwd: dir });
+
+    // User bob emits working
+    execFileSync('git', ['config', 'user.email', 'bob@example.com'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'working', 'still working'], { cwd: dir });
+
+    // Alice acks — should only clear alice's session
+    execFileSync('git', ['config', 'user.email', 'alice@example.com'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['ack'], { cwd: dir });
+
+    // Bob's working state should be preserved
+    execFileSync('git', ['config', 'user.email', 'bob@example.com'], { cwd: dir, env: GIT_ENV });
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('working');
+  });
 });
