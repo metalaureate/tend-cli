@@ -1,16 +1,17 @@
-import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, GithubIconExport, ArrowRightIconExport } from './components'
+import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, GithubIconExport, ArrowRightIconExport, DashboardLive } from './components'
 
 const board = [
-  { icon: '◉', name: 'atlas-api', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember' },
-  { icon: '◐', name: 'northstar', state: 'working', msg: 'refactoring narrative engine', time: '12m', color: 'text-patina' },
-  { icon: '?', name: 'beacon', state: 'stuck', msg: 'tool approval needed', time: '', color: 'text-ember' },
-  { icon: '◐', name: 'sextant', state: 'working', msg: 'building auth scaffold', time: '3m', color: 'text-patina' },
-  { icon: '◌', name: 'meridian', state: 'idle', msg: 'updated landing copy', time: '2h', color: 'text-smoke/50' },
-  { icon: '◌', name: 'waypoint', state: 'idle', msg: 'benchmark suite passing', time: '1d', color: 'text-smoke/50' },
+  { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
+  { icon: '◉', name: 'northstar', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember', env: '' },
+  { icon: '◐', name: 'beacon', state: 'working', msg: 'refactoring auth middleware', time: '8m', color: 'text-patina', env: '↗' },
+  { icon: '◐', name: 'sextant', state: 'working', msg: 'building data pipeline', time: '23m', color: 'text-patina', env: '↗' },
+  { icon: '◌', name: 'meridian', state: 'idle', msg: 'tests passing, waiting for review', time: '1h', color: 'text-smoke/50', env: '' },
+  { icon: '◌', name: 'waypoint', state: 'idle', msg: 'benchmark suite passing', time: '3h', color: 'text-smoke/50', env: '↗' },
 ]
 
 const helpCommands = [
   ['td', 'Show the status board'],
+  ['td -', 'Live dashboard (auto-refreshes every minute)'],
   ['td <project>', 'Project detail + agent sessions'],
   ['td init [project]', 'Initialize .tend/ in a project'],
   ['td clear [project]', 'Clear events history for a project'],
@@ -43,7 +44,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Lightweight attention infrastructure for humans and agents. A pull-based CLI that replaces dashboards with a single status board and a shell prompt glyph.
+              Lightweight attention infrastructure for humans and agents. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote. One board. One glance. Then back to work.
             </p>
 
             {/* The Board */}
@@ -67,11 +68,12 @@ export default function Page() {
                       <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
                       <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
                       {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
+                      {row.env && <span className="text-parchment/30 ml-auto pl-2 shrink-0">{row.env}</span>}
                     </div>
                   ))}
                 </div>
                 <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
-                  2 need you · 2 working · 2 idle
+                  2 need you · 2 working · 2 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
                 </div>
               </div>
             </div>
@@ -80,7 +82,9 @@ export default function Page() {
             <div className="hero-el flex flex-wrap items-center gap-x-4 gap-y-2 mt-6">
               <span className="font-mono text-xs text-smoke/40">Single binary</span>
               <span className="text-smoke/20">·</span>
-              <span className="font-mono text-xs text-smoke/40">Zero dependencies</span>
+              <span className="font-mono text-xs text-smoke/40">Any agent framework</span>
+              <span className="text-smoke/20">·</span>
+              <span className="font-mono text-xs text-smoke/40">Local or remote</span>
               <span className="text-smoke/20">·</span>
               <span className="font-mono text-xs text-smoke/40">No daemon</span>
               <span className="text-smoke/20">·</span>
@@ -450,6 +454,45 @@ export default function Page() {
                 <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
                   1 needs you · 1 working · 1 idle &nbsp; <span className="text-parchment/30">↗ = relay</span>
                 </div>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+      </section>
+
+      {/* DASHBOARD */}
+      <section id="dashboard" className="py-20 md:py-28 px-6 bg-parchment">
+        <ScrollReveal triggerClassName="dash-el">
+          <div className="max-w-3xl mx-auto">
+            <p className="dash-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Dashboard</p>
+
+            <h2 className="dash-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
+              Want it always on?<br />
+              <span className="text-smoke">One flag. Persistent. Live.</span>
+            </h2>
+
+            <p className="dash-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
+              Run <span className="font-mono text-anvil">tend -</span> for a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
+            </p>
+
+            {/* Live dashboard demo */}
+            <div className="dash-el">
+              <DashboardLive />
+            </div>
+
+            {/* Pull vs push comparison */}
+            <div className="dash-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white border border-chalk rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">tend &nbsp;<span className="font-mono font-normal text-smoke/60">(pull)</span></p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Type <span className="font-mono text-anvil">td</span> at any natural pause. 3-second scan. Handle what needs you. Back to work. The default — and the fastest path back to flow.
+                </p>
+              </div>
+              <div className="bg-white border border-chalk rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">tend - &nbsp;<span className="font-mono font-normal text-smoke/60">(dashboard)</span></p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Persistent full-screen view. Auto-refreshes every 60 seconds. Ideal for a second monitor, an always-on terminal pane, or coordinating a large fleet of long-running agents.
+                </p>
               </div>
             </div>
           </div>

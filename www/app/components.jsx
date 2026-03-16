@@ -83,6 +83,7 @@ export function NavbarClient() {
       <a href="#" className="font-heading text-sm font-bold tracking-tight">tend <span className="text-smoke/40 font-normal">|</span> td</a>
       <div className="hidden sm:flex items-center gap-5 text-sm">
         <a href="#problem" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Why</a>
+        <a href="#dashboard" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Dashboard</a>
         <a href="#get-started" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Install</a>
       </div>
       <a
@@ -163,4 +164,73 @@ function ArrowRightIcon() {
 
 export function ArrowRightIconExport() {
   return <ArrowRightIcon />
+}
+
+export function DashboardLive() {
+  const [tick, setTick] = useState(0)
+  const REFRESH_SECS = 60
+  const REFRESH_WARNING_THRESHOLD = 10
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const secsLeft = Math.max(0, REFRESH_SECS - (tick % REFRESH_SECS))
+  const countdown = secsLeft < REFRESH_SECS ? `${secsLeft}s` : '1m 0s'
+
+  const rows = [
+    { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', right: '', stateColor: 'text-ember' },
+    { icon: '\u25d0', name: 'northstar', state: 'working', msg: 'refactoring auth middleware', right: '(8m)', stateColor: 'text-patina' },
+    { icon: '\u25d0', name: 'sextant', state: 'working', msg: 'building data pipeline', right: '(23m) \u2197', stateColor: 'text-patina' },
+    { icon: '\u25c9', name: 'beacon', state: 'done', msg: 'PR #204 ready for review', right: '\u2197', stateColor: 'text-ember' },
+    { icon: '\u25cc', name: 'meridian', state: 'idle', msg: 'tests passing', right: '(1h)', stateColor: 'text-smoke/50' },
+    { icon: '\u25cc', name: 'waypoint', state: 'idle', msg: 'analysis complete', right: '(3h) \u2197', stateColor: 'text-smoke/50' },
+  ]
+
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+
+  return (
+    <div className="mt-10 bg-anvil rounded-[1.25rem] overflow-hidden shadow-xl">
+      {/* Header bar */}
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+        <span className="w-2.5 h-2.5 rounded-full bg-ember/40" />
+        <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
+        <span className="w-2.5 h-2.5 rounded-full bg-patina/40" />
+        <span className="font-mono text-[11px] text-smoke/40 ml-2">$ tend -</span>
+      </div>
+      {/* Dashboard status line */}
+      <div className="px-4 py-2 border-b border-white/5 font-mono text-[11px] flex justify-between text-smoke/40">
+        <span>
+          <span className="text-parchment/60 font-medium">tend</span>
+          {' '}dashboard  \u00b7  updated {timeStr}  \u00b7  next refresh in{' '}
+          <span className={secsLeft <= REFRESH_WARNING_THRESHOLD ? 'text-ember' : 'text-smoke/40'}>{countdown}</span>
+        </span>
+        <span>q to quit</span>
+      </div>
+      {/* Board */}
+      <div className="px-4 md:px-5 py-4 font-mono text-[11px] md:text-xs leading-relaxed">
+        <div className="text-smoke/40 mb-3 flex justify-between">
+          <span className="tracking-widest text-parchment/60 font-medium">TEND</span>
+          <span>{now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {pad(now.getHours())}:{pad(now.getMinutes())}</span>
+        </div>
+        <div className="space-y-1">
+          {rows.map((row, i) => (
+            <div key={i} className="flex">
+              <span className={`${row.stateColor} w-4 shrink-0`}>{row.icon}</span>
+              <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">{row.name}</span>
+              <span className={`${row.stateColor} w-16 shrink-0`}>{row.state}</span>
+              <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
+              {row.right && <span className="text-smoke/30 ml-auto pl-2 shrink-0">{row.right}</span>}
+            </div>
+          ))}
+        </div>
+        <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
+          2 need you \u00b7 2 working \u00b7 2 idle &nbsp;<span className="text-parchment/30">\u2197 = relay</span>
+        </div>
+      </div>
+    </div>
+  )
 }
