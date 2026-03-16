@@ -2,6 +2,8 @@
 
 **Lightweight attention infrastructure for humans and agents.**
 
+Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
+
 *Who's stuck? Who needs you?*
 
 ---
@@ -62,6 +64,7 @@ No config files. No database. No daemon.
 | Command | Description |
 |---|---|
 | `tend` | Show the departures board |
+| `tend -` | Live dashboard (auto-refreshes every minute) |
 | `tend <project>` | Project detail + sessions |
 | `tend <N>` | Project detail by board number |
 | `tend #<N>` | Switch to project N |

@@ -29,6 +29,7 @@ function Navbar() {
       <a href="#" className="font-heading text-sm font-bold tracking-tight">tend <span className="text-smoke/40 font-normal">|</span> td</a>
       <div className="hidden sm:flex items-center gap-5 text-sm">
         <a href="#problem" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Why</a>
+        <a href="#dashboard" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Dashboard</a>
         <a href="#get-started" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Install</a>
       </div>
       <a
@@ -67,12 +68,12 @@ function Hero() {
   }, [])
 
   const board = [
-    { icon: '◉', name: 'atlas-api', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember' },
-    { icon: '◐', name: 'northstar', state: 'working', msg: 'refactoring narrative engine', time: '12m', color: 'text-patina' },
-    { icon: '?', name: 'beacon', state: 'stuck', msg: 'tool approval needed', time: '', color: 'text-ember' },
-    { icon: '◐', name: 'sextant', state: 'working', msg: 'building auth scaffold', time: '3m', color: 'text-patina' },
-    { icon: '◌', name: 'meridian', state: 'idle', msg: 'updated landing copy', time: '2h', color: 'text-smoke/50' },
-    { icon: '◌', name: 'waypoint', state: 'idle', msg: 'benchmark suite passing', time: '1d', color: 'text-smoke/50' },
+    { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
+    { icon: '◉', name: 'northstar', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember', env: '' },
+    { icon: '◐', name: 'beacon', state: 'working', msg: 'refactoring auth middleware', time: '8m', color: 'text-patina', env: '↗' },
+    { icon: '◐', name: 'sextant', state: 'working', msg: 'building data pipeline', time: '23m', color: 'text-patina', env: '↗' },
+    { icon: '◌', name: 'meridian', state: 'idle', msg: 'tests passing, waiting for review', time: '1h', color: 'text-smoke/50', env: '' },
+    { icon: '◌', name: 'waypoint', state: 'idle', msg: 'benchmark suite passing', time: '3h', color: 'text-smoke/50', env: '↗' },
   ]
 
   return (
@@ -85,7 +86,7 @@ function Hero() {
         </h1>
 
         <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-          Lightweight attention infrastructure for humans and agents. A pull-based CLI that replaces dashboards with a single status board and a shell prompt glyph.
+          Lightweight attention infrastructure for humans and agents. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote. One board. One glance. Then back to work.
         </p>
 
         {/* The Board — this IS the product */}
@@ -111,11 +112,12 @@ function Hero() {
                   <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
                   <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
                   {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
+                  {row.env && <span className="text-parchment/30 ml-auto pl-2 shrink-0">{row.env}</span>}
                 </div>
               ))}
             </div>
             <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
-              2 need you · 2 working · 2 idle
+              2 need you · 2 working · 2 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
             </div>
           </div>
         </div>
@@ -124,7 +126,9 @@ function Hero() {
         <div className="hero-el flex flex-wrap items-center gap-x-4 gap-y-2 mt-6">
           <span className="font-mono text-xs text-smoke/40">Single binary</span>
           <span className="text-smoke/20">·</span>
-          <span className="font-mono text-xs text-smoke/40">Zero dependencies</span>
+          <span className="font-mono text-xs text-smoke/40">Any agent framework</span>
+          <span className="text-smoke/20">·</span>
+          <span className="font-mono text-xs text-smoke/40">Local or remote</span>
           <span className="text-smoke/20">·</span>
           <span className="font-mono text-xs text-smoke/40">No daemon</span>
           <span className="text-smoke/20">·</span>
@@ -419,6 +423,7 @@ function Install() {
             <div className="space-y-0.5 text-smoke/60">
               {[
                 ['td', 'Show the status board'],
+                ['td -', 'Live dashboard (auto-refreshes every minute)'],
                 ['td <project>', 'Project detail + agent sessions'],
                 ['td init [project]', 'Initialize .tend/ in a project'],
                 ['td clear [project]', 'Clear events history for a project'],
@@ -651,6 +656,125 @@ function Relay() {
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DASHBOARD — For those who want a persistent real-time view
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+function Dashboard() {
+  const ref = useRef(null)
+  const [tick, setTick] = useState(0)
+  const REFRESH_SECS = 60
+  const REFRESH_WARNING_THRESHOLD = 10
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.from('.dash-el', {
+        y: 30,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power3.out',
+        stagger: 0.08,
+        scrollTrigger: { trigger: ref.current, start: 'top 75%' },
+      })
+    }, ref)
+    return () => ctx.revert()
+  }, [])
+
+  const secsLeft = Math.max(0, REFRESH_SECS - (tick % REFRESH_SECS))
+  const countdown = secsLeft < REFRESH_SECS ? `${secsLeft}s` : `1m 0s`
+
+  const rows = [
+    { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', right: '', stateColor: 'text-ember' },
+    { icon: '◐', name: 'northstar', state: 'working', msg: 'refactoring auth middleware', right: '(8m)', stateColor: 'text-patina' },
+    { icon: '◐', name: 'sextant', state: 'working', msg: 'building data pipeline', right: '(23m) ↗', stateColor: 'text-patina' },
+    { icon: '◉', name: 'beacon', state: 'done', msg: 'PR #204 ready for review', right: '↗', stateColor: 'text-ember' },
+    { icon: '◌', name: 'meridian', state: 'idle', msg: 'tests passing', right: '(1h)', stateColor: 'text-smoke/50' },
+    { icon: '◌', name: 'waypoint', state: 'idle', msg: 'analysis complete', right: '(3h) ↗', stateColor: 'text-smoke/50' },
+  ]
+
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+
+  return (
+    <section id="dashboard" ref={ref} className="py-20 md:py-28 px-6 bg-parchment">
+      <div className="max-w-3xl mx-auto">
+        <p className="dash-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Dashboard</p>
+
+        <h2 className="dash-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
+          Want it always on?<br />
+          <span className="text-smoke">One flag. Persistent. Live.</span>
+        </h2>
+
+        <p className="dash-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
+          Run <span className="font-mono text-anvil">tend -</span> for a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
+        </p>
+
+        {/* Live dashboard demo */}
+        <div className="dash-el mt-10 bg-anvil rounded-[1.25rem] overflow-hidden shadow-xl">
+          {/* Header bar */}
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+            <span className="w-2.5 h-2.5 rounded-full bg-ember/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
+            <span className="w-2.5 h-2.5 rounded-full bg-patina/40" />
+            <span className="font-mono text-[11px] text-smoke/40 ml-2">$ tend -</span>
+          </div>
+          {/* Dashboard status line */}
+          <div className="px-4 py-2 border-b border-white/5 font-mono text-[11px] flex justify-between text-smoke/40">
+            <span>
+              <span className="text-parchment/60 font-medium">tend</span>
+              {' '}dashboard  ·  updated {timeStr}  ·  next refresh in{' '}
+              <span className={secsLeft <= REFRESH_WARNING_THRESHOLD ? 'text-ember' : 'text-smoke/40'}>{countdown}</span>
+            </span>
+            <span>q to quit</span>
+          </div>
+          {/* Board */}
+          <div className="px-4 md:px-5 py-4 font-mono text-[11px] md:text-xs leading-relaxed">
+            <div className="text-smoke/40 mb-3 flex justify-between">
+              <span className="tracking-widest text-parchment/60 font-medium">TEND</span>
+              <span>{now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}, {pad(now.getHours())}:{pad(now.getMinutes())}</span>
+            </div>
+            <div className="space-y-1">
+              {rows.map((row, i) => (
+                <div key={i} className="flex">
+                  <span className={`${row.stateColor} w-4 shrink-0`}>{row.icon}</span>
+                  <span className="text-parchment/70 w-[7.5rem] md:w-36 shrink-0 truncate ml-1">{row.name}</span>
+                  <span className={`${row.stateColor} w-16 shrink-0`}>{row.state}</span>
+                  <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
+                  {row.right && <span className="text-smoke/30 ml-auto pl-2 shrink-0">{row.right}</span>}
+                </div>
+              ))}
+            </div>
+            <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
+              2 need you · 2 working · 2 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Pull vs push comparison */}
+        <div className="dash-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white border border-chalk rounded-[1rem] p-5">
+            <p className="font-heading font-bold text-anvil text-sm">tend &nbsp;<span className="font-mono font-normal text-smoke/60">(pull)</span></p>
+            <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+              Type <span className="font-mono text-anvil">td</span> at any natural pause. 3-second scan. Handle what needs you. Back to work. The default — and the fastest path back to flow.
+            </p>
+          </div>
+          <div className="bg-white border border-chalk rounded-[1rem] p-5">
+            <p className="font-heading font-bold text-anvil text-sm">tend - &nbsp;<span className="font-mono font-normal text-smoke/60">(dashboard)</span></p>
+            <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+              Persistent full-screen view. Auto-refreshes every 60 seconds. Ideal for a second monitor, an always-on terminal pane, or coordinating a large fleet of long-running agents.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    FOOTER
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 function Footer() {
@@ -700,6 +824,7 @@ export default function App() {
       <PromptGlyph />
       <Install />
       <TodoSection />
+      <Dashboard />
       <Relay />
       <Footer />
     </div>
