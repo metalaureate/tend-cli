@@ -9,3 +9,4 @@ node_modules/
 package-lock.json
 relay/dist/
 relay/.wrangler/
+.tend/hook_debug.log

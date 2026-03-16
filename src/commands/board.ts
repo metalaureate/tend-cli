@@ -19,38 +19,26 @@ function stateColor(state: string): string {
   }
 }
 
-export async function cmdBoard(): Promise<void> {
-  const isTTY = process.stderr.isTTY ?? false;
-  const spinFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-  let spinIdx = 0;
-  let spinner: ReturnType<typeof setInterval> | undefined;
-  if (isTTY) {
-    spinner = setInterval(() => {
-      process.stderr.write(`\r  ${spinFrames[spinIdx++ % spinFrames.length]} scanning projects…`);
-    }, 80);
-  }
-
+/** Build the board output as a string (includes relay sync). */
+export async function buildBoardOutput(): Promise<string> {
   // Relay sync (swallow errors)
   try { await relaySync(); } catch { /* ignore */ }
 
   const allProjects = discoverProjects();
   const relayOnly = relayOnlyProjects();
 
-  if (spinner) {
-    clearInterval(spinner);
-    process.stderr.write('\r\x1b[2K');
-  }
+  let output = '';
 
   if (allProjects.length === 0 && relayOnly.length === 0) {
-    process.stdout.write("  No tended projects found\n  Run 'tend init' inside a project to start tending it\n");
-    return;
+    output += "  No tended projects found\n  Run 'tend init' inside a project to start tending it\n";
+    return output;
   }
 
   const projects = sortedProjects();
   const reset = C.reset;
 
   // Header
-  process.stdout.write(`\n  ${C.bold}TEND${reset}                               ${dateHeader()}\n\n`);
+  output += `\n  ${C.bold}TEND${reset}                               ${dateHeader()}\n\n`;
 
   let needs = 0;
   let ready = 0;
@@ -174,7 +162,7 @@ export async function cmdBoard(): Promise<void> {
     let line = `  ${numPrefix} ${displayName} ${color}${icon} ${label.padEnd(15)}${reset}`;
     if (detail) line += detail;
     if (durationStr) line += `  ${C.grey}(${durationStr})${reset}`;
-    process.stdout.write(line + '\n');
+    output += line + '\n';
   }
 
   // Relay-only projects
@@ -231,20 +219,43 @@ export async function cmdBoard(): Promise<void> {
     let line = `     ${displayName} ${color}${icon} ${label.padEnd(15)}${reset}`;
     if (detail) line += detail;
     if (durationStr) line += `  ${C.grey}(${durationStr})${reset}`;
-    process.stdout.write(line + '\n');
+    output += line + '\n';
   }
 
   // Footer
-  process.stdout.write('\n');
+  output += '\n';
   const footerParts: string[] = [];
   if (needs > 0) footerParts.push(`${C.amber}${needs} needs you${C.reset}`);
   if (ready > 0) footerParts.push(`${ready} ready for review`);
   if (workingCount > 0) footerParts.push(`${C.cyan}${workingCount} working${C.reset}`);
   if (idleCount > 0) footerParts.push(`${C.grey}${idleCount} idle${C.reset}`);
-  process.stdout.write(`  ${footerParts.join(' · ')}\n\n`);
+  output += `  ${footerParts.join(' · ')}\n\n`;
 
   // Gamification footer
   if (gamificationEnabled()) {
-    process.stdout.write(renderFooter() + '\n\n');
+    output += renderFooter() + '\n\n';
   }
+
+  return output;
+}
+
+export async function cmdBoard(): Promise<void> {
+  const isTTY = process.stderr.isTTY ?? false;
+  const spinFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let spinIdx = 0;
+  let spinner: ReturnType<typeof setInterval> | undefined;
+  if (isTTY) {
+    spinner = setInterval(() => {
+      process.stderr.write(`\r  ${spinFrames[spinIdx++ % spinFrames.length]} scanning projects…`);
+    }, 80);
+  }
+
+  const output = await buildBoardOutput();
+
+  if (spinner) {
+    clearInterval(spinner);
+    process.stderr.write('\r\x1b[2K');
+  }
+
+  process.stdout.write(output);
 }
