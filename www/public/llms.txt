@@ -1,0 +1,45 @@
+# Tend
+
+> Lightweight attention infrastructure for humans and agents.
+
+Tend is a pull-based CLI that replaces dashboards with a single status board and a shell prompt glyph. One command, one glance, then back to work.
+
+## Key Facts
+
+- Single binary, zero dependencies, no daemon, no database
+- Five agent states: working, done, stuck, waiting, idle
+- Agents emit events to `.tend/events` — plain text, append-only
+- Shell prompt glyph (○/●N) provides ambient certainty
+- Works locally and remotely via an optional relay
+- MIT licensed
+
+## Links
+
+- Source: https://github.com/metalaureate/tend-cli
+- Install: curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/install.sh | sh
+- Docs: https://github.com/metalaureate/tend-cli/blob/main/README.md
+- Full LLM context: https://tend.dev/llms-full.txt
+
+## Quick Start
+
+```
+cd ~/projects/my-app
+tend init
+tend          # show the board from anywhere
+td            # td is an alias for tend
+```
+
+## Commands
+
+- td                     — Show the status board
+- td <project>           — Project detail + agent sessions
+- td <N>                 — Project detail by board number
+- td #<N>                — Switch to project N
+- td init [project]      — Initialize .tend/ in a project
+- td add [project] "msg" — Queue a TODO for the agent
+- td ack [project]       — Clear done/stuck/waiting → idle
+- td status              — Shell prompt indicator (○ or ●N)
+- td remove [project]    — Remove tend from a project
+- td relay <subcmd>      — Manage relay (setup|status|pull|token)
+- td emit <state> "msg"  — Emit an event (used by agents)
+- td help                — Show help
