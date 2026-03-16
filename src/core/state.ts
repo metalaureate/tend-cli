@@ -1,8 +1,8 @@
 import { config } from './config.js';
 import { type TendEvent, type SessionState, type ProjectState, type State, STATE_PRIORITY } from '../types.js';
 import { isStale, toEpoch } from '../ui/format.js';
-import { readEvents, mergeEvents, filterEventsByBranch, isResetMarker } from './events.js';
-import { lastCommitEpoch as getLastCommitEpoch, currentBranch } from './git.js';
+import { readEvents, mergeEvents, isResetMarker, branchFromSessionId } from './events.js';
+import { lastCommitEpoch as getLastCommitEpoch } from './git.js';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -11,27 +11,31 @@ export function aggregateState(
   events: TendEvent[],
   staleThreshold: number = config.staleThreshold,
   commitEpoch?: number,
-  branch?: string | null,
 ): ProjectState | null {
   if (events.length === 0) return null;
-
-  // Filter events to the current branch when specified.
-  // Session IDs are tagged as `<id>@<branch>` by emit; untagged IDs are included
-  // on all branches for backward compatibility with older event files.
-  const filteredEvents = filterEventsByBranch(events, branch);
-
-  if (filteredEvents.length === 0) return null;
 
   const sessions = new Map<string, SessionState>();
   let lastTs = '';
 
-  for (const evt of filteredEvents) {
+  for (const evt of events) {
     lastTs = evt.ts;
 
-    if (isResetMarker(evt.sessionId)) {
-      // Reset marker — clear all sessions
+    if (evt.sessionId === '*') {
+      // Global reset marker — clear all sessions (backward compat)
       sessions.clear();
       sessions.set('_', { state: evt.state, ts: evt.ts, message: '' });
+      continue;
+    }
+
+    if (evt.sessionId.startsWith('*@')) {
+      // Branch-scoped reset — only clear sessions tagged for this branch,
+      // plus any untagged sessions (backward compat with old event formats).
+      const branch = branchFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
+      for (const [sid] of sessions) {
+        if (branchFromSessionId(sid) === branch || branchFromSessionId(sid) === '') {
+          sessions.delete(sid);
+        }
+      }
       continue;
     }
 
@@ -105,8 +109,7 @@ export function projectState(projectPath: string): ProjectState | null {
       : relayEvents;
 
   const commitEpoch = getLastCommitEpoch(projectPath) ?? undefined;
-  const branch = currentBranch(projectPath) ?? undefined;
-  return aggregateState(merged, config.staleThreshold, commitEpoch, branch);
+  return aggregateState(merged, config.staleThreshold, commitEpoch);
 }
 
 /** Get aggregate state for a relay-only project (from cache only) */

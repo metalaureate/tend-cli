@@ -113,7 +113,7 @@ describe('board', () => {
     expect(r.stdout).toContain('uncommitted changes');
   });
 
-  it('isolates events by branch — only current branch state is shown', () => {
+  it('shows sessions from all branches on board (worktree-safe)', () => {
     const dir = ctx.makeProject('bravo-iso');
     ctx.tend(['init'], { cwd: dir });
 
@@ -121,15 +121,14 @@ describe('board', () => {
     execFileSync('git', ['checkout', '-b', 'feature-work'], { cwd: dir, env: GIT_ENV });
     ctx.tend(['emit', 'working', 'feature work'], { cwd: dir });
 
-    // Switch to a different branch and emit stuck
+    // Switch to a second branch and emit done
     execFileSync('git', ['checkout', '-b', 'fix-bug'], { cwd: dir, env: GIT_ENV });
-    ctx.tend(['emit', 'stuck', 'needs help'], { cwd: dir });
+    ctx.tend(['emit', 'done', 'bug fixed'], { cwd: dir });
 
-    // Switch back to feature-work branch — board should show working, NOT stuck
-    execFileSync('git', ['checkout', 'feature-work'], { cwd: dir, env: GIT_ENV });
+    // Board from fix-bug must show the highest-priority aggregated state
+    // (working > done), proving the feature-work session is still visible
     const r = ctx.tend([]);
     expect(r.stdout).toContain('working');
-    expect(r.stdout).not.toContain('stuck');
   });
 
   it('branch ack does not clear other branches', () => {

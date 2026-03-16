@@ -109,6 +109,15 @@ export function stripBranchSuffix(sessionId: string): string {
 }
 
 /**
+ * Extract the branch name from a tagged session ID (e.g. `_cli@feature-auth` → `"feature-auth"`).
+ * Returns an empty string when the session ID has no branch suffix.
+ */
+export function branchFromSessionId(sessionId: string): string {
+  const atIdx = sessionId.lastIndexOf('@');
+  return atIdx === -1 ? '' : sessionId.slice(atIdx + 1);
+}
+
+/**
  * Filter an event array to only include events relevant to the given branch.
  * - Events without a `@branch` tag are included on every branch (backward compat).
  * - Global reset markers (`*`) always pass through.

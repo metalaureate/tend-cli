@@ -1,6 +1,6 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { readEvents, mergeEvents, filterEventsByBranch, isResetMarker, stripBranchSuffix } from '../core/events.js';
+import { readEvents, mergeEvents, isResetMarker, stripBranchSuffix, branchFromSessionId } from '../core/events.js';
 import { currentBranch, commitsToday } from '../core/git.js';
 import { ago, isStale } from '../ui/format.js';
 import { C } from '../ui/colors.js';
@@ -99,15 +99,26 @@ export function cmdDetail(name: string): void {
   if (localEvents.length > 0 || relayEvents.length > 0) {
     process.stdout.write(`\n  ${C.bold}Sessions:${reset}\n`);
 
-    const currentBranchName = !isRelayOnly && projectPath ? currentBranch(projectPath) : null;
-
-    // Build per-source session maps, filtered to the current branch
+    // Build per-source session maps — all branches are shown so that sessions on
+    // other worktree branches remain visible. Branch-scoped resets only clear
+    // sessions for that particular branch.
     const renderSessions = (events: TendEvent[], source: string) => {
       const sessions = new Map<string, SessionState>();
 
-      for (const evt of filterEventsByBranch(events, currentBranchName)) {
-        if (isResetMarker(evt.sessionId)) {
+      for (const evt of events) {
+        if (evt.sessionId === '*') {
+          // Global reset — clear all sessions
           sessions.clear();
+          continue;
+        }
+        if (evt.sessionId.startsWith('*@')) {
+          // Branch-scoped reset — only clear sessions tagged for that branch
+          const branch = branchFromSessionId(evt.sessionId.slice(1)); // strip leading '*'
+          for (const [sid] of sessions) {
+            if (branchFromSessionId(sid) === branch || branchFromSessionId(sid) === '') {
+              sessions.delete(sid);
+            }
+          }
           continue;
         }
         sessions.set(evt.sessionId, {
@@ -143,11 +154,13 @@ export function cmdDetail(name: string): void {
       const sColor = stateColor(sessState);
       const sLabel = stateLabel(sessState);
 
-      // Format session ID — strip @branch suffix for cleaner display
+      // Format session ID — show base ID with branch context where present
       const bareId = stripBranchSuffix(s.sid);
+      const branchName = branchFromSessionId(s.sid);
       let displaySid = bareId;
       if (bareId === '_cli') displaySid = 'cli';
       else if (bareId.length > 16) displaySid = `${bareId.slice(0, 8)}…${bareId.slice(-4)}`;
+      if (branchName) displaySid += ` (${branchName})`;
 
       const sourceTag = s.source === 'relay' ? ' ↗' : '';
       const agoStr = s.ts ? ago(s.ts) : '';
