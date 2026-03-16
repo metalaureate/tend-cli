@@ -191,10 +191,12 @@ function setupShell(): void {
     if (!content.includes(marker)) {
       const snippet = `
 ${marker}
-setopt PROMPT_SUBST
-_tend_precmd() { _TEND_S="$(tend status 2>/dev/null)"; }
-precmd_functions+=(_tend_precmd)
-RPROMPT='$_TEND_S'
+if [[ "$GIT_EDITOR" != ":" && -z "$CLAUDE" && "$TEND_NO_PROMPT" != "1" ]]; then
+  setopt PROMPT_SUBST
+  _tend_precmd() { _TEND_S="$(tend status 2>/dev/null)"; }
+  precmd_functions+=(_tend_precmd)
+  RPROMPT='$_TEND_S'
+fi
 `;
       appendFileSync(zshrc, snippet);
       didSetup = true;
@@ -210,8 +212,10 @@ RPROMPT='$_TEND_S'
       if (!content.includes(marker)) {
         const snippet = `
 ${marker}
-_tend_prompt() { _TEND_S="$(tend status 2>/dev/null)"; PS1="\${PS1%\\$ *}$_TEND_S \\$ "; }
-PROMPT_COMMAND="_tend_prompt\${PROMPT_COMMAND:+;\$PROMPT_COMMAND}"
+if [[ "$GIT_EDITOR" != ":" && -z "$CLAUDE" && "$TEND_NO_PROMPT" != "1" ]]; then
+  _tend_prompt() { _TEND_S="$(tend status 2>/dev/null)"; PS1="\${PS1%\\$ *}$_TEND_S \\$ "; }
+  PROMPT_COMMAND="_tend_prompt\${PROMPT_COMMAND:+;\$PROMPT_COMMAND}"
+fi
 `;
         appendFileSync(rcFile, snippet);
         didSetup = true;

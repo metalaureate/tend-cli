@@ -6,7 +6,7 @@ import { cmdDetail } from './commands/detail.js';
 import { cmdInit } from './commands/init.js';
 import { cmdEmit } from './commands/emit.js';
 import { cmdClear } from './commands/clear.js';
-import { cmdStatus } from './commands/status.js';
+import { cmdStatus, cmdStatusRefresh } from './commands/status.js';
 import { cmdAdd } from './commands/add.js';
 import { cmdAck } from './commands/ack.js';
 import { cmdSwitch } from './commands/switch.js';
@@ -40,7 +40,11 @@ async function main(): Promise<void> {
         cmdClear(rest);
         break;
       case 'status':
-        cmdStatus();
+        if (rest.includes('--refresh')) {
+          cmdStatusRefresh();
+        } else {
+          cmdStatus();
+        }
         break;
       case 'add':
       case 'todo':

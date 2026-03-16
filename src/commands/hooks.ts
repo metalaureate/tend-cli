@@ -4,6 +4,7 @@ import { tsLocal, toEpoch } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
+import { invalidateStatusCache } from './status.js';
 
 /** Extract session_id or sessionId from JSON input */
 function extractSessionId(input: string): string {
@@ -104,6 +105,7 @@ async function hookUserPrompt(): Promise<void> {
     } else {
       appendFileSync(join(projectPath, '.tend', 'events'), `${ts} working\n`);
     }
+    invalidateStatusCache();
   }
 }
 
@@ -171,6 +173,7 @@ async function hookStop(): Promise<void> {
       } else {
         appendFileSync(eventsFile, `${ts} stuck session ended abruptly\n`);
       }
+      invalidateStatusCache();
       return;
     }
   }
@@ -180,6 +183,7 @@ async function hookStop(): Promise<void> {
   } else {
     appendFileSync(eventsFile, `${ts} idle session ended\n`);
   }
+  invalidateStatusCache();
 }
 
 export async function cmdHook(args: string[]): Promise<void> {

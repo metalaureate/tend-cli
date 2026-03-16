@@ -6,6 +6,7 @@ import { config } from '../core/config.js';
 import { isValidState, type State } from '../types.js';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { invalidateStatusCache } from './status.js';
 
 export async function cmdEmit(args: string[]): Promise<void> {
   const state = args[0];
@@ -55,4 +56,5 @@ export async function cmdEmit(args: string[]): Promise<void> {
   const ts = tsLocal();
   const sessionId = config.sessionId || '_cli';
   appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, state as State, message);
+  invalidateStatusCache();
 }

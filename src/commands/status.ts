@@ -1,9 +1,64 @@
+import { existsSync, readFileSync, writeFileSync, mkdirSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { discoverProjects } from '../core/projects.js';
 import { projectState, relayProjectState } from '../core/state.js';
 import { relayOnlyProjects } from '../core/relay.js';
+import { config } from '../core/config.js';
+
+const STATUS_CACHE = join(config.tendDir, 'status_cache');
+
+/** Invalidate status cache so next prompt recomputes synchronously */
+export function invalidateStatusCache(): void {
+  try { unlinkSync(STATUS_CACHE); } catch { /* ignore */ }
+}
 
 /** Output compact status indicator for shell prompt: ○ or ?N ◐N ◉N */
 export function cmdStatus(): void {
+  // If no cache exists yet, compute synchronously (first run only)
+  if (!existsSync(STATUS_CACHE)) {
+    const output = computeStatus();
+    process.stdout.write(output + '\n');
+    try {
+      mkdirSync(config.tendDir, { recursive: true });
+      writeFileSync(STATUS_CACHE, output);
+    } catch {
+      // ignore write errors
+    }
+    return;
+  }
+
+  // Print cached result immediately, then refresh in background
+  let cached = '○';
+  try {
+    cached = readFileSync(STATUS_CACHE, 'utf-8').trim() || '○';
+  } catch {
+    // ignore read errors
+  }
+  process.stdout.write(cached + '\n');
+
+  // Spawn background refresh (fire-and-forget)
+  try {
+    const self = process.argv[0];
+    Bun.spawn([self, 'status', '--refresh'], {
+      stdio: ['ignore', 'ignore', 'ignore'],
+    }).unref();
+  } catch {
+    // If spawn fails, fall through — cache stays stale
+  }
+}
+
+/** Compute status and write to cache file (called via --refresh) */
+export function cmdStatusRefresh(): void {
+  const output = computeStatus();
+  try {
+    mkdirSync(config.tendDir, { recursive: true });
+    writeFileSync(STATUS_CACHE, output);
+  } catch {
+    // ignore write errors
+  }
+}
+
+function computeStatus(): string {
   let hot = 0;
   let working = 0;
   let doneCount = 0;
@@ -58,8 +113,7 @@ export function cmdStatus(): void {
   if (doneCount > 0) parts.push(`${green}◉${doneCount}${r}`);
 
   if (parts.length === 0) {
-    process.stdout.write('○\n');
-  } else {
-    process.stdout.write(parts.join(' ') + '\n');
+    return '○';
   }
+  return parts.join(' ');
 }
