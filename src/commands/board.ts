@@ -6,6 +6,7 @@ import { ago, dateHeader, toEpoch } from '../ui/format.js';
 import { C } from '../ui/colors.js';
 import { gamificationEnabled, renderFooter } from '../ui/gamification.js';
 import { basename } from 'path';
+import { invalidateStatusCache } from './status.js';
 
 function stateColor(state: string): string {
   const isTTY = process.stdout.isTTY ?? false;
@@ -21,6 +22,9 @@ function stateColor(state: string): string {
 
 /** Build the board output as a string (includes relay sync). */
 export async function buildBoardOutput(): Promise<string> {
+  // Invalidate status cache so prompt picks up fresh data after board/dashboard runs
+  invalidateStatusCache();
+
   // Relay sync (swallow errors)
   try { await relaySync(); } catch { /* ignore */ }
 

@@ -161,13 +161,17 @@ export function resolveProjectPath(name?: string): string {
       for (const p of paths) {
         if (basename(p) === name && existsSync(p)) return p;
       }
-      // Prefix match
-      for (const p of paths) {
-        if (basename(p).startsWith(name) && existsSync(p)) return p;
+      // Prefix match (require at least 2 chars to avoid accidental matches)
+      if (name.length >= 2) {
+        for (const p of paths) {
+          if (basename(p).startsWith(name) && existsSync(p)) return p;
+        }
       }
-      // Substring match
-      for (const p of paths) {
-        if (basename(p).includes(name) && existsSync(p)) return p;
+      // Substring match (require at least 2 chars)
+      if (name.length >= 2) {
+        for (const p of paths) {
+          if (basename(p).includes(name) && existsSync(p)) return p;
+        }
       }
     }
 
