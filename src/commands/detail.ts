@@ -1,6 +1,6 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { readEvents, mergeEvents } from '../core/events.js';
+import { readEvents, mergeEvents, filterEventsByBranch, isResetMarker, stripBranchSuffix } from '../core/events.js';
 import { currentBranch, commitsToday } from '../core/git.js';
 import { ago, isStale } from '../ui/format.js';
 import { C } from '../ui/colors.js';
@@ -99,12 +99,14 @@ export function cmdDetail(name: string): void {
   if (localEvents.length > 0 || relayEvents.length > 0) {
     process.stdout.write(`\n  ${C.bold}Sessions:${reset}\n`);
 
-    // Build per-source session maps
+    const currentBranchName = !isRelayOnly && projectPath ? currentBranch(projectPath) : null;
+
+    // Build per-source session maps, filtered to the current branch
     const renderSessions = (events: TendEvent[], source: string) => {
       const sessions = new Map<string, SessionState>();
-      
-      for (const evt of events) {
-        if (evt.sessionId === '*') {
+
+      for (const evt of filterEventsByBranch(events, currentBranchName)) {
+        if (isResetMarker(evt.sessionId)) {
           sessions.clear();
           continue;
         }
@@ -141,10 +143,11 @@ export function cmdDetail(name: string): void {
       const sColor = stateColor(sessState);
       const sLabel = stateLabel(sessState);
 
-      // Format session ID
-      let displaySid = s.sid;
-      if (s.sid === '_cli') displaySid = 'cli';
-      else if (s.sid.length > 16) displaySid = `${s.sid.slice(0, 8)}…${s.sid.slice(-4)}`;
+      // Format session ID — strip @branch suffix for cleaner display
+      const bareId = stripBranchSuffix(s.sid);
+      let displaySid = bareId;
+      if (bareId === '_cli') displaySid = 'cli';
+      else if (bareId.length > 16) displaySid = `${bareId.slice(0, 8)}…${bareId.slice(-4)}`;
 
       const sourceTag = s.source === 'relay' ? ' ↗' : '';
       const agoStr = s.ts ? ago(s.ts) : '';

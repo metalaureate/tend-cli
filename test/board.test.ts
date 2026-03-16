@@ -112,4 +112,45 @@ describe('board', () => {
     const r = ctx.tend([]);
     expect(r.stdout).toContain('uncommitted changes');
   });
+
+  it('isolates events by branch — only current branch state is shown', () => {
+    const dir = ctx.makeProject('bravo-iso');
+    ctx.tend(['init'], { cwd: dir });
+
+    // Emit on a feature branch (working)
+    execFileSync('git', ['checkout', '-b', 'feature-work'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'working', 'feature work'], { cwd: dir });
+
+    // Switch to a different branch and emit stuck
+    execFileSync('git', ['checkout', '-b', 'fix-bug'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'stuck', 'needs help'], { cwd: dir });
+
+    // Switch back to feature-work branch — board should show working, NOT stuck
+    execFileSync('git', ['checkout', 'feature-work'], { cwd: dir, env: GIT_ENV });
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('working');
+    expect(r.stdout).not.toContain('stuck');
+  });
+
+  it('branch ack does not clear other branches', () => {
+    const dir = ctx.makeProject('charlie-iso');
+    ctx.tend(['init'], { cwd: dir });
+
+    // Emit on feature branch
+    execFileSync('git', ['checkout', '-b', 'my-feature'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'done', 'feature done'], { cwd: dir });
+
+    // Switch to a second branch with its own state
+    execFileSync('git', ['checkout', '-b', 'other-feature'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['emit', 'working', 'still working'], { cwd: dir });
+
+    // Ack from my-feature — should only clear my-feature
+    execFileSync('git', ['checkout', 'my-feature'], { cwd: dir, env: GIT_ENV });
+    ctx.tend(['ack'], { cwd: dir });
+
+    // Switch back to other-feature — state should be preserved (working)
+    execFileSync('git', ['checkout', 'other-feature'], { cwd: dir, env: GIT_ENV });
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('working');
+  });
 });

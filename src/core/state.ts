@@ -1,8 +1,8 @@
 import { config } from './config.js';
 import { type TendEvent, type SessionState, type ProjectState, type State, STATE_PRIORITY } from '../types.js';
 import { isStale, toEpoch } from '../ui/format.js';
-import { readEvents, mergeEvents } from './events.js';
-import { lastCommitEpoch as getLastCommitEpoch } from './git.js';
+import { readEvents, mergeEvents, filterEventsByBranch, isResetMarker } from './events.js';
+import { lastCommitEpoch as getLastCommitEpoch, currentBranch } from './git.js';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -11,16 +11,24 @@ export function aggregateState(
   events: TendEvent[],
   staleThreshold: number = config.staleThreshold,
   commitEpoch?: number,
+  branch?: string | null,
 ): ProjectState | null {
   if (events.length === 0) return null;
+
+  // Filter events to the current branch when specified.
+  // Session IDs are tagged as `<id>@<branch>` by emit; untagged IDs are included
+  // on all branches for backward compatibility with older event files.
+  const filteredEvents = filterEventsByBranch(events, branch);
+
+  if (filteredEvents.length === 0) return null;
 
   const sessions = new Map<string, SessionState>();
   let lastTs = '';
 
-  for (const evt of events) {
+  for (const evt of filteredEvents) {
     lastTs = evt.ts;
 
-    if (evt.sessionId === '*') {
+    if (isResetMarker(evt.sessionId)) {
       // Reset marker — clear all sessions
       sessions.clear();
       sessions.set('_', { state: evt.state, ts: evt.ts, message: '' });
@@ -97,7 +105,8 @@ export function projectState(projectPath: string): ProjectState | null {
       : relayEvents;
 
   const commitEpoch = getLastCommitEpoch(projectPath) ?? undefined;
-  return aggregateState(merged, config.staleThreshold, commitEpoch);
+  const branch = currentBranch(projectPath) ?? undefined;
+  return aggregateState(merged, config.staleThreshold, commitEpoch, branch);
 }
 
 /** Get aggregate state for a relay-only project (from cache only) */

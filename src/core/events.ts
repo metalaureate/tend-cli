@@ -31,11 +31,11 @@ export function parseLine(line: string): TendEvent | null {
 
   const ts = parts[0];
 
-  // Reset marker: "timestamp * idle"
-  if (parts[1] === '*') {
+  // Reset marker: "timestamp * idle" or "timestamp *@branch idle"
+  if (parts[1] === '*' || parts[1].startsWith('*@')) {
     return {
       ts,
-      sessionId: '*',
+      sessionId: parts[1],
       state: (parts[2] as State) || 'idle',
       message: '',
     };
@@ -97,9 +97,44 @@ export function appendEvent(
   appendFileSync(filePath, line);
 }
 
+/** Return true if a sessionId represents a reset marker (`*` or `*@branch`) */
+export function isResetMarker(sessionId: string): boolean {
+  return sessionId === '*' || sessionId.startsWith('*@');
+}
+
+/** Strip the `@branch` suffix from a session ID (if present) */
+export function stripBranchSuffix(sessionId: string): string {
+  const atIdx = sessionId.lastIndexOf('@');
+  return atIdx === -1 ? sessionId : sessionId.slice(0, atIdx);
+}
+
+/**
+ * Filter an event array to only include events relevant to the given branch.
+ * - Events without a `@branch` tag are included on every branch (backward compat).
+ * - Global reset markers (`*`) always pass through.
+ * - Branch-scoped reset markers (`*@branch`) only pass for the matching branch.
+ * When `branch` is null/undefined the original array is returned unchanged.
+ */
+export function filterEventsByBranch(events: TendEvent[], branch: string | null | undefined): TendEvent[] {
+  if (!branch) return events;
+  return events.filter(e => {
+    const sid = e.sessionId;
+    if (sid === '*') return true; // global reset — backward compat
+    if (sid.startsWith('*@')) return sid === `*@${branch}`; // branch-scoped reset
+    const atIdx = sid.lastIndexOf('@');
+    if (atIdx === -1) return true; // no branch tag — backward compat
+    return sid.slice(atIdx + 1) === branch;
+  });
+}
+
 /** Append a reset marker */
 export function appendReset(filePath: string, ts: string): void {
   appendFileSync(filePath, `${ts} * idle\n`);
+}
+
+/** Append a branch-scoped reset marker */
+export function appendBranchReset(filePath: string, ts: string, branch: string): void {
+  appendFileSync(filePath, `${ts} *@${branch} idle\n`);
 }
 
 /** Clear an events file */

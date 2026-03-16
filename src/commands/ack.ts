@@ -1,6 +1,7 @@
 import { resolveProjectPath } from '../core/projects.js';
-import { appendReset } from '../core/events.js';
+import { appendReset, appendBranchReset } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
+import { currentBranch } from '../core/git.js';
 import { cmdBoard } from './board.js';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
@@ -21,7 +22,12 @@ export async function cmdAck(args: string[]): Promise<void> {
   }
 
   const ts = tsLocal();
-  appendReset(join(projectPath, '.tend', 'events'), ts);
+  const branch = currentBranch(projectPath);
+  if (branch) {
+    appendBranchReset(join(projectPath, '.tend', 'events'), ts, branch);
+  } else {
+    appendReset(join(projectPath, '.tend', 'events'), ts);
+  }
   process.stdout.write(`✓ Acknowledged ${projectName}\n\n`);
   await cmdBoard();
 }
