@@ -10,3 +10,4 @@ package-lock.json
 relay/dist/
 relay/.wrangler/
 .tend/hook_debug.log
+.claude/settings.local.json
