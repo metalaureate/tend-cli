@@ -193,7 +193,12 @@ function setupShell(): void {
 ${marker}
 if [[ "$GIT_EDITOR" != ":" && -z "$CLAUDE" && "$TEND_NO_PROMPT" != "1" ]]; then
   setopt PROMPT_SUBST
-  _tend_precmd() { _TEND_S="$(tend status 2>/dev/null)"; }
+  _TEND_FAILURES=0
+  _tend_precmd() {
+    if (( _TEND_FAILURES >= 3 )); then _TEND_S=""; return; fi
+    _TEND_S="$(command tend status 2>/dev/null &; _tp=$!; { sleep 0.2; kill $_tp 2>/dev/null; } &; wait $_tp 2>/dev/null)"
+    if [[ $? -ne 0 ]]; then _TEND_S=""; (( _TEND_FAILURES++ )); else _TEND_FAILURES=0; fi
+  }
   precmd_functions+=(_tend_precmd)
   RPROMPT='$_TEND_S'
 fi
@@ -213,7 +218,13 @@ fi
         const snippet = `
 ${marker}
 if [[ "$GIT_EDITOR" != ":" && -z "$CLAUDE" && "$TEND_NO_PROMPT" != "1" ]]; then
-  _tend_prompt() { _TEND_S="$(tend status 2>/dev/null)"; PS1="\${PS1%\\$ *}$_TEND_S \\$ "; }
+  _TEND_FAILURES=0
+  _tend_prompt() {
+    if (( _TEND_FAILURES >= 3 )); then return; fi
+    _TEND_S="$(command tend status 2>/dev/null &; _tp=$!; { sleep 0.2; kill $_tp 2>/dev/null; } &; wait $_tp 2>/dev/null)"
+    if [[ $? -ne 0 ]]; then _TEND_S=""; (( _TEND_FAILURES++ )); else _TEND_FAILURES=0; fi
+    PS1="\${PS1%\\$ *}$_TEND_S \\$ "
+  }
   PROMPT_COMMAND="_tend_prompt\${PROMPT_COMMAND:+;\$PROMPT_COMMAND}"
 fi
 `;

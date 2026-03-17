@@ -101,6 +101,17 @@ export function NavbarClient() {
   )
 }
 
+export function HeroPromptGlyph() {
+  return (
+    <div className="mt-4 pt-3 border-t border-white/5 flex items-center">
+      <span className="text-smoke/30">~/projects</span>
+      <span className="text-smoke/30 ml-1">$</span>
+      <span className="inline-block w-1.5 h-3.5 bg-parchment/40 animate-pulse ml-1.5" />
+      <span className="ml-auto text-ember transition-all duration-500">●2</span>
+    </div>
+  )
+}
+
 export function GlyphDemo() {
   const [glyphState, setGlyphState] = useState(0)
   const states = [

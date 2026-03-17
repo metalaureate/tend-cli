@@ -1,4 +1,4 @@
-import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, GithubIconExport, ArrowRightIconExport, DashboardLive } from './components'
+import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, GithubIconExport, ArrowRightIconExport, DashboardLive } from './components'
 
 const board = [
   { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
@@ -75,6 +75,7 @@ export default function Page() {
                 <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
                   2 need you · 2 working · 2 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
                 </div>
+                <HeroPromptGlyph />
               </div>
             </div>
 
@@ -467,11 +468,12 @@ export default function Page() {
             <p className="dash-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Dashboard</p>
 
             <h2 className="dash-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              Want it always on?<br />
-              <span className="text-smoke">One flag. Persistent. Live.</span>
+              Yes, we built a dashboard.<br />
+              <span className="text-smoke">Have your cake and eat it too.</span>
             </h2>
 
             <p className="dash-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
+              After 800 words about why dashboards are a distraction, we gave you one. The difference: it&apos;s a single flag, not a lifestyle.
               Run <span className="font-mono text-anvil">tend -</span> for a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
             </p>
 

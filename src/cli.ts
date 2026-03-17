@@ -48,6 +48,7 @@ async function main(): Promise<void> {
         break;
       case 'add':
       case 'todo':
+      case 'todos':
         await cmdAdd(rest);
         break;
       case 'ack':
