@@ -2,7 +2,8 @@ import './globals.css'
 
 export const metadata = {
   title: 'Tend — Lightweight attention infrastructure for humans and agents',
-  description: 'One command, one glance, then back to work. A CLI tool that gives developers a single pull-based view of all their AI agent projects.',
+  description: 'Who\'s stuck? Who needs you? A CLI that gives developers and agents a single pull-based board across all projects — local or remote. One command, one glance, then back to work.',
+  metadataBase: new URL('https://tend.cx'),
   alternates: {
     types: {
       'text/plain': [
@@ -13,6 +14,19 @@ export const metadata = {
   },
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90' font-family='monospace'>t</text></svg>",
+  },
+  openGraph: {
+    title: 'Tend — Who\'s stuck? Who needs you?',
+    description: 'Lightweight attention infrastructure for humans and AI agents. One CLI, one board, every agent — local or remote. No daemon, no database.',
+    url: 'https://tend.cx',
+    siteName: 'Tend',
+    type: 'website',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Tend — Who\'s stuck? Who needs you?',
+    description: 'Lightweight attention infrastructure for humans and AI agents. One CLI, one board, every agent — local or remote.',
   },
 }
 
