@@ -3,4 +3,4 @@ Allow: /
 
 # LLM-readable documentation
 # See https://llmstxt.org
-Sitemap: https://tend.dev/llms.txt
+Sitemap: https://tend.cx/llms.txt
