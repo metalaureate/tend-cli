@@ -1,12 +1,12 @@
-import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, GithubIconExport, ArrowRightIconExport, DashboardLive } from './components'
+import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, GithubIconExport, ArrowRightIconExport } from './components'
 
 const board = [
   { icon: '?', name: 'payments-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
-  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember', env: '' },
-  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '↗' },
+  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '' },
+  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '' },
   { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗' },
-  { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '1h', color: 'text-smoke/50', env: '' },
-  { icon: '◌', name: 'market-research', state: 'idle', msg: 'competitor analysis complete', time: '3h', color: 'text-smoke/50', env: '↗' },
+  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'uncommitted changes', time: '45m ago', color: 'text-ember', env: '↗' },
+  { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '3h ago', color: 'text-smoke/50', env: '' },
 ]
 
 const helpCommands = [
@@ -22,10 +22,10 @@ const helpCommands = [
   ['td help', 'Show this help'],
 ]
 
-const trainSteps = [
-  { step: 'Stay on your mind train.', desc: 'Deep in one conversation. The prompt is silent. Nothing needs you.' },
-  { step: 'Reach a station.', desc: 'You finished a turn. The agent is working. You have a natural gap.' },
-  { step: 'Glance at the board.', desc: 'Type td. 3-second scan. Route yourself to the next conversation. Back on the train.' },
+const flowSteps = [
+  { step: '1. Finish a turn.', desc: 'You hit enter. The agent is working. You have a natural gap.' },
+  { step: '2. Glance at the prompt.', desc: 'It says ○. Nothing needs you. Stay focused where you are.' },
+  { step: '3. Or it says ?2 ◐3.', desc: '2 agents need you, 3 working. Type td. 3-second scan. Route yourself.' },
 ]
 
 export default function Page() {
@@ -73,7 +73,10 @@ export default function Page() {
                   ))}
                 </div>
                 <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
-                  2 need you · 2 working · 2 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
+                  3 need you · 2 working · 1 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
+                </div>
+                <div className="text-smoke/25 mt-1">
+                  5 done today · 18/24h active · <span className="text-parchment/40">◆</span> 3-day streak
                 </div>
                 <HeroPromptGlyph />
               </div>
@@ -123,16 +126,18 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              The scarce resource isn&apos;t output.<br />
+              The scarce resource isn&apos;t compute.<br />
               <span className="text-smoke">It&apos;s your attention.</span>
             </h2>
 
+            <p className="why-el font-mono text-xs text-smoke/40 mt-4">For developers running 2+ AI agents across projects.</p>
+
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                All of your work is done by agents now — code, research, ops, support, content. Maybe 20% is fire-and-forget: grooming plans, kicking off builds, long-running jobs. The other 80% is conversational: you and an agent working turn by turn, with gaps that range from seconds to minutes and arrive unpredictably.
+                You started a second agent. Then a third. Now you&apos;re tab-switching between conversations, checking terminals, losing the thread. One agent finished and you didn&apos;t notice for twenty minutes. Another is stuck on a tool approval and you have no idea.
               </p>
               <p>
-                Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to several hours you&apos;re waiting, killing your flow.
+                The problem isn&apos;t that agents are slow. It&apos;s that you have no single view of who needs you right now — and hunting for that answer is what kills your flow.
               </p>
             </div>
 
@@ -143,12 +148,6 @@ export default function Page() {
               </p>
               <p className="font-body text-smoke mt-3 leading-relaxed">
                 You finish a turn in one project and instantly know where to go next. No scanning tabs. No checking dashboards. No wondering which agent finished while you weren&apos;t looking. Just a glance at the terminal you&apos;re already in.
-              </p>
-            </div>
-
-            <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
-              <p>
-                A dashboard doesn&apos;t solve this — it&apos;s another surface pulling attention, another tab to watch. And it assumes a desk. But you might be on a laptop over breakfast, in a cloud session from your phone, at a café with barely room for a coffee. You need something at the speed of thought, in the place you already are: the terminal.
               </p>
             </div>
 
@@ -187,19 +186,15 @@ export default function Page() {
 
             <GlyphDemo />
 
-            {/* The train metaphor */}
+            {/* The flow */}
             <div className="glyph-el mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-              {trainSteps.map((item, i) => (
+              {flowSteps.map((item, i) => (
                 <div key={i} className="bg-white/5 rounded-2xl p-5">
                   <p className="font-heading font-bold text-parchment text-sm">{item.step}</p>
                   <p className="font-body text-smoke text-sm mt-2 leading-relaxed">{item.desc}</p>
                 </div>
               ))}
             </div>
-
-            <p className="glyph-el font-body text-smoke/60 text-sm mt-8 max-w-xl leading-relaxed">
-              Stay in flow by batching interruptions into pull-based station stops. Stay on your mind train, check the board at natural pauses, route yourself to the next conversation that needs you.
-            </p>
           </div>
         </ScrollReveal>
       </section>
@@ -344,11 +339,7 @@ export default function Page() {
             </h2>
 
             <p className="relay-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
-              Local agents write to <span className="font-mono text-parchment">.tend/events</span> directly — no network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Without a common protocol, you&apos;re back to maintaining per-environment solutions.
-            </p>
-
-            <p className="relay-el font-body text-smoke text-base md:text-lg mt-4 leading-relaxed max-w-2xl">
-              The relay solves this. One command to set up:
+              Local agents write to <span className="font-mono text-parchment">.tend/events</span> — plain text, no network. But when agents run elsewhere (Codex, CI, SSH, remote worktrees), set one token and the relay brings them onto your board.
             </p>
 
             {/* Relay setup demo */}
@@ -366,121 +357,25 @@ export default function Page() {
                 </div>
                 <div className="text-smoke/50">Registering with relay at https://relay.tend.cx...</div>
                 <div className="text-patina mt-1">✓ Token stored in ~/.tend/relay_token</div>
-                <div className="mt-2 text-smoke/50">Your relay token:</div>
-                <div className="text-parchment/80 ml-2">tnd_281w29...392t</div>
                 <div className="mt-2 text-smoke/50">Set this on remote environments:</div>
                 <div className="text-parchment/80 ml-2">export TEND_RELAY_TOKEN=&quot;tnd_281w29...392t&quot;</div>
               </div>
             </div>
 
-            {/* How it ties together */}
+            {/* Two cards only */}
             <div className="relay-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white/5 rounded-2xl p-5">
-                <p className="font-heading font-bold text-parchment text-sm">Setup: one token</p>
+                <p className="font-heading font-bold text-parchment text-sm">No accounts. One token.</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   Run <span className="font-mono text-parchment">td relay setup</span> on your laptop.
-                  Copy the token to each remote environment as <span className="font-mono text-parchment">TEND_RELAY_TOKEN</span>.
-                  No accounts. No passwords. No signup.
+                  Copy the token to each remote environment.
+                  That&apos;s it. Agents don&apos;t change — same AGENTS.md instructions everywhere.
                 </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-5">
-                <p className="font-heading font-bold text-parchment text-sm">Agents don&apos;t change</p>
+                <p className="font-heading font-bold text-parchment text-sm">Completely optional</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  The agent&apos;s AGENTS.md instructions stay the same. The developer sets a token on the remote environment and the CLI handles the rest. The relay is invisible plumbing.
-                </p>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-5">
-                <p className="font-heading font-bold text-parchment text-sm">No daemon. No sync.</p>
-                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  <span className="font-mono text-parchment">td</span> reads from local cache — never hits the network, stays under 100ms.
-                  The board refreshes the cache on each invocation, then renders from cache.
-                </p>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-5">
-                <p className="font-heading font-bold text-parchment text-sm">The relay is optional</p>
-                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  Local agents still just write to a file. If you never set up a relay token, everything works exactly the same. The relay is what makes one board possible when your agents are spread across environments.
-                </p>
-              </div>
-            </div>
-
-            {/* Board with relay indicator */}
-            <div className="relay-el mt-10 bg-black/40 border border-white/10 rounded-[1.25rem] overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
-                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-                <span className="font-mono text-[11px] text-smoke/40 ml-2">$ td</span>
-              </div>
-              <div className="px-4 md:px-5 py-4 font-mono text-[11px] md:text-xs leading-relaxed">
-                <div className="text-smoke/40 mb-3 flex justify-between">
-                  <span className="tracking-widest text-parchment/60 font-medium">TEND</span>
-                  <span>Fri Mar 14, 14:32</span>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex">
-                    <span className="text-patina w-4 shrink-0">◐</span>
-                    <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">my-app</span>
-                    <span className="text-patina w-16 shrink-0">working</span>
-                    <span className="text-smoke/50 truncate hidden sm:block">building auth scaffold</span>
-                    <span className="text-smoke/30 ml-auto pl-2 shrink-0">(3m)</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-ember w-4 shrink-0">◉</span>
-                    <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">cloud-refactor</span>
-                    <span className="text-ember w-16 shrink-0">done</span>
-                    <span className="text-smoke/50 truncate hidden sm:block">migration complete (PR #12)</span>
-                    <span className="text-parchment/40 ml-auto pl-2 shrink-0">↗</span>
-                  </div>
-                  <div className="flex">
-                    <span className="text-smoke/50 w-4 shrink-0">◌</span>
-                    <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">deep-search</span>
-                    <span className="text-smoke/50 w-16 shrink-0">idle</span>
-                    <span className="text-smoke/50 truncate hidden sm:block">analysis complete</span>
-                    <span className="text-parchment/40 ml-auto pl-2 shrink-0">↗</span>
-                  </div>
-                </div>
-                <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
-                  1 needs you · 1 working · 1 idle &nbsp; <span className="text-parchment/30">↗ = relay</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </ScrollReveal>
-      </section>
-
-      {/* DASHBOARD */}
-      <section id="dashboard" className="py-20 md:py-28 px-6 bg-parchment">
-        <ScrollReveal triggerClassName="dash-el">
-          <div className="max-w-3xl mx-auto">
-            <p className="dash-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Dashboard</p>
-
-            <h2 className="dash-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              And if you really want a dashboard,<br />
-              <span className="text-smoke">there&apos;s a flag for that.</span>
-            </h2>
-
-            <p className="dash-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
-              <span className="font-mono text-anvil">td -</span> gives you a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
-            </p>
-
-            {/* Live dashboard demo */}
-            <div className="dash-el">
-              <DashboardLive />
-            </div>
-
-            {/* Pull vs push comparison */}
-            <div className="dash-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white border border-chalk rounded-2xl p-5">
-                <p className="font-heading font-bold text-anvil text-sm">tend &nbsp;<span className="font-mono font-normal text-smoke/60">(pull)</span></p>
-                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  Type <span className="font-mono text-anvil">td</span> at any natural pause. 3-second scan. Handle what needs you. Back to work. The default — and the fastest path back to flow.
-                </p>
-              </div>
-              <div className="bg-white border border-chalk rounded-2xl p-5">
-                <p className="font-heading font-bold text-anvil text-sm">tend - &nbsp;<span className="font-mono font-normal text-smoke/60">(dashboard)</span></p>
-                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  Persistent full-screen view. Auto-refreshes every 60 seconds. Ideal for a second monitor, an always-on terminal pane, or coordinating a large fleet of long-running agents.
+                  Local agents just write to a file. No relay needed. If your agents are all local, everything works without it. The relay only matters when agents are spread across machines.
                 </p>
               </div>
             </div>

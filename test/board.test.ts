@@ -125,6 +125,17 @@ describe('board', () => {
     expect(r.stdout).not.toContain('idle');
   });
 
+  it('demotes stale waiting to idle', () => {
+    const dir = ctx.makeProject('wait-stale');
+    ctx.tend(['init'], { cwd: dir });
+    // Write events 2 hours ago → waiting should expire to idle
+    const staleTs = localTs(new Date(Date.now() - 2 * 3600 * 1000));
+    writeFileSync(join(dir, '.tend', 'events'),
+      `${staleTs} sess1 working building feature\n${staleTs} sess1 idle session ended\n`);
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('idle');
+  });
+
   it('stays idle when done precedes idle', () => {
     const dir = ctx.makeProject('done-clean');
     ctx.tend(['init'], { cwd: dir });

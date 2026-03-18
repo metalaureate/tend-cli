@@ -2,7 +2,8 @@ import { discoverProjects, sortedProjects, detectProject } from '../core/project
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
 import { relaySync, relayOnlyProjects } from '../core/relay.js';
 import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit } from '../core/git.js';
-import { ago, dateHeader, toEpoch } from '../ui/format.js';
+import { ago, dateHeader, toEpoch, isStale } from '../ui/format.js';
+import { config } from '../core/config.js';
 import { C } from '../ui/colors.js';
 import { gamificationEnabled, renderFooter } from '../ui/gamification.js';
 import { basename } from 'path';
@@ -70,7 +71,8 @@ export async function buildBoardOutput(): Promise<string> {
       activeCount = ps.activeCount;
 
       // Promote done + dirty working tree → waiting (ready for review)
-      if (state === 'done' && hasGit(project) && isDirty(project)) {
+      // Only if the done event is recent (not stale)
+      if (state === 'done' && hasGit(project) && isDirty(project) && ts && !isStale(ts, config.staleThreshold)) {
         state = 'waiting';
         msg = msg || 'ready for review';
       }

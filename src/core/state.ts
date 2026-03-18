@@ -62,9 +62,9 @@ export function aggregateState(
 
   if (sessions.size === 0) return null;
 
-  // Demote stale working sessions to idle
+  // Demote stale working/waiting sessions to idle
   for (const [id, sess] of sessions) {
-    if (sess.state === 'working' && isStale(sess.ts, staleThreshold)) {
+    if ((sess.state === 'working' || sess.state === 'waiting') && isStale(sess.ts, staleThreshold)) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
     // Demote working sessions when a newer commit exists
