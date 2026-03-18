@@ -3,10 +3,10 @@ import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, Git
 const board = [
   { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
   { icon: '◉', name: 'northstar', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember', env: '' },
-  { icon: '◐', name: 'beacon', state: 'working', msg: 'refactoring auth middleware', time: '8m', color: 'text-patina', env: '↗' },
+  { icon: '◐', name: 'beacon', state: 'working', msg: 'drafting Q2 strategy doc', time: '8m', color: 'text-patina', env: '↗' },
   { icon: '◐', name: 'sextant', state: 'working', msg: 'building data pipeline', time: '23m', color: 'text-patina', env: '↗' },
-  { icon: '◌', name: 'meridian', state: 'idle', msg: 'tests passing, waiting for review', time: '1h', color: 'text-smoke/50', env: '' },
-  { icon: '◌', name: 'waypoint', state: 'idle', msg: 'benchmark suite passing', time: '3h', color: 'text-smoke/50', env: '↗' },
+  { icon: '◌', name: 'meridian', state: 'idle', msg: 'customer tickets triaged', time: '1h', color: 'text-smoke/50', env: '' },
+  { icon: '◌', name: 'waypoint', state: 'idle', msg: 'research report complete', time: '3h', color: 'text-smoke/50', env: '↗' },
 ]
 
 const helpCommands = [
@@ -23,9 +23,9 @@ const helpCommands = [
 ]
 
 const trainSteps = [
-  { step: 'Stay on your mind train.', desc: 'Deep work in one project. The prompt is silent.' },
-  { step: 'Reach a station.', desc: 'Natural pause. Agent is running. You finished a thought.' },
-  { step: 'Glance at the board.', desc: 'Type td. 3-second scan. Handle what needs handling. Get back on.' },
+  { step: 'Stay on your mind train.', desc: 'Deep in one conversation. The prompt is silent. Nothing needs you.' },
+  { step: 'Reach a station.', desc: 'You finished a turn. The agent is working. You have a natural gap.' },
+  { step: 'Glance at the board.', desc: 'Type td. 3-second scan. Route yourself to the next conversation. Back on the train.' },
 ]
 
 export default function Page() {
@@ -198,7 +198,7 @@ export default function Page() {
             </div>
 
             <p className="glyph-el font-body text-smoke/60 text-sm mt-8 max-w-xl leading-relaxed">
-              The goal is maximizing flow state while supervising a dozen constantly working agents. Not a dashboard you monitor — a board you glance at when you&apos;re ready to switch context.
+              Stay in flow by batching interruptions into pull-based station stops. Stay on your mind train, check the board at natural pauses, route yourself to the next conversation that needs you.
             </p>
           </div>
         </ScrollReveal>
