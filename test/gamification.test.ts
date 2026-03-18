@@ -101,17 +101,5 @@ describe('gamification', () => {
     expect(r.stdout).toContain('waiting');
   });
 
-  it('shows turns per done metric', () => {
-    const dir = ctx.makeProject('gami-turns');
-    ctx.tend(['init'], { cwd: dir });
-    const today = todayStr();
-    writeFileSync(join(dir, '.tend', 'events'), [
-      `${today}T10:00:00 sess1 working first prompt`,
-      `${today}T10:05:00 sess1 working second prompt`,
-      `${today}T10:10:00 sess1 working third prompt`,
-      `${today}T10:15:00 sess1 done task complete`,
-    ].join('\n') + '\n');
-    const r = ctx.tend([]);
-    expect(r.stdout).toContain('3 turns/done');
-  });
 });
+

@@ -70,11 +70,11 @@ export async function buildBoardOutput(): Promise<string> {
       ts = ps.ts;
       activeCount = ps.activeCount;
 
-      // Promote done + dirty working tree → waiting (ready for review)
+      // Promote done + dirty working tree → waiting (uncommitted work)
       // Only if the done event is recent (not stale)
       if (state === 'done' && hasGit(project) && isDirty(project) && ts && !isStale(ts, config.staleThreshold)) {
         state = 'waiting';
-        msg = msg || 'ready for review';
+        msg = msg || 'uncommitted changes';
       }
 
       // For idle with no message, check for uncommitted work then git fallback
@@ -231,8 +231,8 @@ export async function buildBoardOutput(): Promise<string> {
   // Footer
   output += '\n';
   const footerParts: string[] = [];
-  if (needs > 0) footerParts.push(`${C.amber}${needs} needs you${C.reset}`);
-  if (ready > 0) footerParts.push(`${ready} ready for review`);
+  if (needs > 0) footerParts.push(`${C.amber}${needs} needs attention${C.reset}`);
+  if (ready > 0) footerParts.push(`${ready} done`);
   if (workingCount > 0) footerParts.push(`${C.cyan}${workingCount} working${C.reset}`);
   if (idleCount > 0) footerParts.push(`${C.grey}${idleCount} idle${C.reset}`);
   output += `  ${footerParts.join(' · ')}\n\n`;

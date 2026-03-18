@@ -2,7 +2,6 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { discoverProjects } from '../core/projects.js';
 import { readEvents } from '../core/events.js';
-import { stripUserTag } from '../core/events.js';
 
 import { C } from './colors.js';
 import { config } from '../core/config.js';
@@ -12,7 +11,6 @@ export interface GamificationStats {
   donesToday: number;
   donesWeek: number;
   activeHours: number;    // distinct hours with agent activity in rolling 24h
-  turnsPerDone: number;   // avg working events per completed session (today)
   todosOpen: number;
 }
 
@@ -36,7 +34,6 @@ export function computeStats(): GamificationStats {
     donesToday: 0,
     donesWeek: 0,
     activeHours: 0,
-    turnsPerDone: 0,
     todosOpen: 0,
   };
 
@@ -57,11 +54,7 @@ export function computeStats(): GamificationStats {
   // Collect all event timestamps in the rolling 24h window for active hours calc
   const activeTimestamps: number[] = [];
 
-  // Track turns per done: count working events per session, count dones
-  // Key: base session id (stripped of user tag), Value: number of working events today
-  const sessionTurns = new Map<string, number>();
-  let todayDoneSessions = 0;
-  let todayTotalTurns = 0;
+
 
   for (const project of projects) {
     // Count open TODOs
@@ -96,20 +89,7 @@ export function computeStats(): GamificationStats {
         }
       }
 
-      // Track turns per done for today's sessions
-      if (dateStr === today && evt.sessionId) {
-        const baseId = stripUserTag(evt.sessionId);
-        if (evt.state === 'working') {
-          sessionTurns.set(baseId, (sessionTurns.get(baseId) || 0) + 1);
-        } else if (evt.state === 'done') {
-          const turns = sessionTurns.get(baseId) || 0;
-          if (turns > 0) {
-            todayTotalTurns += turns;
-            todayDoneSessions++;
-            sessionTurns.set(baseId, 0); // reset for next task in same session
-          }
-        }
-      }
+
     }
   }
 
@@ -120,11 +100,6 @@ export function computeStats(): GamificationStats {
       activeHourSet.add(Math.floor(ts / 3600));
     }
     stats.activeHours = activeHourSet.size;
-  }
-
-  // Compute turns per done
-  if (todayDoneSessions > 0) {
-    stats.turnsPerDone = Math.round((todayTotalTurns / todayDoneSessions) * 10) / 10;
   }
 
   return stats;
@@ -152,12 +127,8 @@ export function renderFooter(): string {
   }
   lines.push(`  ${C.dim}${activeStr}${C.reset}`);
 
-  // Dones + turns/done
-  let todayStr = `${stats.donesToday} done today`;
-  if (stats.turnsPerDone > 0) {
-    todayStr += `  ·  ${stats.turnsPerDone} turns/done`;
-  }
-  lines.push(`  ${C.dim}${todayStr}${C.reset}`);
+  // Dones today
+  lines.push(`  ${C.dim}${stats.donesToday} done today${C.reset}`);
 
   // Week line (only when it adds info beyond today)
   if (stats.donesWeek > stats.donesToday) {
