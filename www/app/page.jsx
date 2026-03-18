@@ -132,7 +132,7 @@ export default function Page() {
                 All of your work is done by agents now — code, research, ops, support, content. Maybe 20% is fire-and-forget: grooming plans, kicking off builds, long-running jobs. The other 80% is conversational: you and an agent working turn by turn, with gaps that range from seconds to minutes and arrive unpredictably.
               </p>
               <p>
-                Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to a few minutes you&apos;re waiting, killing your flow.
+                Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to several hours you&apos;re waiting, killing your flow.
               </p>
             </div>
 
