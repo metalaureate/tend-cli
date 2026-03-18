@@ -64,12 +64,12 @@ export function aggregateState(
   let bestPriority = 0;
   let bestMessage = '';
   let bestTs = '';
-  let activeCount = 0;
+  const stateCounts = new Map<State, number>();
   const workingTimestamps: string[] = [];
 
   for (const [, sess] of sessions) {
     const p = STATE_PRIORITY[sess.state];
-    if (sess.state !== 'idle') activeCount++;
+    stateCounts.set(sess.state, (stateCounts.get(sess.state) || 0) + 1);
     if (sess.state === 'working') workingTimestamps.push(sess.ts);
 
     if (p > bestPriority) {
@@ -86,7 +86,7 @@ export function aggregateState(
     state: bestState,
     message: bestMessage,
     ts: bestTs,
-    activeCount,
+    activeCount: stateCounts.get(bestState) || 0,
     workingTimestamps,
   };
 }

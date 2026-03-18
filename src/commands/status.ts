@@ -6,6 +6,8 @@ import { relayOnlyProjects } from '../core/relay.js';
 import { config } from '../core/config.js';
 
 const STATUS_CACHE = join(config.tendDir, 'status_cache');
+const REFRESH_PID = join(config.tendDir, 'status_refresh.pid');
+const REFRESH_STALE_MS = 30_000; // consider refresh PID stale after 30s
 
 /** Invalidate status cache so next prompt recomputes synchronously */
 export function invalidateStatusCache(): void {
@@ -36,6 +38,9 @@ export function cmdStatus(): void {
   }
   process.stdout.write(cached + '\n');
 
+  // Guard: skip spawn if a refresh is already running
+  if (isRefreshRunning()) return;
+
   // Spawn background refresh (fire-and-forget)
   try {
     const self = process.argv[0];
@@ -47,14 +52,59 @@ export function cmdStatus(): void {
   }
 }
 
+/** Check if a refresh process is already running (or stale) */
+function isRefreshRunning(): boolean {
+  try {
+    if (!existsSync(REFRESH_PID)) return false;
+    const content = readFileSync(REFRESH_PID, 'utf-8').trim();
+    const [pidStr, tsStr] = content.split(' ');
+    const pid = parseInt(pidStr, 10);
+    const ts = parseInt(tsStr, 10);
+    if (!pid || !ts) return false;
+
+    // Stale PID file — process probably died without cleanup
+    if (Date.now() - ts > REFRESH_STALE_MS) {
+      try { unlinkSync(REFRESH_PID); } catch { /* ignore */ }
+      return false;
+    }
+
+    // Check if PID is still alive
+    try {
+      process.kill(pid, 0);
+      return true; // still running
+    } catch {
+      // Process is dead, clean up
+      try { unlinkSync(REFRESH_PID); } catch { /* ignore */ }
+      return false;
+    }
+  } catch {
+    return false;
+  }
+}
+
 /** Compute status and write to cache file (called via --refresh) */
 export function cmdStatusRefresh(): void {
-  const output = computeStatus();
+  // Write PID file so concurrent refreshes are skipped
   try {
     mkdirSync(config.tendDir, { recursive: true });
-    writeFileSync(STATUS_CACHE, output);
-  } catch {
-    // ignore write errors
+    writeFileSync(REFRESH_PID, `${process.pid} ${Date.now()}`);
+  } catch { /* ignore */ }
+
+  // Self-destruct timeout: if we hang, exit hard after 10s
+  const watchdog = setTimeout(() => process.exit(1), 10_000);
+  if (watchdog.unref) watchdog.unref();
+
+  try {
+    const output = computeStatus();
+    try {
+      writeFileSync(STATUS_CACHE, output);
+    } catch {
+      // ignore write errors
+    }
+  } finally {
+    // Clean up PID file
+    try { unlinkSync(REFRESH_PID); } catch { /* ignore */ }
+    clearTimeout(watchdog);
   }
 }
 

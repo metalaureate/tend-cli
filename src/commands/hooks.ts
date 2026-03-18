@@ -1,6 +1,6 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { appendEvent } from '../core/events.js';
-import { tsLocal, toEpoch } from '../ui/format.js';
+import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
@@ -132,23 +132,18 @@ async function hookStop(): Promise<void> {
   // Only demote to idle if current state is "working".
   // Preserve intentional terminal states (done, stuck, waiting).
   let lastState = '';
-  let firstWorkingTs = '';
-  let workingCount = 0;
   if (existsSync(eventsFile)) {
     const content = readFileSync(eventsFile, 'utf-8').trimEnd();
     const lines = content.split('\n');
 
     if (sessionId) {
-      // Find last event and first working event for this session
+      // Find last event for this session
       for (let i = lines.length - 1; i >= 0; i--) {
         if (lines[i].includes(` ${sessionId} `)) {
           const parts = lines[i].split(/\s+/);
           if (parts.length >= 3) {
-            if (!lastState) lastState = parts[2];
-            if (parts[2] === 'working') {
-              workingCount++;
-              firstWorkingTs = parts[0];
-            }
+            lastState = parts[2];
+            break;
           }
         }
       }
@@ -161,22 +156,6 @@ async function hookStop(): Promise<void> {
   }
 
   if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting') return;
-
-  // Infer stuck: if the session only had 1 prompt (working event) and
-  // lasted less than 90 seconds, the agent likely hit a wall
-  const BRIEF_SESSION_THRESHOLD = 90; // seconds
-  if (lastState === 'working' && firstWorkingTs && workingCount <= 1) {
-    const elapsed = toEpoch(ts) - toEpoch(firstWorkingTs);
-    if (elapsed >= 0 && elapsed < BRIEF_SESSION_THRESHOLD) {
-      if (sessionId) {
-        appendEvent(eventsFile, ts, sessionId, 'stuck', 'session ended abruptly');
-      } else {
-        appendFileSync(eventsFile, `${ts} stuck session ended abruptly\n`);
-      }
-      invalidateStatusCache();
-      return;
-    }
-  }
 
   if (sessionId) {
     appendEvent(eventsFile, ts, sessionId, 'idle', 'session ended');

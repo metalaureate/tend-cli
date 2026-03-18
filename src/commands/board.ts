@@ -146,7 +146,7 @@ export async function buildBoardOutput(): Promise<string> {
     const icon = stateIcon(state as any || '');
     const color = stateColor(state);
     let label = stateLabel(state as any || '');
-    if (activeCount > 1) label = `${activeCount} ${state}`;
+    if (activeCount > 1 && state !== 'idle' && state !== 'done') label = `${activeCount} ${state}`;
 
     const displayName = projectName.padEnd(20).slice(0, 20);
     const numPrefix = String(projectNum).padStart(2) + '.';
@@ -206,7 +206,7 @@ export async function buildBoardOutput(): Promise<string> {
     const icon = stateIcon(state as any || '');
     const color = stateColor(state);
     let label = stateLabel(state as any || '');
-    if (activeCount > 1) label = `${activeCount} ${state}`;
+    if (activeCount > 1 && state !== 'idle' && state !== 'done') label = `${activeCount} ${state}`;
 
     const displayName = (relayProject.slice(0, 19) + '↗').padEnd(20);
 
