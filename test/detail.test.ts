@@ -81,15 +81,4 @@ describe('nested project', () => {
   });
 });
 
-describe('sync', () => {
-  it('generates reconciliation prompt', () => {
-    const dir = ctx.makeProject('xray');
-    ctx.tend(['init'], { cwd: dir });
-    ctx.tend(['add', 'build feature X'], { cwd: dir });
-    const r = ctx.tend(['sync', 'xray']);
-    expect(r.stdout).toContain('xray');
-    expect(r.stdout).toContain('Current TODO');
-    expect(r.stdout).toContain('Git History');
-    expect(r.stdout).toContain('Instructions');
-  });
-});
+

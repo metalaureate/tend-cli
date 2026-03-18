@@ -36,7 +36,7 @@ describe('ack', () => {
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'stuck', 'need approval'], { cwd: dir });
     const before = ctx.tend(['status']);
-    expect(before.stdout.trim()).toBe('▲1');
+    expect(before.stdout.trim()).toBe('?1');
     ctx.tend(['ack'], { cwd: dir });
     const after = ctx.tend(['status']);
     expect(after.stdout.trim()).toBe('○');
@@ -62,7 +62,7 @@ describe('multi-session', () => {
     appendFileSync(join(dir, '.tend', 'events'), `${ts} sess-1 working building auth\n`);
     appendFileSync(join(dir, '.tend', 'events'), `${ts} sess-2 working writing tests\n`);
     const status = ctx.tend(['status']);
-    expect(status.stdout.trim()).toBe('◉2');
+    expect(status.stdout.trim()).toBe('◐2');
     const board = ctx.tend([]);
     expect(board.stdout).toContain('working');
     expect(board.stdout).toContain('2 working');

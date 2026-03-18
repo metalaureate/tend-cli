@@ -1,12 +1,12 @@
 import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, GithubIconExport, ArrowRightIconExport, DashboardLive } from './components'
 
 const board = [
-  { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
-  { icon: '◉', name: 'northstar', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember', env: '' },
-  { icon: '◐', name: 'beacon', state: 'working', msg: 'drafting Q2 strategy doc', time: '8m', color: 'text-patina', env: '↗' },
-  { icon: '◐', name: 'sextant', state: 'working', msg: 'building data pipeline', time: '23m', color: 'text-patina', env: '↗' },
-  { icon: '◌', name: 'meridian', state: 'idle', msg: 'customer tickets triaged', time: '1h', color: 'text-smoke/50', env: '' },
-  { icon: '◌', name: 'waypoint', state: 'idle', msg: 'research report complete', time: '3h', color: 'text-smoke/50', env: '↗' },
+  { icon: '?', name: 'payments-api', state: 'stuck', msg: 'tool approval needed: npm test', time: '', color: 'text-ember', env: '' },
+  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '', color: 'text-ember', env: '' },
+  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '↗' },
+  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗' },
+  { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '1h', color: 'text-smoke/50', env: '' },
+  { icon: '◌', name: 'market-research', state: 'idle', msg: 'competitor analysis complete', time: '3h', color: 'text-smoke/50', env: '↗' },
 ]
 
 const helpCommands = [
@@ -132,7 +132,7 @@ export default function Page() {
                 All of your work is done by agents now — code, research, ops, support, content. Maybe 20% is fire-and-forget: grooming plans, kicking off builds, long-running jobs. The other 80% is conversational: you and an agent working turn by turn, with gaps that range from seconds to minutes and arrive unpredictably.
               </p>
               <p>
-                Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to a few minutes you&apos;re waiting. So you bounce to another project. And when any agent finishes, it sits idle until you find your way back. Flow doesn&apos;t die in some dramatic crash — it leaks out through these gaps, dozens of times a day.
+                Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to a few minutes you&apos;re waiting. So you bounce to another project — breaking your flow dozens of times a day.
               </p>
             </div>
 

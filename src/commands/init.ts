@@ -27,18 +27,17 @@ curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/bin/tend 
 
 1. Read \`.tend/TODO\` — propose pending items to the developer and ask what to work on.
 2. Review recent git history for context on what's already been done.
-3. Emit: \`tend emit working "<description of what you're starting>"\`
 
 ### During Work
 
-- When you complete a task: \`tend emit done "<summary>"\`
-- When you start a new task: \`tend emit working "<description>"\`
-- When you need human input: \`tend emit stuck "<what you need>"\`
-- When you complete a task, also append to \`.tend/DONE\` with a timestamp.
+- \`tend emit working "<description>"\` — automatically emitted by hooks on each prompt, but emit manually when switching tasks.
+- \`tend emit done "<summary>"\` — **IMPORTANT: always emit when you finish a task.** This is the primary signal that work completed.
+- \`tend emit stuck "<what you need>"\` — emit when you cannot proceed without human input (e.g., need a decision, credentials, access, or clarification).
+- \`tend emit waiting "<what you're waiting for>"\` — emit when blocked on an external dependency (e.g., CI, deployment, API response).
 
 ### On Completion
 
-- Emit: \`tend emit idle\`
+- Emit \`tend emit done "<summary of what you accomplished>"\` before going idle.
 - If there are items in \`.tend/TODO\`, note the next item but wait for the developer to assign it (do not auto-start).
 
 ### Event Format
@@ -114,7 +113,7 @@ export function cmdInit(args: string[]): void {
     if (!content.includes(TEND_MARKER)) {
       appendFileSync(agentsFile, '\n' + AGENTS_TEMPLATE);
       process.stdout.write(`✓ Added tend integration to AGENTS.md in ${projectName}\n`);
-    } else if (!content.includes('session-id')) {
+    } else if (!content.includes('always emit when you finish')) {
       // Outdated block — replace it
       replaceAgentsBlock(agentsFile);
       process.stdout.write(`✓ Updated tend integration in AGENTS.md in ${projectName}\n`);

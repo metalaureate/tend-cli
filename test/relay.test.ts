@@ -42,7 +42,7 @@ describe('relay', () => {
     writeFileSync(join(cacheDir, 'remote-done'), '2026-03-14T14:10:00 done task complete\n');
 
     const r = ctx.tend(['status']);
-    expect(r.stdout).toContain('◆1');
+    expect(r.stdout).toContain('◉1');
   });
 
   it('detail shows both local and relay sessions', () => {
@@ -70,7 +70,7 @@ describe('relay', () => {
     writeFileSync(join(cacheDir, 'merge-proj'), '2026-03-14T14:05:00 cloud-sess stuck need approval\n');
 
     const r = ctx.tend(['status']);
-    // stuck is needs-attention, should show ▲
-    expect(r.stdout).toContain('▲');
+    // stuck is needs-attention, should show ?
+    expect(r.stdout).toContain('?');
   });
 });

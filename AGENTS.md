@@ -8,31 +8,19 @@ This project uses Tend for workflow coordination.
 
 ### Emitting State Changes
 
-When your work state changes, append a line to `.tend/events`:
+- `tend emit working "<description>"` — automatically emitted by hooks on each prompt, but emit manually when switching tasks.
+- `tend emit done "<summary>"` — **IMPORTANT: always emit when you finish a task.** This is the primary signal that work completed.
+- `tend emit stuck "<what you need>"` — emit when you cannot proceed without human input (e.g., need a decision, credentials, access, or clarification).
+- `tend emit waiting "<what you're waiting for>"` — emit when blocked on an external dependency (e.g., CI, deployment, API response).
 
-```
-<ISO-8601-timestamp> <session-id> <state> <message>
-```
-
-Use `$TEND_SESSION_ID` as the session ID if set, otherwise use `_cli`.
-
-States: `working`, `done`, `stuck`, `waiting`, `idle`
-
-Use the tend CLI if available:
+If `tend` is not on PATH, append directly:
 ```bash
-tend emit working "<what you're starting>"
-tend emit done "<summary of what you completed>"
-tend emit stuck "<what you need from the human>"
-tend emit idle
-```
-
-Or append directly:
-```bash
-echo "$(date +%Y-%m-%dT%H:%M:%S) ${TEND_SESSION_ID:-_cli} working <description>" >> .tend/events
+echo "$(date +%Y-%m-%dT%H:%M:%S) ${TEND_SESSION_ID:-_cli} done <summary>" >> .tend/events
 ```
 
 ### On Completion
 
+- Emit `tend emit done "<summary of what you accomplished>"` before going idle.
 - If there are items in `.tend/TODO`, note the next item but wait for the developer to assign it.
 
 ## Testing

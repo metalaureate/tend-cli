@@ -10,8 +10,9 @@ import { isValidState } from '../types.js';
 export interface GamificationStats {
   donesToday: number;
   donesWeek: number;
-  activeHours: number;   // hours with agent activity in rolling 24h
-  longestGapMins: number; // longest idle gap in rolling 24h (minutes)
+  peakToday: number;
+  peakWeek: number;
+  streak: number;
   todosOpen: number;
 }
 
@@ -20,12 +21,19 @@ export function gamificationEnabled(): boolean {
   return !config.noGamification;
 }
 
-/** Determine utilization level from coverage percentage (activeHours / 24) */
-export function utilizationLevel(activeHours: number): string {
-  const pct = activeHours / 24;
-  if (pct >= 0.75) return 'full burn';
-  if (pct >= 0.5) return 'humming';
-  if (pct > 0) return 'warming';
+/** Determine kitchen heat from board counters */
+export function kitchenHeat(
+  working: number,
+  needs: number,
+  stuck: number,
+  waitAge: number,
+  ready: number,
+): string {
+  if (needs > 0 && waitAge > 900) return 'fire';
+  if (needs > 0 && waitAge > 300) return 'hot';
+  if (needs > 0) return 'warming';
+  if (working > 0) return 'simmering';
+  if (ready > 0) return 'ready';
   return 'cold';
 }
 
@@ -34,27 +42,26 @@ export function computeStats(): GamificationStats {
   const stats: GamificationStats = {
     donesToday: 0,
     donesWeek: 0,
-    activeHours: 0,
-    longestGapMins: 0,
+    peakToday: 0,
+    peakWeek: 0,
+    streak: 0,
     todosOpen: 0,
   };
 
   const now = new Date();
-  const nowEpoch = Math.floor(now.getTime() / 1000);
-  const twentyFourAgo = nowEpoch - 86400;
   const pad = (n: number) => String(n).padStart(2, '0');
   const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
   // Monday of current ISO week (local time)
-  const dow = now.getDay() || 7;
+  const dow = now.getDay() || 7; // Convert Sunday=0 to 7
   const monday = new Date(now);
   monday.setDate(monday.getDate() - (dow - 1));
   const weekStart = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
 
   const projects = discoverProjects();
-
-  // Collect all event timestamps in the rolling 24h window for coverage calc
-  const activeTimestamps: number[] = [];
+  const doneDays = new Set<string>();
+  const todaySessions = new Set<string>();
+  const weekSessions = new Set<string>();
 
   for (const project of projects) {
     // Count open TODOs
@@ -79,60 +86,39 @@ export function computeStats(): GamificationStats {
       if (evt.state === 'done') {
         if (dateStr === today) stats.donesToday++;
         if (dateStr >= weekStart) stats.donesWeek++;
+        doneDays.add(dateStr);
       }
 
-      // Collect timestamps for coverage (any non-idle event = activity)
-      if (evt.state !== 'idle') {
-        const evtEpoch = toEpochFromTs(evt.ts);
-        if (evtEpoch >= twentyFourAgo) {
-          activeTimestamps.push(evtEpoch);
-        }
+      if (evt.state === 'working') {
+        if (dateStr === today) todaySessions.add(evt.sessionId);
+        if (dateStr >= weekStart) weekSessions.add(evt.sessionId);
       }
     }
   }
 
-  // Compute coverage: count distinct hours with at least one event
-  if (activeTimestamps.length > 0) {
-    const activeHourSet = new Set<number>();
-    for (const ts of activeTimestamps) {
-      activeHourSet.add(Math.floor(ts / 3600));
-    }
-    stats.activeHours = activeHourSet.size;
-  }
+  stats.peakToday = todaySessions.size;
+  stats.peakWeek = weekSessions.size;
 
-  // Compute longest gap: sort timestamps, find max gap between consecutive events
-  if (activeTimestamps.length > 0) {
-    const sorted = [...activeTimestamps].sort((a, b) => a - b);
-    let maxGap = sorted[0] - twentyFourAgo; // gap from window start to first event
-    for (let i = 1; i < sorted.length; i++) {
-      const gap = sorted[i] - sorted[i - 1];
-      if (gap > maxGap) maxGap = gap;
+  // Compute streak: consecutive days ending today with at least one done
+  if (doneDays.size > 0) {
+    const sortedDays = [...doneDays].sort().reverse();
+    const todayEpoch = Math.floor(new Date(today + 'T00:00:00').getTime() / 1000);
+    let expected = todayEpoch;
+    let streak = 0;
+
+    for (const d of sortedDays) {
+      const dEpoch = Math.floor(new Date(d + 'T00:00:00').getTime() / 1000);
+      if (dEpoch === expected) {
+        streak++;
+        expected -= 86400;
+      } else {
+        break;
+      }
     }
-    // gap from last event to now
-    const tailGap = nowEpoch - sorted[sorted.length - 1];
-    if (tailGap > maxGap) maxGap = tailGap;
-    stats.longestGapMins = Math.floor(maxGap / 60);
-  } else {
-    // No events in 24h — the entire window is a gap
-    stats.longestGapMins = 24 * 60;
+    stats.streak = streak;
   }
 
   return stats;
-}
-
-/** Parse ISO timestamp to epoch seconds */
-function toEpochFromTs(ts: string): number {
-  const d = new Date(ts);
-  if (isNaN(d.getTime())) return 0;
-  return Math.floor(d.getTime() / 1000);
-}
-
-/** Format gap duration: "47m" or "3h 12m" */
-function formatGap(mins: number): string {
-  if (mins < 60) return `${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 /** Render the gamification footer */
@@ -142,27 +128,27 @@ export function renderFooter(): string {
 
   lines.push(`  ${C.dim}──────────────────────────────────────────────────${C.reset}`);
 
-  // Coverage line
-  const level = utilizationLevel(stats.activeHours);
-  const coveragePct = Math.round((stats.activeHours / 24) * 100);
-  let coverageStr = `${stats.activeHours}/24h active  ·  ${coveragePct}% coverage`;
-  if (level === 'full burn') {
-    coverageStr += `  ·  ${C.amber}◉${C.reset}${C.dim} ${level}`;
-  } else {
-    coverageStr += `  ·  ${level}`;
-  }
-  lines.push(`  ${C.dim}${coverageStr}${C.reset}`);
-
-  // Dones + longest gap line
+  // Today line
   let todayStr = `${stats.donesToday} done today`;
-  if (stats.longestGapMins < 24 * 60) {
-    todayStr += `  ·  longest gap: ${formatGap(stats.longestGapMins)}`;
+  if (stats.peakToday === 1) todayStr += '  ·  peak 1 agent';
+  else if (stats.peakToday > 1) todayStr += `  ·  peak ${stats.peakToday} agents`;
+
+  // Streak indicator
+  let streakStr = '';
+  if (stats.streak >= 7) {
+    streakStr = `  ·  ${C.amber}◉${C.reset}${C.dim} ${stats.streak}-day streak`;
+  } else if (stats.streak > 0) {
+    streakStr = `  ·  ◉ ${stats.streak}-day streak`;
   }
-  lines.push(`  ${C.dim}${todayStr}${C.reset}`);
+
+  lines.push(`  ${C.dim}${todayStr}${streakStr}${C.reset}`);
 
   // Week line (only when it adds info beyond today)
   if (stats.donesWeek > stats.donesToday) {
-    lines.push(`  ${C.dim}${stats.donesWeek} done this week${C.reset}`);
+    let weekStr = `${stats.donesWeek} done this week`;
+    if (stats.peakWeek === 1) weekStr += '  ·  peak 1 agent';
+    else if (stats.peakWeek > 1) weekStr += `  ·  peak ${stats.peakWeek} agents`;
+    lines.push(`  ${C.dim}${weekStr}${C.reset}`);
   }
 
   // Open TODOs

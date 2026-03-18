@@ -8,12 +8,12 @@ beforeEach(() => { ctx = createTestContext(); });
 afterEach(() => { ctx.cleanup(); });
 
 describe('status', () => {
-  it('shows ◉N when only working agents', () => {
+  it('shows ◐N when only working agents', () => {
     const dir = ctx.makeProject('lima');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'working', 'building'], { cwd: dir });
     const r = ctx.tend(['status']);
-    expect(r.stdout.trim()).toBe('◉1');
+    expect(r.stdout.trim()).toBe('◐1');
   });
 
   it('shows per-state icons for done/stuck', () => {
@@ -24,16 +24,16 @@ describe('status', () => {
     ctx.tend(['init'], { cwd: dir2 });
     ctx.tend(['emit', 'stuck', 'approval needed'], { cwd: dir2 });
     const r = ctx.tend(['status']);
-    expect(r.stdout).toContain('▲1');
-    expect(r.stdout).toContain('◆1');
+    expect(r.stdout).toContain('?1');
+    expect(r.stdout).toContain('◉1');
   });
 
-  it('shows ◉N for working (not attention)', () => {
+  it('shows ◐N for working (not attention)', () => {
     const dir = ctx.makeProject('oscar');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'working', 'building'], { cwd: dir });
     const r = ctx.tend(['status']);
-    expect(r.stdout.trim()).toBe('◉1');
+    expect(r.stdout.trim()).toBe('◐1');
   });
 
   it('shows ○ when no active projects', () => {
