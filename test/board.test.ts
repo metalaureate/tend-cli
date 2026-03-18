@@ -113,6 +113,29 @@ describe('board', () => {
     expect(r.stdout).toContain('uncommitted changes');
   });
 
+  it('infers waiting when idle after working without done', () => {
+    const dir = ctx.makeProject('wait-infer');
+    ctx.tend(['init'], { cwd: dir });
+    const ts = localTs(new Date());
+    // working → idle with no done in between → should infer waiting
+    writeFileSync(join(dir, '.tend', 'events'),
+      `${ts} sess1 working building feature\n${ts} sess1 idle session ended\n`);
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('waiting');
+    expect(r.stdout).not.toContain('idle');
+  });
+
+  it('stays idle when done precedes idle', () => {
+    const dir = ctx.makeProject('done-clean');
+    ctx.tend(['init'], { cwd: dir });
+    const ts = localTs(new Date());
+    // working → done → idle → clean completion, stays idle
+    writeFileSync(join(dir, '.tend', 'events'),
+      `${ts} sess1 working building\n${ts} sess1 done finished\n${ts} sess1 idle session ended\n`);
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('idle');
+  });
+
   it('shows sessions from multiple users on board', () => {
     const dir = ctx.makeProject('bravo-iso');
     ctx.tend(['init'], { cwd: dir });

@@ -15,6 +15,7 @@ export function aggregateState(
   if (events.length === 0) return null;
 
   const sessions = new Map<string, SessionState>();
+  const sessionWorkPending = new Map<string, boolean>();
   let lastTs = '';
 
   for (const evt of events) {
@@ -23,6 +24,7 @@ export function aggregateState(
     if (evt.sessionId === '*') {
       // Global reset marker — clear all sessions (backward compat)
       sessions.clear();
+      sessionWorkPending.clear();
       sessions.set('_', { state: evt.state, ts: evt.ts, message: '' });
       continue;
     }
@@ -34,13 +36,25 @@ export function aggregateState(
       for (const [sid] of sessions) {
         if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
           sessions.delete(sid);
+          sessionWorkPending.delete(sid);
         }
       }
       continue;
     }
 
+    // Track working-without-done per session
+    if (evt.state === 'working') {
+      sessionWorkPending.set(evt.sessionId, true);
+    } else if (evt.state === 'done') {
+      sessionWorkPending.set(evt.sessionId, false);
+    }
+
+    // Infer waiting: idle after working without done means work wasn't completed
+    const effectiveState = evt.state === 'idle' && sessionWorkPending.get(evt.sessionId)
+      ? 'waiting' : evt.state;
+
     sessions.set(evt.sessionId, {
-      state: evt.state,
+      state: effectiveState,
       ts: evt.ts,
       message: evt.message,
     });
