@@ -1,19 +1,24 @@
 import { resolveProjectPath } from '../core/projects.js';
-import { appendEvent } from '../core/events.js';
+import { appendEvent, sanitizeUserTag, stripUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
+import { gitUserEmail } from '../core/git.js';
 import { existsSync, readFileSync, appendFileSync } from 'fs';
 import { join } from 'path';
 import { invalidateStatusCache } from './status.js';
 
-/** Extract session_id or sessionId from JSON input */
-function extractSessionId(input: string): string {
+/** Extract session_id or sessionId from JSON input, tagged with git user email */
+function extractSessionId(input: string, projectPath?: string): string {
   // Try snake_case first, then camelCase
   const snakeMatch = input.match(/"session_id"\s*:\s*"([^"]*)"/);
-  if (snakeMatch) return snakeMatch[1];
-  const camelMatch = input.match(/"sessionId"\s*:\s*"([^"]*)"/);
-  if (camelMatch) return camelMatch[1];
-  return '';
+  const raw = snakeMatch ? snakeMatch[1] : (() => {
+    const camelMatch = input.match(/"sessionId"\s*:\s*"([^"]*)"/);
+    return camelMatch ? camelMatch[1] : '';
+  })();
+  if (!raw) return '';
+  // Tag with git user email, same as emit.ts
+  const email = projectPath ? gitUserEmail(projectPath) : '';
+  return email ? `${raw}@${sanitizeUserTag(email)}` : raw;
 }
 
 /** Escape a string for JSON output */
@@ -98,7 +103,7 @@ async function hookUserPrompt(): Promise<void> {
   }
 
   if (existsSync(join(projectPath, '.tend'))) {
-    const sessionId = extractSessionId(input);
+    const sessionId = extractSessionId(input, projectPath);
     const ts = tsLocal();
     if (sessionId) {
       appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, 'working', '');
@@ -125,7 +130,7 @@ async function hookStop(): Promise<void> {
 
   if (!existsSync(join(projectPath, '.tend'))) return;
 
-  const sessionId = extractSessionId(input);
+  const sessionId = extractSessionId(input, projectPath);
   const ts = tsLocal();
   const eventsFile = join(projectPath, '.tend', 'events');
 
@@ -137,9 +142,10 @@ async function hookStop(): Promise<void> {
     const lines = content.split('\n');
 
     if (sessionId) {
-      // Find last event for this session
+      // Find last event for this session (match by base UUID, ignoring user tag)
+      const baseId = stripUserTag(sessionId);
       for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].includes(` ${sessionId} `)) {
+        if (lines[i].includes(` ${baseId} `) || lines[i].includes(` ${baseId}@`)) {
           const parts = lines[i].split(/\s+/);
           if (parts.length >= 3) {
             lastState = parts[2];
