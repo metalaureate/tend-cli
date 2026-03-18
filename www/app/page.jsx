@@ -126,28 +126,28 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              The scarce resource isn&apos;t compute.<br />
-              <span className="text-smoke">It&apos;s your attention.</span>
+              You can&apos;t step away.<br />
+              <span className="text-smoke">That&apos;s the problem.</span>
             </h2>
 
             <p className="why-el font-mono text-xs text-smoke/40 mt-4">For developers running 2+ AI agents across projects.</p>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                You started a second agent. Then a third. Now you&apos;re tab-switching between conversations, checking terminals, losing the thread. One agent finished and you didn&apos;t notice for twenty minutes. Another is stuck on a tool approval and you have no idea.
+                Your agents work around the clock. You don&apos;t. But you&apos;re acting like you do — checking terminals between meetings, scanning tabs before bed, wondering if something finished while you weren&apos;t looking. The fear of missing an agent that needs you keeps you always-on.
               </p>
               <p>
-                The problem isn&apos;t that agents are slow. It&apos;s that you have no single view of who needs you right now — and hunting for that answer is what kills your flow.
+                Agents don&apos;t need you to watch them. They need you to show up at the right moment, route yourself to what matters, and then disappear — back to deep work, or to dinner, or to sleep.
               </p>
             </div>
 
             {/* The cost */}
             <div className="why-el mt-12 bg-parchment border border-chalk rounded-3xl p-6 md:p-8">
               <p className="font-heading font-bold text-lg md:text-xl text-anvil">
-                The goal is total flow — never idle, never hunting.
+                Maximum throughput. Maximum life.
               </p>
               <p className="font-body text-smoke mt-3 leading-relaxed">
-                You finish a turn in one project and instantly know where to go next. No scanning tabs. No checking dashboards. No wondering which agent finished while you weren&apos;t looking. Just a glance at the terminal you&apos;re already in.
+                When you&apos;re working, you know exactly where to go next — no polling, no dashboards, just the prompt you&apos;re already looking at. When you&apos;re done for the day, you tee up overnight work and close the laptop. The agents keep running. You pick up the results in the morning.
               </p>
             </div>
 
@@ -159,7 +159,7 @@ export default function Page() {
                 </span>
                 <br />
                 <span className="font-display text-ember text-3xl md:text-5xl lg:text-6xl italic">
-                  It removes the need for one.
+                  It makes you a conductor.
                 </span>
               </h3>
             </div>
