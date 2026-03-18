@@ -129,7 +129,7 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                All of your coding is done by agents now. Maybe 20% is fire-and-forget — grooming plans, kicking off builds, long-running refactors. The other 80% is conversational: you and an agent working turn by turn, steering decisions every few minutes.
+                All of your coding is done by agents now. Maybe 20% is fire-and-forget — grooming plans, kicking off builds, long-running refactors. The other 80% is conversational: you and an agent working turn by turn, with gaps that range from seconds to minutes and arrive unpredictably.
               </p>
               <p>
                 Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to a few minutes you&apos;re waiting. So you bounce to another project. And when any agent finishes, it sits idle until you find your way back. Flow doesn&apos;t die in some dramatic crash — it leaks out through these gaps, dozens of times a day.
@@ -456,12 +456,11 @@ export default function Page() {
             <p className="dash-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Dashboard</p>
 
             <h2 className="dash-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              Yes, we built a dashboard.<br />
-              <span className="text-smoke">Have your cake and eat it too.</span>
+              And if you really want a dashboard,<br />
+              <span className="text-smoke">there&apos;s a flag for that.</span>
             </h2>
 
             <p className="dash-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
-              After 800 words about why dashboards are a distraction, we gave you one. The difference: it&apos;s a single flag, not a lifestyle.
               Run <span className="font-mono text-anvil">tend -</span> for a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
             </p>
 
