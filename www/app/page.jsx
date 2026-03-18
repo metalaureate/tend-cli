@@ -44,7 +44,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Lightweight attention infrastructure for humans and agents. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote. One board. One glance. Then back to work.
+              Lightweight attention infrastructure for humans and agents. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
             </p>
 
             {/* The Board */}
@@ -129,38 +129,26 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                Today, you&apos;re less like a lone coder and more like a master blacksmith tending an ever-growing workshop of agents — or a head chef running a large kitchen of cooks.
+                All of your coding is done by agents now. Maybe 20% is fire-and-forget — grooming plans, kicking off builds, long-running refactors. The other 80% is conversational: you and an agent working turn by turn, steering decisions every few minutes.
               </p>
               <p>
-                Every tool for managing these agents builds a dashboard. Live panels, notification badges, real-time streaming. They assume agents run autonomously and you check in when they&apos;re done.
-              </p>
-              <p>
-                Some do. But the reality is a distribution. On any given day you might have two or three projects where you&apos;re actively collaborating with an agent — steering it every 5–15 minutes, reviewing its work, making judgment calls on tricky details inside a large codebase. A couple more where you&apos;re grooming a spec or a plan, kicking off revisions and checking back when the agent has a new draft. Another two where the agent can run for longer stretches before it needs you. And a couple more — cloud refactors, test suites, research jobs, or agents running actual lines of business such as customer support or sales — that might run for hours and only need you if they get stuck.
-              </p>
-              <p>
-                As AI agents and tooling improves, five simultaneous projects will become ten, then twenty — expanding into all roles — to fill the only truly scarce resource: your attention.
+                Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to a few minutes you&apos;re waiting. So you bounce to another project. And when any agent finishes, it sits idle until you find your way back. Flow doesn&apos;t die in some dramatic crash — it leaks out through these gaps, dozens of times a day.
               </p>
             </div>
 
-            {/* The unsolved problem */}
+            {/* The cost */}
             <div className="why-el mt-12 bg-parchment border border-chalk rounded-3xl p-6 md:p-8">
               <p className="font-heading font-bold text-lg md:text-xl text-anvil">
-                The unsolved problem is attention management.
+                The goal is total flow — never idle, never hunting.
               </p>
               <p className="font-body text-smoke mt-3 leading-relaxed">
-                The projects where you and the agent are working together at varying cadences, and you need to stay in your train of thought while still being reachable by the others. A dashboard doesn&apos;t help here. It&apos;s a permanent invitation to break focus. A notification badge is an interrupt. They add vigilance, not concentration.
+                You finish a turn in one project and instantly know where to go next. No scanning tabs. No checking dashboards. No wondering which agent finished while you weren&apos;t looking. Just a glance at the terminal you&apos;re already in.
               </p>
             </div>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                This isn&apos;t just an efficiency problem. Your span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what&apos;s happening elsewhere becomes chronic.
-              </p>
-              <p>
-                There&apos;s a practical problem too. Dashboards assume a desk — large monitors, a fixed workstation. But plenty of people work nomadically. A laptop on a balcony over breakfast. A phone in a GitHub cloud session from the bath. A café table with barely room for a coffee. The terminal is the one thing that&apos;s always there, on every device, in every context. Tend lives in the terminal so your agents are wherever you are, ready for the next context switch whenever you have room for one.
-              </p>
-              <p>
-                The problem isn&apos;t even specific to humans. An agent coordinating other agents — an agent CEO running an autonomous company — hits the same bottleneck. It spawns subagents across threads and environments, each working at different cadences. Polling a dashboard wastes compute the same way it wastes human focus. The pull model, the five-state protocol, the relay — they work just as well when the coordinator is an agent. Tend is attention infrastructure, not just a developer tool.
+                A dashboard doesn&apos;t solve this — it&apos;s another surface pulling attention, another tab to watch. And it assumes a desk. But you might be on a laptop over breakfast, in a cloud session from your phone, at a café with barely room for a coffee. You need something at the speed of thought, in the place you already are: the terminal.
               </p>
             </div>
 
