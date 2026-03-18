@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { discoverProjects } from '../core/projects.js';
 import { readEvents } from '../core/events.js';
-import { toEpoch } from './format.js';
+
 import { C } from './colors.js';
 import { config } from '../core/config.js';
 import { isValidState } from '../types.js';
@@ -49,13 +49,14 @@ export function computeStats(): GamificationStats {
   };
 
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  // Monday of current ISO week
+  // Monday of current ISO week (local time)
   const dow = now.getDay() || 7; // Convert Sunday=0 to 7
   const monday = new Date(now);
   monday.setDate(monday.getDate() - (dow - 1));
-  const weekStart = monday.toISOString().slice(0, 10);
+  const weekStart = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
 
   const projects = discoverProjects();
   const doneDays = new Set<string>();
