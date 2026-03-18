@@ -14,6 +14,12 @@ function todayStr(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function nowTs(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 describe('gamification', () => {
   it('is shown on the board by default', () => {
     const dir = ctx.makeProject('gami-alpha');
@@ -45,19 +51,20 @@ describe('gamification', () => {
     expect(r.stdout).toContain('2 done today');
   });
 
-  it('shows 1-day streak when today has dones', () => {
+  it('shows coverage and longest gap', () => {
     const dir = ctx.makeProject('gami-delta');
     ctx.tend(['init'], { cwd: dir });
-    const today = todayStr();
+    const ts = nowTs();
     writeFileSync(join(dir, '.tend', 'events'), [
-      `${today}T09:00:00 done completed something`,
-      `${today}T10:00:00 working continuing`,
+      `${ts} done completed something`,
+      `${ts} working continuing`,
     ].join('\n') + '\n');
     const r = ctx.tend([]);
-    expect(r.stdout).toContain('1-day streak');
+    expect(r.stdout).toContain('/24h active');
+    expect(r.stdout).toContain('coverage');
   });
 
-  it('shows working for working agents (simmering)', () => {
+  it('shows working for working agents', () => {
     const dir = ctx.makeProject('gami-zeta');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'working', 'building feature'], { cwd: dir });
@@ -92,5 +99,22 @@ describe('gamification', () => {
     writeFileSync(join(dir, '.tend', 'events'), `${oldTs} waiting blocked on review\n`);
     const r = ctx.tend([]);
     expect(r.stdout).toContain('waiting');
+  });
+
+  it('shows longest gap metric', () => {
+    const dir = ctx.makeProject('gami-gap');
+    ctx.tend(['init'], { cwd: dir });
+    // Create events spread across multiple hours
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const ts1 = `${twoHoursAgo.getFullYear()}-${pad(twoHoursAgo.getMonth() + 1)}-${pad(twoHoursAgo.getDate())}T${pad(twoHoursAgo.getHours())}:${pad(twoHoursAgo.getMinutes())}:${pad(twoHoursAgo.getSeconds())}`;
+    const ts2 = nowTs();
+    writeFileSync(join(dir, '.tend', 'events'), [
+      `${ts1} working building stuff`,
+      `${ts2} done finished it`,
+    ].join('\n') + '\n');
+    const r = ctx.tend([]);
+    expect(r.stdout).toContain('longest gap:');
   });
 });

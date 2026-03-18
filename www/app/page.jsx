@@ -39,8 +39,8 @@ export default function Page() {
         <HeroReveal>
           <div className="max-w-3xl mx-auto">
             <h1 className="hero-el font-heading font-bold text-parchment text-3xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight">
-              Who&apos;s stuck?<br />
-              <span className="text-smoke">Who needs you?</span>
+              Your agents never sleep.<br />
+              <span className="text-smoke">Make sure they never wait.</span>
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
@@ -123,13 +123,13 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              The scarce resource isn&apos;t code.<br />
+              The scarce resource isn&apos;t output.<br />
               <span className="text-smoke">It&apos;s your attention.</span>
             </h2>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                All of your coding is done by agents now. Maybe 20% is fire-and-forget — grooming plans, kicking off builds, long-running refactors. The other 80% is conversational: you and an agent working turn by turn, with gaps that range from seconds to minutes and arrive unpredictably.
+                All of your work is done by agents now — code, research, ops, support, content. Maybe 20% is fire-and-forget: grooming plans, kicking off builds, long-running jobs. The other 80% is conversational: you and an agent working turn by turn, with gaps that range from seconds to minutes and arrive unpredictably.
               </p>
               <p>
                 Every conversation turn creates a micro-gap. You make a request, the agent works, and for thirty seconds to a few minutes you&apos;re waiting. So you bounce to another project. And when any agent finishes, it sits idle until you find your way back. Flow doesn&apos;t die in some dramatic crash — it leaks out through these gaps, dozens of times a day.
@@ -264,7 +264,7 @@ export default function Page() {
                 <span className="font-mono text-[11px] text-smoke/40 ml-2">$ td help</span>
               </div>
               <div className="p-5 font-mono text-[11px] md:text-xs leading-relaxed">
-                <div className="text-parchment/80 mb-3">td — Who&apos;s stuck? Who needs you?</div>
+                <div className="text-parchment/80 mb-3">td — Your agents never sleep. Make sure they never wait.</div>
                 <div className="text-smoke/40 mb-2">Usage:</div>
                 <div className="space-y-0.5 text-smoke/60">
                   {helpCommands.map(([cmd, desc]) => (
@@ -461,7 +461,7 @@ export default function Page() {
             </h2>
 
             <p className="dash-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
-              Run <span className="font-mono text-anvil">tend -</span> for a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
+              <span className="font-mono text-anvil">td -</span> gives you a persistent full-screen board that auto-refreshes every minute. Uses the alternate screen buffer so your terminal history stays clean. Press <span className="font-mono text-anvil">q</span> to exit.
             </p>
 
             {/* Live dashboard demo */}
