@@ -51,7 +51,7 @@ describe('gamification', () => {
     expect(r.stdout).toContain('2 done today');
   });
 
-  it('shows active hours and utilization level', () => {
+  it('shows active hours', () => {
     const dir = ctx.makeProject('gami-delta');
     ctx.tend(['init'], { cwd: dir });
     const ts = nowTs();
@@ -61,7 +61,6 @@ describe('gamification', () => {
     ].join('\n') + '\n');
     const r = ctx.tend([]);
     expect(r.stdout).toContain('/24h active');
-    expect(r.stdout).toMatch(/warm|humming|full burn/);
   });
 
   it('shows working for working agents', () => {

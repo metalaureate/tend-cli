@@ -49,13 +49,14 @@ describe('board', () => {
     expect(r.stdout).toContain('idle');
   });
 
-  it('shows uncommitted changes for idle project', () => {
+  it('shows dirty summary for idle project', () => {
     const dir = ctx.makeProject('uniform');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'idle'], { cwd: dir });
     writeFileSync(join(dir, 'newfile.txt'), 'wip');
     const r = ctx.tend([]);
-    expect(r.stdout).toContain('uncommitted changes');
+    // dirtySummary extracts a topic from changed files instead of generic "uncommitted changes"
+    expect(r.stdout).toMatch(/changes in|files? changed/);
     expect(r.stdout).not.toContain('initial commit');
   });
 
@@ -103,14 +104,14 @@ describe('board', () => {
     expect(posNew).toBeLessThan(posOld);
   });
 
-  it('shows uncommitted changes for done project that went idle', () => {
+  it('shows dirty summary for done project that went idle', () => {
     const dir = ctx.makeProject('victor');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'done', 'finished task'], { cwd: dir });
     ctx.tend(['emit', 'idle'], { cwd: dir });
     writeFileSync(join(dir, 'newfile.txt'), 'wip');
     const r = ctx.tend([]);
-    expect(r.stdout).toContain('uncommitted changes');
+    expect(r.stdout).toMatch(/changes in|files? changed/);
   });
 
   it('infers waiting when idle after working without done', () => {
@@ -121,8 +122,10 @@ describe('board', () => {
     writeFileSync(join(dir, '.tend', 'events'),
       `${ts} sess1 working building feature\n${ts} sess1 idle session ended\n`);
     const r = ctx.tend([]);
-    expect(r.stdout).toContain('waiting');
-    expect(r.stdout).not.toContain('idle');
+    // The project line should show waiting, not idle
+    const projectLine = r.stdout.split('\n').find(l => l.includes('wait-infer'));
+    expect(projectLine).toContain('waiting');
+    expect(projectLine).not.toContain('idle');
   });
 
   it('demotes stale waiting to idle', () => {

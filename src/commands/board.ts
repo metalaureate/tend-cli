@@ -1,7 +1,7 @@
 import { discoverProjects, sortedProjects, detectProject } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
 import { relaySync, relayOnlyProjects } from '../core/relay.js';
-import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit } from '../core/git.js';
+import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit, dirtySummary } from '../core/git.js';
 import { ago, dateHeader, toEpoch, isStale } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { C } from '../ui/colors.js';
@@ -74,13 +74,13 @@ export async function buildBoardOutput(): Promise<string> {
       // Only if the done event is recent (not stale)
       if (state === 'done' && hasGit(project) && isDirty(project) && ts && !isStale(ts, config.staleThreshold)) {
         state = 'waiting';
-        msg = msg || 'uncommitted changes';
+        msg = msg || dirtySummary(project);
       }
 
       // For idle with no message, check for uncommitted work then git fallback
       if (state === 'idle' && !msg && hasGit(project)) {
         if (isDirty(project)) {
-          msg = 'uncommitted changes';
+          msg = dirtySummary(project);
         } else {
           msg = lastCommitMessage(project) || '';
         }
@@ -92,7 +92,7 @@ export async function buildBoardOutput(): Promise<string> {
         const eventEpoch = toEpoch(ts);
         if (commitEpoch && eventEpoch && commitEpoch > eventEpoch) {
           if (isDirty(project)) {
-            msg = 'uncommitted changes';
+            msg = dirtySummary(project);
           } else {
             msg = lastCommitMessage(project) || msg;
           }
@@ -114,7 +114,7 @@ export async function buildBoardOutput(): Promise<string> {
       if (hasGit(project)) {
         if (isDirty(project)) {
           state = 'idle';
-          msg = 'uncommitted changes';
+          msg = dirtySummary(project);
           const commitTs = lastCommitTs(project);
           durationStr = commitTs ? `${ago(commitTs)} ago` : '';
         } else {

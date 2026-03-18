@@ -19,15 +19,6 @@ export function gamificationEnabled(): boolean {
   return !config.noGamification;
 }
 
-/** Determine utilization level from activeHours / 24 */
-export function utilizationLevel(activeHours: number): string {
-  const pct = activeHours / 24;
-  if (pct >= 0.75) return 'full burn';
-  if (pct >= 0.5) return 'humming';
-  if (pct > 0) return 'warm';
-  return 'cold';
-}
-
 /** Compute gamification stats across all projects */
 export function computeStats(): GamificationStats {
   const stats: GamificationStats = {
@@ -119,28 +110,51 @@ export function renderFooter(): string {
 
   lines.push(`  ${C.dim}──────────────────────────────────────────────────${C.reset}`);
 
-  // Active hours + level
-  const level = utilizationLevel(stats.activeHours);
-  let activeStr = `${stats.activeHours}/24h active  ·  ${level}`;
-  if (level === 'full burn') {
-    activeStr = `${stats.activeHours}/24h active  ·  ${C.amber}◉${C.reset}${C.dim} ${level}`;
-  }
-  lines.push(`  ${C.dim}${activeStr}${C.reset}`);
-
-  // Dones today
-  lines.push(`  ${C.dim}${stats.donesToday} done today${C.reset}`);
-
-  // Week line (only when it adds info beyond today)
+  // Compact single-line stats
+  const parts: string[] = [];
+  parts.push(`${stats.activeHours}/24h active`);
+  parts.push(`${stats.donesToday} done today`);
   if (stats.donesWeek > stats.donesToday) {
-    lines.push(`  ${C.dim}${stats.donesWeek} done this week${C.reset}`);
+    parts.push(`${stats.donesWeek} this week`);
   }
+  if (stats.todosOpen > 0) {
+    parts.push(`${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''}`);
+  }
+  lines.push(`  ${C.dim}${parts.join('  ·  ')}${C.reset}`);
 
-  // Open TODOs
-  if (stats.todosOpen === 1) {
-    lines.push(`  ${C.dim}1 open TODO${C.reset}`);
-  } else if (stats.todosOpen > 1) {
-    lines.push(`  ${C.dim}${stats.todosOpen} open TODOs${C.reset}`);
+  // End-of-day nudge: if it's evening (after 8pm) and there are idle agents
+  const nudge = endOfDayNudge(stats);
+  if (nudge) {
+    lines.push(`  ${C.dim}${nudge}${C.reset}`);
   }
 
   return lines.join('\n');
+}
+
+/** Suggest teeing up overnight work when it's late in the user's day */
+function endOfDayNudge(stats: GamificationStats): string | null {
+  const now = new Date();
+  const hour = now.getHours();
+  const min = now.getMinutes();
+  if (hour < 16 || (hour === 16 && min < 30)) return null; // only after 4:30pm
+
+  // Count idle projects (ones that could take work)
+  const projects = discoverProjects();
+  let idleCount = 0;
+  for (const project of projects) {
+    const events = readEvents(join(project, '.tend', 'events'));
+    if (events.length === 0) { idleCount++; continue; }
+    const last = events[events.length - 1];
+    if (last.state === 'idle' || last.state === 'done') idleCount++;
+  }
+
+  if (idleCount === 0) return null;
+
+  // Check for open TODOs — if they have them, nudge to assign
+  if (stats.todosOpen > 0) {
+    return `💡 ${idleCount} idle agent${idleCount > 1 ? 's' : ''} + ${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''} — queue overnight work?`;
+  }
+
+  // No TODOs but idle agents — suggest creating some
+  return `💡 ${idleCount} idle — jot a TODO before bed, agents work while you sleep`;
 }

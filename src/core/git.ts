@@ -65,3 +65,48 @@ export function hasGit(projectPath: string): boolean {
 export function gitUserEmail(projectPath: string): string | null {
   return git(projectPath, 'config', 'user.email');
 }
+
+/** Summarise uncommitted changes as a short topic string.
+ *  Uses changed file paths to infer what area of the codebase was touched.
+ *  Returns e.g. "changes in src/api" or "3 files changed" as a fallback.
+ */
+export function dirtySummary(projectPath: string): string {
+  const raw = git(projectPath, 'diff', '--name-only', 'HEAD');
+  // Also include untracked files
+  const untracked = git(projectPath, 'ls-files', '--others', '--exclude-standard');
+
+  const files: string[] = [];
+  if (raw) files.push(...raw.split('\n').filter(l => l.trim()));
+  if (untracked) files.push(...untracked.split('\n').filter(l => l.trim()));
+
+  if (files.length === 0) return 'uncommitted changes';
+
+  // Filter out noise files (.tend/, .scratch/, etc.)
+  const meaningful = files.filter(f =>
+    !f.startsWith('.tend/') && !f.startsWith('.scratch/') && !f.startsWith('.github/hooks/')
+  );
+  const src = meaningful.length > 0 ? meaningful : files;
+
+  // Extract first directory component from each file
+  const dirs = new Map<string, number>();
+  for (const f of src) {
+    const parts = f.split('/');
+    const key = parts.length > 1 ? parts.slice(0, Math.min(2, parts.length - 1)).join('/') : parts[0];
+    dirs.set(key, (dirs.get(key) || 0) + 1);
+  }
+
+  // Find the dominant directory
+  let topDir = '';
+  let topCount = 0;
+  for (const [dir, count] of dirs) {
+    if (count > topCount) { topDir = dir; topCount = count; }
+  }
+
+  // If one area dominates (≥50% of files), name it
+  if (topDir && topCount >= src.length * 0.5) {
+    return `changes in ${topDir}`;
+  }
+
+  // Otherwise, count files
+  return `${src.length} files changed`;
+}
