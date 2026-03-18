@@ -51,17 +51,17 @@ describe('gamification', () => {
     expect(r.stdout).toContain('2 done today');
   });
 
-  it('shows coverage and longest gap', () => {
+  it('shows active hours and utilization level', () => {
     const dir = ctx.makeProject('gami-delta');
     ctx.tend(['init'], { cwd: dir });
     const ts = nowTs();
     writeFileSync(join(dir, '.tend', 'events'), [
-      `${ts} done completed something`,
-      `${ts} working continuing`,
+      `${ts} sess1 working on something`,
+      `${ts} sess1 done completed something`,
     ].join('\n') + '\n');
     const r = ctx.tend([]);
     expect(r.stdout).toContain('/24h active');
-    expect(r.stdout).toContain('coverage');
+    expect(r.stdout).toMatch(/warm|humming|full burn/);
   });
 
   it('shows working for working agents', () => {
@@ -101,20 +101,17 @@ describe('gamification', () => {
     expect(r.stdout).toContain('waiting');
   });
 
-  it('shows longest gap metric', () => {
-    const dir = ctx.makeProject('gami-gap');
+  it('shows turns per done metric', () => {
+    const dir = ctx.makeProject('gami-turns');
     ctx.tend(['init'], { cwd: dir });
-    // Create events spread across multiple hours
-    const now = new Date();
-    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const ts1 = `${twoHoursAgo.getFullYear()}-${pad(twoHoursAgo.getMonth() + 1)}-${pad(twoHoursAgo.getDate())}T${pad(twoHoursAgo.getHours())}:${pad(twoHoursAgo.getMinutes())}:${pad(twoHoursAgo.getSeconds())}`;
-    const ts2 = nowTs();
+    const today = todayStr();
     writeFileSync(join(dir, '.tend', 'events'), [
-      `${ts1} working building stuff`,
-      `${ts2} done finished it`,
+      `${today}T10:00:00 sess1 working first prompt`,
+      `${today}T10:05:00 sess1 working second prompt`,
+      `${today}T10:10:00 sess1 working third prompt`,
+      `${today}T10:15:00 sess1 done task complete`,
     ].join('\n') + '\n');
     const r = ctx.tend([]);
-    expect(r.stdout).toContain('longest gap:');
+    expect(r.stdout).toContain('3 turns/done');
   });
 });

@@ -164,8 +164,15 @@ async function hookStop(): Promise<void> {
   if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting') return;
 
   if (sessionId) {
+    // Emit done before idle when session had work
+    if (lastState === 'working') {
+      appendEvent(eventsFile, ts, sessionId, 'done', 'session completed');
+    }
     appendEvent(eventsFile, ts, sessionId, 'idle', 'session ended');
   } else {
+    if (lastState === 'working') {
+      appendFileSync(eventsFile, `${ts} done session completed\n`);
+    }
     appendFileSync(eventsFile, `${ts} idle session ended\n`);
   }
   invalidateStatusCache();

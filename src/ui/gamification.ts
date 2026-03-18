@@ -2,6 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { discoverProjects } from '../core/projects.js';
 import { readEvents } from '../core/events.js';
+import { stripUserTag } from '../core/events.js';
 
 import { C } from './colors.js';
 import { config } from '../core/config.js';
@@ -10,8 +11,8 @@ import { isValidState } from '../types.js';
 export interface GamificationStats {
   donesToday: number;
   donesWeek: number;
-  activeHours: number;   // hours with agent activity in rolling 24h
-  longestGapMins: number; // longest idle gap in rolling 24h (minutes)
+  activeHours: number;    // distinct hours with agent activity in rolling 24h
+  turnsPerDone: number;   // avg working events per completed session (today)
   todosOpen: number;
 }
 
@@ -20,12 +21,12 @@ export function gamificationEnabled(): boolean {
   return !config.noGamification;
 }
 
-/** Determine utilization level from coverage percentage (activeHours / 24) */
+/** Determine utilization level from activeHours / 24 */
 export function utilizationLevel(activeHours: number): string {
   const pct = activeHours / 24;
   if (pct >= 0.75) return 'full burn';
   if (pct >= 0.5) return 'humming';
-  if (pct > 0) return 'warming';
+  if (pct > 0) return 'warm';
   return 'cold';
 }
 
@@ -35,7 +36,7 @@ export function computeStats(): GamificationStats {
     donesToday: 0,
     donesWeek: 0,
     activeHours: 0,
-    longestGapMins: 0,
+    turnsPerDone: 0,
     todosOpen: 0,
   };
 
@@ -53,8 +54,14 @@ export function computeStats(): GamificationStats {
 
   const projects = discoverProjects();
 
-  // Collect all event timestamps in the rolling 24h window for coverage calc
+  // Collect all event timestamps in the rolling 24h window for active hours calc
   const activeTimestamps: number[] = [];
+
+  // Track turns per done: count working events per session, count dones
+  // Key: base session id (stripped of user tag), Value: number of working events today
+  const sessionTurns = new Map<string, number>();
+  let todayDoneSessions = 0;
+  let todayTotalTurns = 0;
 
   for (const project of projects) {
     // Count open TODOs
@@ -81,17 +88,32 @@ export function computeStats(): GamificationStats {
         if (dateStr >= weekStart) stats.donesWeek++;
       }
 
-      // Collect timestamps for coverage (any non-idle event = activity)
+      // Collect timestamps for active hours (any non-idle event = activity)
       if (evt.state !== 'idle') {
         const evtEpoch = toEpochFromTs(evt.ts);
         if (evtEpoch >= twentyFourAgo) {
           activeTimestamps.push(evtEpoch);
         }
       }
+
+      // Track turns per done for today's sessions
+      if (dateStr === today && evt.sessionId) {
+        const baseId = stripUserTag(evt.sessionId);
+        if (evt.state === 'working') {
+          sessionTurns.set(baseId, (sessionTurns.get(baseId) || 0) + 1);
+        } else if (evt.state === 'done') {
+          const turns = sessionTurns.get(baseId) || 0;
+          if (turns > 0) {
+            todayTotalTurns += turns;
+            todayDoneSessions++;
+            sessionTurns.set(baseId, 0); // reset for next task in same session
+          }
+        }
+      }
     }
   }
 
-  // Compute coverage: count distinct hours with at least one event
+  // Compute active hours: count distinct hours with at least one event
   if (activeTimestamps.length > 0) {
     const activeHourSet = new Set<number>();
     for (const ts of activeTimestamps) {
@@ -100,21 +122,9 @@ export function computeStats(): GamificationStats {
     stats.activeHours = activeHourSet.size;
   }
 
-  // Compute longest gap: sort timestamps, find max gap between consecutive events
-  if (activeTimestamps.length > 0) {
-    const sorted = [...activeTimestamps].sort((a, b) => a - b);
-    let maxGap = sorted[0] - twentyFourAgo; // gap from window start to first event
-    for (let i = 1; i < sorted.length; i++) {
-      const gap = sorted[i] - sorted[i - 1];
-      if (gap > maxGap) maxGap = gap;
-    }
-    // gap from last event to now
-    const tailGap = nowEpoch - sorted[sorted.length - 1];
-    if (tailGap > maxGap) maxGap = tailGap;
-    stats.longestGapMins = Math.floor(maxGap / 60);
-  } else {
-    // No events in 24h — the entire window is a gap
-    stats.longestGapMins = 24 * 60;
+  // Compute turns per done
+  if (todayDoneSessions > 0) {
+    stats.turnsPerDone = Math.round((todayTotalTurns / todayDoneSessions) * 10) / 10;
   }
 
   return stats;
@@ -127,14 +137,6 @@ function toEpochFromTs(ts: string): number {
   return Math.floor(d.getTime() / 1000);
 }
 
-/** Format gap duration: "47m" or "3h 12m" */
-function formatGap(mins: number): string {
-  if (mins < 60) return `${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
 /** Render the gamification footer */
 export function renderFooter(): string {
   const stats = computeStats();
@@ -142,21 +144,18 @@ export function renderFooter(): string {
 
   lines.push(`  ${C.dim}──────────────────────────────────────────────────${C.reset}`);
 
-  // Coverage line
+  // Active hours + level
   const level = utilizationLevel(stats.activeHours);
-  const coveragePct = Math.round((stats.activeHours / 24) * 100);
-  let coverageStr = `${stats.activeHours}/24h active  ·  ${coveragePct}% coverage`;
+  let activeStr = `${stats.activeHours}/24h active  ·  ${level}`;
   if (level === 'full burn') {
-    coverageStr += `  ·  ${C.amber}◉${C.reset}${C.dim} ${level}`;
-  } else {
-    coverageStr += `  ·  ${level}`;
+    activeStr = `${stats.activeHours}/24h active  ·  ${C.amber}◉${C.reset}${C.dim} ${level}`;
   }
-  lines.push(`  ${C.dim}${coverageStr}${C.reset}`);
+  lines.push(`  ${C.dim}${activeStr}${C.reset}`);
 
-  // Dones + longest gap line
+  // Dones + turns/done
   let todayStr = `${stats.donesToday} done today`;
-  if (stats.longestGapMins < 24 * 60) {
-    todayStr += `  ·  longest gap: ${formatGap(stats.longestGapMins)}`;
+  if (stats.turnsPerDone > 0) {
+    todayStr += `  ·  ${stats.turnsPerDone} turns/done`;
   }
   lines.push(`  ${C.dim}${todayStr}${C.reset}`);
 
