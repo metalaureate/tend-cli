@@ -77,6 +77,15 @@ export async function buildBoardOutput(): Promise<string> {
         msg = msg || dirtySummary(project);
       }
 
+      // For working with no message, show git context
+      if (state === 'working' && !msg && hasGit(project)) {
+        if (isDirty(project)) {
+          msg = dirtySummary(project);
+        } else {
+          msg = lastCommitMessage(project) || '';
+        }
+      }
+
       // For idle with no message, check for uncommitted work then git fallback
       if (state === 'idle' && !msg && hasGit(project)) {
         if (isDirty(project)) {

@@ -44,8 +44,8 @@ export function computeStats(): GamificationStats {
 
   // Collect all event timestamps in the rolling 24h window for active hours calc
   const activeTimestamps: number[] = [];
-
-
+  // Track working spans: session → start epoch
+  const workingStarts = new Map<string, number>();
 
   for (const project of projects) {
     // Count open TODOs
@@ -80,7 +80,34 @@ export function computeStats(): GamificationStats {
         }
       }
 
+      // Track working spans for continuous hour coverage
+      const evtEpoch = toEpochFromTs(evt.ts);
+      const sessionKey = `${project}:${evt.sessionId}`;
+      if (evt.state === 'working') {
+        workingStarts.set(sessionKey, evtEpoch);
+      } else if (workingStarts.has(sessionKey)) {
+        // End of a working span — fill in all hours between start and end
+        const start = Math.max(workingStarts.get(sessionKey)!, twentyFourAgo);
+        const end = evtEpoch;
+        if (end > twentyFourAgo && start < nowEpoch) {
+          for (let t = start; t <= end; t += 3600) {
+            activeTimestamps.push(t);
+          }
+        }
+        workingStarts.delete(sessionKey);
+      }
 
+
+    }
+  }
+
+  // Fill in hours for sessions still working (no end event yet)
+  for (const [, start] of workingStarts) {
+    const clampedStart = Math.max(start, twentyFourAgo);
+    if (clampedStart < nowEpoch) {
+      for (let t = clampedStart; t <= nowEpoch; t += 3600) {
+        activeTimestamps.push(t);
+      }
     }
   }
 
@@ -152,9 +179,9 @@ function endOfDayNudge(stats: GamificationStats): string | null {
 
   // Check for open TODOs — if they have them, nudge to assign
   if (stats.todosOpen > 0) {
-    return `💡 ${idleCount} idle agent${idleCount > 1 ? 's' : ''} + ${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''} — queue overnight work?`;
+    return `💡 ${idleCount} idle + ${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''} — queue overnight work?`;
   }
 
-  // No TODOs but idle agents — suggest creating some
+  // No TODOs but idle projects — suggest creating some
   return `💡 ${idleCount} idle — jot a TODO before bed, agents work while you sleep`;
 }
