@@ -5,7 +5,7 @@ const board = [
   { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '' },
   { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '' },
   { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗' },
-  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'uncommitted changes', time: '45m ago', color: 'text-ember', env: '↗' },
+  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'changes in src/auth', time: '45m ago', color: 'text-ember', env: '↗' },
   { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '3h ago', color: 'text-smoke/50', env: '' },
 ]
 
@@ -39,8 +39,8 @@ export default function Page() {
         <HeroReveal>
           <div className="max-w-3xl mx-auto">
             <h1 className="hero-el font-heading font-bold text-parchment text-3xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight">
-              Your agents never sleep.<br />
-              <span className="text-smoke">Make sure they never wait.</span>
+              Run more agents.<br />
+              <span className="text-smoke">Check fewer tabs.</span>
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
@@ -259,7 +259,7 @@ export default function Page() {
                 <span className="font-mono text-[11px] text-smoke/40 ml-2">$ td help</span>
               </div>
               <div className="p-5 font-mono text-[11px] md:text-xs leading-relaxed">
-                <div className="text-parchment/80 mb-3">td — Your agents never sleep. Make sure they never wait.</div>
+                <div className="text-parchment/80 mb-3">td — attention infrastructure for humans running AI agents</div>
                 <div className="text-smoke/40 mb-2">Usage:</div>
                 <div className="space-y-0.5 text-smoke/60">
                   {helpCommands.map(([cmd, desc]) => (
