@@ -44,7 +44,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              You&apos;re running agents at every scale — quick interactive turns and long autonomous runs. The skill is knowing when to stoke and when to step back. Tend shows you at a glance who needs your attention right now, so you keep everything moving without breaking your rhythm.
+              Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. Tend is the instrument that makes that feel like flow.
             </p>
 
             {/* The Board */}
@@ -133,13 +133,13 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                Like a tender on a steam train, your job isn&apos;t just to watch — it&apos;s to keep the fires burning. Some agents need a quick turn of your attention right now. Others are humming along and can run for hours. The question isn&apos;t just who&apos;s blocked — it&apos;s who needs stoking so you can step back and let them run.
+                Some work is conversational: tight, turn by turn, you and an agent building something together. Some runs for hours untouched. Most sits somewhere in between — a check-in here, a course correction there.
               </p>
               <p>
-                You&apos;re working across a wide range: tight interactive sessions where you&apos;re in the loop every few minutes, and long autonomous runs you barely touch. The goal is a satisfying rhythm across all of it — and over time, getting better at engineering tasks so agents need less of you, not more.
+                The skill is moving fluidly across that distribution — present when it matters, free when it doesn&apos;t — without losing the thread of any of it. The craft is knowing when each agent needs you, and getting better over time at engineering more of them not to.
               </p>
               <p>
-                Tend gives you the board: one glance to see what&apos;s running, what needs stoking, and what can keep going without you. 24/7 agentic productivity — work/life balance intact.
+                Tend is the instrument that makes that feel like flow.
               </p>
             </div>
           </div>

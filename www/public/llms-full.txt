@@ -6,9 +6,7 @@
 
 ## What is Tend?
 
-Tend is a pull-based CLI for developers running multiple AI agents. One glance tells you who needs stoking right now and who can keep running without you — so you stay in rhythm across everything from tight interactive sessions to long autonomous runs.
-
-Like a tender on a steam train, your job is to keep the fires burning — not just watch them. Some agents need a quick turn of your attention. Others can run for hours. Tend shows you who needs stoking so you can step back and let the rest run.
+Tend is a pull-based CLI for developers running multiple AI agents. Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. One glance keeps you present when it matters, free when it doesn't.
 
 ## Install
 
@@ -191,11 +189,11 @@ The relay is optional. If you never set up a relay token, everything works exact
 
 ## Why Tend Exists
 
-Like a tender on a steam train, your job isn't just to watch — it's to keep the fires burning. Some agents need a quick turn of your attention right now. Others are humming along and can run for hours. The question isn't just who's blocked — it's who needs stoking so you can step back and let them run.
+Some work is conversational: tight, turn by turn, you and an agent building something together. Some runs for hours untouched. Most sits somewhere in between — a check-in here, a course correction there.
 
-You're working across a wide range: tight interactive sessions where you're in the loop every few minutes, and long autonomous runs you barely touch. The goal is a satisfying rhythm across all of it — and over time, getting better at engineering tasks so agents need less of you, not more.
+The skill is moving fluidly across that distribution — present when it matters, free when it doesn't — without losing the thread of any of it. The craft is knowing when each agent needs you, and getting better over time at engineering more of them not to.
 
-Tend gives you the board: one glance to see what's running, what needs stoking, and what can keep going without you. 24/7 agentic productivity — work/life balance intact.
+Tend is the instrument that makes that feel like flow.
 
 Pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
 

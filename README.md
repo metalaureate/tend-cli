@@ -2,9 +2,9 @@
 
 **Tend your agents. Stay in flow.**
 
-You're running agents at every scale — quick interactive turns and long autonomous runs. The skill is knowing when to stoke and when to step back. Like a tender on a steam train, your job is to keep the fires burning, not just watch them.
+Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. Tend is the instrument that makes that feel like flow.
 
-Tend shows you at a glance who needs your attention right now, so you keep everything moving without breaking your rhythm. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
 
 ---
 
