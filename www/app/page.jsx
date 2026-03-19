@@ -130,7 +130,7 @@ export default function Page() {
               <span className="text-smoke">Maximize your agents.</span>
             </h2>
 
-            <p className="why-el font-mono text-xs text-smoke/40 mt-4">For developers running 2+ AI agents across projects.</p>
+            <p className="why-el font-mono text-xs text-smoke/70 mt-4">For developers running 2+ AI agents across projects.</p>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
