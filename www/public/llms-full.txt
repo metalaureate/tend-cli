@@ -1,16 +1,14 @@
 # Tend — Full Documentation
 
-> Agents at every turn. Who needs you next?
+> Stop hunting between agents. Stay in flow.
 
 ---
 
 ## What is Tend?
 
-Tend is a pull-based CLI for developers running multiple AI agents. It replaces dashboards with a single status board and a shell prompt glyph. One command, one glance, then back to work.
+Tend is a pull-based CLI for developers running multiple AI agents. It replaces the hunt for "what needs me next" with a single glance — a status board and a shell prompt glyph. One command, then back to work.
 
-You have agents running at every turn — on code, docs, ops, and research. Something is always building, blocked, or waiting for your judgment. The question that keeps surfacing: what should I work on right now? Who needs me?
-
-The bottleneck isn't the agents. It's knowing which one needs you next, without letting that vigilance take over your day.
+You're running agents around the clock — on code, docs, ops, and research. The agents aren't the bottleneck. You are. Every time you finish a turn, you have to figure out where to go next: what's done and waiting for review? what's blocked and needs unblocking? which one can move forward right now? That constant hunt destroys flow state, fragments concentration, and compounds mental exhaustion.
 
 ## Install
 
@@ -193,9 +191,11 @@ The relay is optional. If you never set up a relay token, everything works exact
 
 ## Why Tend Exists
 
-You have agents running at every turn — on code, docs, ops, and research. Something is always building, blocked, or waiting for your judgment. The question that keeps surfacing: what should I work on right now? Who needs me?
+You're running agents around the clock — on code, docs, ops, and research. The agents aren't the bottleneck. You are. Every time you finish a turn, you have to figure out where to go next: what's done and waiting for review? what's blocked and needs unblocking? which one can actually move forward right now?
 
-The bottleneck isn't the agents. It's knowing which one needs you next, without letting that vigilance take over your day. Every existing tool for managing agents builds a dashboard, a push-model interface that pulls attention. Tend takes the opposite approach: pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
+That constant hunt destroys flow state. It fragments concentration and compounds mental exhaustion. It's the one thing standing between you and 24/7 agentic productivity without burning out.
+
+Tend replaces the hunt with a single glance. Pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
 
 ### Design Principles
 

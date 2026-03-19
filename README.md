@@ -1,10 +1,10 @@
 # Tend
 
-**Run more agents. Know when they need you.**
+**Stop hunting between agents. Stay in flow.**
 
-You have agents running at every turn — building features, drafting docs, running ops. They're always doing something, but the question that keeps surfacing is: *who needs my attention right now? What should I work on next?*
+Agents are always running — but when one finishes or gets stuck, you end up hunting: what's done? who's blocked? where do I go next? That hunt fragments concentration and compounds mental exhaustion. It's the one thing standing between you and 24/7 agentic productivity without burning out.
 
-Tend answers that question in one glance. It's lightweight attention infrastructure for developers running multiple AI agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+Tend ends the hunt. It's lightweight attention infrastructure for developers running multiple AI agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
 
 ---
 
