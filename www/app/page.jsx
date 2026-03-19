@@ -346,7 +346,7 @@ export default function Page() {
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   Run <span className="font-mono text-parchment">td relay setup</span> on your laptop.
                   Copy the token to each remote environment.
-                  That&apos;s it. Agents don&apos;t change — same AGENTS.md instructions everywhere.
+                  That&apos;s it. Agents don&apos;t change — same <code className="text-parchment/60">td init</code> setup everywhere.
                 </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-5">
