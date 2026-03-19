@@ -100,5 +100,20 @@ describe('gamification', () => {
     expect(r.stdout).toContain('waiting');
   });
 
+  it('stale working session does not inflate active hours', () => {
+    const dir = ctx.makeProject('gami-stale');
+    ctx.tend(['init'], { cwd: dir });
+    // Emit a working event 12 hours ago with no follow-up
+    const old = new Date(Date.now() - 12 * 3600 * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const oldTs = `${old.getFullYear()}-${pad(old.getMonth() + 1)}-${pad(old.getDate())}T${pad(old.getHours())}:${pad(old.getMinutes())}:${pad(old.getSeconds())}`;
+    writeFileSync(join(dir, '.tend', 'events'), `${oldTs} sess1 working left running\n`);
+    const r = ctx.tend([]);
+    // Should not be 12+ hours; stale threshold caps it at ~1 hour
+    const match = r.stdout.match(/(\d+)\/24h active/);
+    expect(match).toBeTruthy();
+    expect(parseInt(match![1])).toBeLessThanOrEqual(2);
+  });
+
 });
 

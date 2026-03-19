@@ -102,10 +102,13 @@ export function computeStats(): GamificationStats {
   }
 
   // Fill in hours for sessions still working (no end event yet)
+  // Cap at stale threshold — a session without a follow-up event for 30min
+  // is effectively idle, not continuously active.
   for (const [, start] of workingStarts) {
+    const end = Math.min(start + config.staleThreshold, nowEpoch);
     const clampedStart = Math.max(start, twentyFourAgo);
-    if (clampedStart < nowEpoch) {
-      for (let t = clampedStart; t <= nowEpoch; t += 3600) {
+    if (clampedStart < end) {
+      for (let t = clampedStart; t <= end; t += 3600) {
         activeTimestamps.push(t);
       }
     }
