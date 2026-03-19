@@ -83,7 +83,7 @@ export function NavbarClient() {
       <a href="#" className="font-heading text-sm font-bold tracking-tight">tend <span className="text-smoke/40 font-normal">|</span> td</a>
       <div className="hidden sm:flex items-center gap-5 text-sm">
         <a href="#problem" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Why</a>
-        <a href="#dashboard" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Dashboard</a>
+        <a href="#remote" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Remote</a>
         <a href="#get-started" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Install</a>
       </div>
       <a
