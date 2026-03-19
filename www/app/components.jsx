@@ -1,53 +1,17 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
-import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { useEffect, useState } from 'react'
 
-gsap.registerPlugin(ScrollTrigger)
-
-export function ScrollReveal({ children, className, triggerClassName }) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.from(`.${triggerClassName}`, {
-        y: 30,
-        opacity: 0,
-        duration: 0.8,
-        ease: 'power3.out',
-        stagger: 0.08,
-        scrollTrigger: ref.current ? { trigger: ref.current, start: 'top 75%' } : undefined,
-      })
-    }, ref)
-    return () => ctx.revert()
-  }, [triggerClassName])
-
+export function ScrollReveal({ children, className }) {
   return (
-    <div ref={ref} className={className}>
+    <div className={className}>
       {children}
     </div>
   )
 }
 
 export function HeroReveal({ children }) {
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.from('.hero-el', {
-        y: 30,
-        opacity: 0,
-        duration: 0.9,
-        ease: 'power3.out',
-        stagger: 0.08,
-        delay: 0.2,
-      })
-    }, ref)
-    return () => ctx.revert()
-  }, [])
-
-  return <div ref={ref}>{children}</div>
+  return <div>{children}</div>
 }
 
 export function ScrollNavbar() {
