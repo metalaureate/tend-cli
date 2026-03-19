@@ -137,10 +137,10 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                Your agents work around the clock. You don&apos;t. But you&apos;re acting like you do — checking terminals between meetings, scanning tabs before bed, wondering if something finished while you weren&apos;t looking. The fear of missing an agent that needs you keeps you always-on.
+                You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
               </p>
               <p>
-                Agents don&apos;t need you to watch them. They need you to show up at the right moment, route yourself to what matters, and then disappear — back to deep work, or to dinner, or to sleep.
+                The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you — without it taking over your day.
               </p>
             </div>
 
