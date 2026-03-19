@@ -38,11 +38,9 @@ TEND                                       Wed Mar 18, 19:02
 ```
 
 ```bash
-td my-app            # project detail + sessions
-td 1                 # detail by number
-td add "fix auth"    # queue work for the agent
-td #1                # switch to project 1
-td switch my-app     # switch by name
+td payments-api              # what's stuck? see the full session log
+td add "migrate to Stripe"   # queue a TODO — agent picks it up next session
+td ack mobile-app            # reviewed the PR, clear it back to idle
 ```
 
 `td` is a symlink to `tend` — use either.
