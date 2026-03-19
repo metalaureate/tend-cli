@@ -305,7 +305,7 @@ export default function Page() {
       </section>
 
       {/* RELAY */}
-      <section id="remote" className="bg-anvil py-20 md:py-28 px-6">
+      <section id="relay" className="bg-anvil py-20 md:py-28 px-6">
         <ScrollReveal triggerClassName="relay-el">
           <div className="max-w-3xl mx-auto">
             <p className="relay-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Remote agents</p>
