@@ -22,19 +22,22 @@ That's it. `tend init` sets up everything: `.tend/` directory, AGENTS.md integra
 Now run `td` from anywhere:
 
 ```
-TEND                                       Wed Mar 18, 19:02
+% td                                                 ◐1 ◉1
 
-  payments-api        ? stuck            tool approval needed: npm test
-  mobile-app          ◉ done             PR #847 ready for review         (2m ago)
-  strategy-doc        ◐ working          drafting Q2 roadmap              (8m)
-  data-pipeline       ◐ working          changes in src/pipeline          (23m)
-  auth-service        ? waiting          changes in src/auth              (45m ago)
-  support-triage      ◌ idle             customer tickets triaged         (3h ago)
+  TEND                               Wed Mar 18, 19:08
 
-  1 needs attention · 1 done · 2 working · 1 idle
+   1. tend-cli             ◉ done           copy: drop 'conductor' thesis block  (2m ago)
+   2. first100             ◌ idle           7 files changed  (46m ago)
+   3. hestia               ◉ done           changes in .gitignore  (1d ago)
+   4. product-discovery    ◌ idle           changes in research/20260311_120000_n...  (1d ago)
+   5. dramatis-api         ◌ idle           changes in AGENTS.md  (2d ago)
+   6. story-world-editor   ◌ idle           changes in .gitignore  (3d ago)
+
+  2 done · 4 idle
 
   ──────────────────────────────────────────────────
-  18/24h active  ·  5 done today  ·  12 this week  ·  2 open TODOs
+  24/24h active  ·  55 done today  ·  58 this week  ·  1 open TODO
+  💡 6 idle + 1 open TODO — queue overnight work?
 ```
 
 ```bash
