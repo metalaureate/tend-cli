@@ -101,7 +101,7 @@ Agents emit state changes to `.tend/events` — a one-line-per-event append-only
 ```
 2026-03-18T14:20:00 _cli working refactoring auth module
 2026-03-18T14:45:00 _cli done refactored auth module (PR #204)
-2026-03-18T14:46:00 _cli stuck tool approval needed: npm test
+2026-03-18T14:46:00 _cli stuck needs database credentials for staging
 ```
 
 Five states: `working`, `done`, `stuck`, `waiting`, `idle`.

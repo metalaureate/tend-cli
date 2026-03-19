@@ -56,7 +56,7 @@ Example:
 \`\`\`
 2026-03-13T14:20:00 _cli working refactoring narrative engine
 2026-03-13T14:45:00 _cli done refactored narrative engine (PR #204)
-2026-03-13T14:46:00 _cli stuck tool approval needed: npm test
+2026-03-13T14:46:00 _cli stuck needs database credentials for staging
 \`\`\`
 `;
 

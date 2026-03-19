@@ -191,7 +191,7 @@ export function DashboardLive() {
   const countdown = secsLeft < REFRESH_SECS ? `${secsLeft}s` : '1m 0s'
 
   const rows = [
-    { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'tool approval needed: npm test', right: '', stateColor: 'text-ember' },
+    { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'needs database credentials for staging', right: '', stateColor: 'text-ember' },
     { icon: '\u25d0', name: 'northstar', state: 'working', msg: 'refactoring auth middleware', right: '(8m)', stateColor: 'text-patina' },
     { icon: '\u25d0', name: 'sextant', state: 'working', msg: 'building data pipeline', right: '(23m) \u2197', stateColor: 'text-patina' },
     { icon: '\u25c9', name: 'beacon', state: 'done', msg: 'PR #204 ready for review', right: '\u2197', stateColor: 'text-ember' },
