@@ -21,6 +21,17 @@ function extractSessionId(input: string, projectPath?: string): string {
   return email ? `${raw}@${sanitizeUserTag(email)}` : raw;
 }
 
+/** Extract the first line of the user's prompt from hook JSON input */
+function extractPrompt(input: string): string {
+  const match = input.match(/"prompt"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+  if (!match) return '';
+  // Unescape JSON string, take first line, trim whitespace
+  const raw = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+  const firstLine = raw.split('\n')[0].trim();
+  // Truncate to keep event lines reasonable
+  return firstLine.length > 120 ? firstLine.slice(0, 117) + '...' : firstLine;
+}
+
 /** Escape a string for JSON output */
 function jsonEscape(s: string): string {
   return s
@@ -104,11 +115,12 @@ async function hookUserPrompt(): Promise<void> {
 
   if (existsSync(join(projectPath, '.tend'))) {
     const sessionId = extractSessionId(input, projectPath);
+    const prompt = extractPrompt(input);
     const ts = tsLocal();
     if (sessionId) {
-      appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, 'working', '');
+      appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, 'working', prompt);
     } else {
-      appendFileSync(join(projectPath, '.tend', 'events'), `${ts} working\n`);
+      appendFileSync(join(projectPath, '.tend', 'events'), `${ts} working${prompt ? ' ' + prompt : ''}\n`);
     }
     invalidateStatusCache();
   }
@@ -154,26 +166,35 @@ async function hookStop(): Promise<void> {
         }
       }
     } else {
-      // No session — check last line
+      // No session — check last line (may or may not have a session ID)
       const lastLine = lines[lines.length - 1] || '';
       const parts = lastLine.split(/\s+/);
-      if (parts.length >= 2) lastState = parts[1];
+      // Event format: <ts> [sessionId] <state> [message...]
+      // With session: parts = [ts, sessionId, state, ...]
+      // Without session: parts = [ts, state, ...]
+      if (parts.length >= 3 && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(parts[2])) {
+        lastState = parts[2];
+      } else if (parts.length >= 2) {
+        lastState = parts[1];
+      }
     }
   }
 
   if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting') return;
 
   if (sessionId) {
-    // Emit done before idle when session had work
     if (lastState === 'working') {
+      // Session had work — emit done (not idle, so the board shows "done")
       appendEvent(eventsFile, ts, sessionId, 'done', 'session completed');
+    } else {
+      appendEvent(eventsFile, ts, sessionId, 'idle', 'session ended');
     }
-    appendEvent(eventsFile, ts, sessionId, 'idle', 'session ended');
   } else {
     if (lastState === 'working') {
       appendFileSync(eventsFile, `${ts} done session completed\n`);
+    } else {
+      appendFileSync(eventsFile, `${ts} idle session ended\n`);
     }
-    appendFileSync(eventsFile, `${ts} idle session ended\n`);
   }
   invalidateStatusCache();
 }

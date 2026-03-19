@@ -52,7 +52,7 @@ describe('hooks', () => {
     expect(lastEvent).toContain('sess-snake1');
   });
 
-  it('stop emits idle on session end', () => {
+  it('stop emits done when session was working', () => {
     const dir = ctx.makeProject('golf2');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'working', 'building feature'], { cwd: dir });
@@ -61,7 +61,7 @@ describe('hooks', () => {
       stdin: '{"stop_hook_active": false}',
     });
     const lastEvent = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').pop()!;
-    expect(lastEvent).toContain('idle');
+    expect(lastEvent).toContain('done');
   });
 
   it('stop skips when stop_hook_active is true', () => {
