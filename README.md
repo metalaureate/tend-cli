@@ -38,9 +38,13 @@ TEND                                       Wed Mar 18, 19:02
 ```
 
 ```bash
-td payments-api              # what's stuck? see the full session log
-td add "migrate to Stripe"   # queue a TODO — agent picks it up next session
-td ack payments-api          # unblock it — you approved the tool, clear to idle
+td                           # the board — everything at a glance
+td 1                         # drill into project 1 — session log, recent git
+td #1                        # jump to project 1 in your editor
+
+td add "migrate to Stripe"   # add a TODO to the current project
+td add 3 "fix auth"          # add a TODO to project 3
+td add                       # see all TODOs across all projects
 ```
 
 `td` is a symlink to `tend` — use either.
