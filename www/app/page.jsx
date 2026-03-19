@@ -40,11 +40,14 @@ export default function Page() {
           <div className="max-w-3xl mx-auto">
             <h1 className="hero-el font-heading font-bold text-parchment text-3xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight">
               Run more agents.<br />
-              <span className="text-smoke">Check fewer tabs.</span>
+              <span className="text-smoke">Know when they need you.</span>
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Lightweight attention infrastructure for humans and agents. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
+              You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+            </p>
+            <p className="hero-el font-body text-smoke text-base md:text-lg mt-4 max-w-xl leading-relaxed">
+              The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you — without it taking over your day.
             </p>
 
             {/* The Board */}
