@@ -143,19 +143,6 @@ export default function Page() {
                 The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you — without it taking over your day.
               </p>
             </div>
-
-            {/* The thesis */}
-            <div className="why-el mt-12 md:mt-16">
-              <h3>
-                <span className="font-display text-anvil text-3xl md:text-5xl lg:text-6xl italic">
-                  Tend doesn&apos;t build a better dashboard.
-                </span>
-                <br />
-                <span className="font-display text-ember text-3xl md:text-5xl lg:text-6xl italic">
-                  It makes you a conductor.
-                </span>
-              </h3>
-            </div>
           </div>
         </ScrollReveal>
       </section>
