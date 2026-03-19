@@ -40,7 +40,7 @@ TEND                                       Wed Mar 18, 19:02
 ```bash
 td payments-api              # what's stuck? see the full session log
 td add "migrate to Stripe"   # queue a TODO — agent picks it up next session
-td ack mobile-app            # reviewed the PR, clear it back to idle
+td ack payments-api          # unblock it — you approved the tool, clear to idle
 ```
 
 `td` is a symlink to `tend` — use either.
