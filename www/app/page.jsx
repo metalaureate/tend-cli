@@ -144,16 +144,6 @@ export default function Page() {
               </p>
             </div>
 
-            {/* The cost */}
-            <div className="why-el mt-12 bg-parchment border border-chalk rounded-3xl p-6 md:p-8">
-              <p className="font-heading font-bold text-lg md:text-xl text-anvil">
-                Maximum throughput. Maximum life.
-              </p>
-              <p className="font-body text-smoke mt-3 leading-relaxed">
-                When you&apos;re working, you know exactly where to go next — no polling, no dashboards, just the prompt you&apos;re already looking at. When you&apos;re done for the day, you tee up overnight work and close the laptop. The agents keep running. You pick up the results in the morning.
-              </p>
-            </div>
-
             {/* The thesis */}
             <div className="why-el mt-12 md:mt-16">
               <h3>
