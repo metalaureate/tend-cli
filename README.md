@@ -1,10 +1,12 @@
 # Tend
 
-**Lightweight attention infrastructure for humans and agents.**
+**Run more agents. Know when they need you.**
 
-Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
+You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
 
-*Who's stuck? Who needs you?*
+The bottleneck isn't the agents. It's knowing when they need you — without it taking over your day.
+
+Tend is lightweight attention infrastructure. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
 
 ---
 
@@ -17,23 +19,30 @@ tend init
 
 That's it. `tend init` sets up everything: `.tend/` directory, AGENTS.md integration, shell prompt indicator, and project registry.
 
-Now run `tend` from anywhere:
+Now run `td` from anywhere:
 
 ```
-TEND                               Thu Mar 13, 14:32
+TEND                                       Wed Mar 18, 19:02
 
-◐ my-app               working        building auth scaffold (3m)
-○ other-project         idle           update deps (2h ago)
+  payments-api        ? stuck            tool approval needed: npm test
+  mobile-app          ◉ done             PR #847 ready for review         (2m ago)
+  strategy-doc        ◐ working          drafting Q2 roadmap              (8m)
+  data-pipeline       ◐ working          changes in src/pipeline          (23m)
+  auth-service        ? waiting          changes in src/auth              (45m ago)
+  support-triage      ◌ idle             customer tickets triaged         (3h ago)
 
-0 needs you · 1 working · 1 idle
+  1 needs attention · 1 done · 2 working · 1 idle
+
+  ──────────────────────────────────────────────────
+  18/24h active  ·  5 done today  ·  12 this week  ·  2 open TODOs
 ```
 
 ```bash
-tend my-app          # project detail + sessions
-tend 1               # detail by number
-tend add "fix auth"  # queue work for the agent
-tend #1              # switch to project 1
-tend switch my-app   # switch by name
+td my-app            # project detail + sessions
+td 1                 # detail by number
+td add "fix auth"    # queue work for the agent
+td #1                # switch to project 1
+td switch my-app     # switch by name
 ```
 
 `td` is a symlink to `tend` — use either.
@@ -63,20 +72,20 @@ No config files. No database. No daemon.
 
 | Command | Description |
 |---|---|
-| `tend` | Show the departures board |
-| `tend -` | Live dashboard (auto-refreshes every minute) |
-| `tend <project>` | Project detail + sessions |
-| `tend <N>` | Project detail by board number |
-| `tend #<N>` | Switch to project N |
-| `tend init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
-| `tend add [project] "msg"` | Add a TODO |
-| `tend add [project]` | Show & manage TODOs (enter # to remove) |
-| `tend switch <project>` | Focus the editor window (or `tend #N`) |
-| `tend emit <state> "msg"` | Emit an event (used by agents, not humans) |
-| `tend ack [project]` | Clear done/stuck/waiting → idle |
-| `tend status` | Status indicator: `○` or `●N` |
-| `tend remove [project]` | Remove tend from a project (with confirmation) |
-| `tend relay <subcmd>` | Manage relay connection (see below) |
+| `td` | Show the board |
+| `td -` | Live dashboard (auto-refreshes every minute) |
+| `td <project>` | Project detail + sessions |
+| `td <N>` | Project detail by board number |
+| `td #<N>` | Switch to project N |
+| `td init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
+| `td add [project] "msg"` | Add a TODO |
+| `td add [project]` | Show & manage TODOs (enter # to remove) |
+| `td switch <project>` | Focus the editor window (or `td #N`) |
+| `td emit <state> "msg"` | Emit an event (used by agents, not humans) |
+| `td ack [project]` | Clear done/stuck/waiting → idle |
+| `td status` | Status indicator: `○` or `?N ◐N ◉N` |
+| `td remove [project]` | Remove tend from a project (with confirmation) |
+| `td relay <subcmd>` | Manage relay connection (see below) |
 
 ---
 
@@ -85,9 +94,9 @@ No config files. No database. No daemon.
 Agents emit state changes to `.tend/events` — a one-line-per-event append-only log:
 
 ```
-2026-03-13T14:20:00 working refactoring narrative engine
-2026-03-13T14:45:00 done refactored narrative engine (PR #204)
-2026-03-13T14:46:00 stuck tool approval needed: npm test
+2026-03-18T14:20:00 _cli working refactoring auth module
+2026-03-18T14:45:00 _cli done refactored auth module (PR #204)
+2026-03-18T14:46:00 _cli stuck tool approval needed: npm test
 ```
 
 Five states: `working`, `done`, `stuck`, `waiting`, `idle`.
@@ -113,14 +122,14 @@ Plain text. ISO 8601 timestamps. No YAML, no JSON.
 `.tend/TODO` is a plain-text file committed to each project. Agents read it on session start; humans manage it from the terminal.
 
 ```bash
-tend add "fix auth regression"        # add to current project
-tend add my-app "refactor models"     # add to a specific project
+td add "fix auth regression"        # add to current project
+td add my-app "refactor models"     # add to a specific project
 
-tend add                              # show all TODOs across all projects
-tend add my-app                       # show TODOs for one project
+td add                              # show all TODOs across all projects
+td add my-app                       # show TODOs for one project
 ```
 
-When you run `tend add` with no message, you get a numbered list across every registered project:
+When you run `td add` with no message, you get a numbered list across every registered project:
 
 ```
 TODO (my-app):
@@ -154,7 +163,7 @@ On a local machine, that writes to `.tend/events`. On a remote machine with `TEN
 
 ```bash
 # On your laptop — one-time setup
-tend relay setup
+td relay setup
 # → Gets a token from relay.tend.dev
 # → Stores it in ~/.tend/relay_token
 # → Prints the token for you to copy
@@ -173,28 +182,28 @@ tend emit working "building auth scaffold"
 tend emit done "auth scaffold complete (PR #204)"
 
 # Back on your laptop — events appear on the board
-tend
-#   TEND                               Fri Mar 14, 14:32
+td
+#   TEND                                       Wed Mar 18, 19:02
 #
-#   ◐ my-app               working    building auth scaffold (3m)  ↗
-#   ○ other-project         idle       update deps (2h ago)
+#   my-app               ◐ working          building auth scaffold    (3m)
+#   other-project↗       ◌ idle             update deps               (2h ago)
 ```
 
-Remote projects show a `↗` indicator. `tend <project>` shows per-session breakdown with source tags (local vs relay).
+Remote projects show a `↗` indicator. `td <project>` shows per-session breakdown with source tags (local vs relay).
 
 ### Relay Commands
 
 | Subcommand | Description |
 |---|---|
-| `tend relay setup` | Register with relay, store token in `~/.tend/relay_token` |
-| `tend relay status` | Show masked token, relay URL, cache info |
-| `tend relay pull` | Force-refresh event cache from relay |
-| `tend relay token` | Print raw token (for copying to remote envs) |
+| `td relay setup` | Register with relay, store token in `~/.tend/relay_token` |
+| `td relay status` | Show masked token, relay URL, cache info |
+| `td relay pull` | Force-refresh event cache from relay |
+| `td relay token` | Print raw token (for copying to remote envs) |
 
 ### Performance
 
-- `tend status` (shell prompt) reads from local cache only — never hits the network, stays under 100ms
-- `tend` (departures board) refreshes the relay cache on each invocation, then renders from cache
+- `td status` (shell prompt) reads from local cache only — never hits the network, stays under 100ms
+- `td` (board) refreshes the relay cache on each invocation, then renders from cache
 - No daemon. No background sync.
 
 ### The Relay is Optional
@@ -205,47 +214,33 @@ Local agents still just write to a file. If you never set up a relay token, ever
 
 ## Why Tend Exists
 
-Today, you're less like a lone coder and more like a master blacksmith tending an ever-growing workshop of agents — or a head chef running a large kitchen of cooks. The scarce resource isn't code. It's your attention.
+You want to run as many agents as possible — across code, docs, ops, research — at every level of autonomy. Some run for hours unattended. Others need your judgment every few minutes. The mix changes constantly.
 
-Every tool for managing these agents builds a dashboard. Live panels, notification badges, real-time streaming. They assume agents run autonomously and you check in when they're done.
+The unsolved problem is knowing when they need you, without that knowledge becoming a second job. Dashboards are a permanent invitation to break focus. Notification badges are interrupts. They add vigilance, not concentration.
 
-Some do. But the reality is a distribution. On any given day you might have two or three projects where you're actively collaborating with an agent — steering it every 5-15 minutes, reviewing its work, making judgment calls on tricky details inside a large codebase. A couple more where you're grooming a spec or a plan, kicking off revisions and checking back when the agent has a new draft for you to review. Another two where the agent can run for longer stretches before it needs you. And a couple more — cloud refactors, test suites, research jobs, or agents running actual lines of business such as customer support or sales — that might run for hours and only need you if they get stuck.
+Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point — the agent is running, you've finished a thought, you need a break — you glance at the board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
 
-As AI agents and tooling improves, five simultaneous projects will become ten, then twenty — expanding into all roles — to fill the only truly scarce resource: your attention.
-
-The unsolved problem is attention management: the projects where you and the agent are working together at varying cadences, and you need to stay in your train of thought while still being reachable by the others. A dashboard doesn't help here. It's a permanent invitation to break focus. A notification badge is an interrupt. They add vigilance, not concentration.
-
-This isn't just an efficiency problem. Your span of control shrinks. Five projects that could be ten. And the constant low-grade anxiety of not knowing what's happening elsewhere becomes chronic.
-
-The problem isn't even specific to humans. An agent coordinating other agents — an agent CEO running an autonomous company — hits the same bottleneck. It spawns subagents across threads and environments, each working at different cadences. It needs to know which are stuck, which are done, which are running fine. Polling a dashboard wastes compute the same way it wastes human focus. The pull model, the five-state protocol, the relay — they work just as well when the coordinator is an agent. Tend is attention infrastructure, not just a developer tool.
-
-### The Departures Board
-
-Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point — the agent is running, you've finished a thought, you need a break — you glance at the departures board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
-
-That's `tend`. One command, one glance, then back.
-
-The shell prompt indicator (`○` / `●N`) means you often don't even need the board. It's already in your visual field after every command. When it says `○`, nothing needs you. The uncertainty — which is what drives compulsive project-switching — is gone.
+The shell prompt indicator (`○` / `?N` / `◐N` / `◉N`) means you often don't even need the board. It's already in your visual field after every command. When it says `○`, nothing needs you. The uncertainty — which is what drives compulsive tab-switching — is gone.
 
 ### Design Principles
 
 - **Pull, not push.** No notifications, no badges, no live updates. Tend speaks only when spoken to.
 - **Scan, don't read.** The board is a 3-second glance. Status icons are the primary signal.
-- **Act or jump.** `tend add` to tee up a new task. `tend switch` to jump to the right window,
+- **Act or jump.** `td add` to tee up a new task. `td switch` to jump to the right window.
 - **Then disappear.** No persistent UI. No daemon. No background process.
 
 
 ### Lifecycle Hooks
 
-`tend init` creates `.github/hooks/tend.json`, which wires three hooks into VS Code's agent lifecycle (also compatible with Claude Code):
+`td init` creates `.github/hooks/tend.json`, which wires three hooks into VS Code's agent lifecycle (also compatible with Claude Code):
 
 | Hook | What it does |
 |---|---|
-| `SessionStart` | Reads `.tend/TODO` and recent git history, proposes backlog items to the developer |
+| `SessionStart` | Reads `.tend/TODO` and recent git history, proposes backlog items |
 | `UserPromptSubmit` | Emits `working` to `.tend/events` each time the user sends a prompt |
 | `Stop` | Emits `idle` to `.tend/events` when the agent session ends |
 
-Hooks are powered by `tend hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
+Hooks are powered by `td hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
 
 The `.github/hooks/` location is loaded by default in VS Code — no settings changes needed.
 
