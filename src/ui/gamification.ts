@@ -117,7 +117,7 @@ export function computeStats(): GamificationStats {
     for (const ts of activeTimestamps) {
       activeHourSet.add(Math.floor(ts / 3600));
     }
-    stats.activeHours = activeHourSet.size;
+    stats.activeHours = Math.min(activeHourSet.size, 24);
   }
 
   return stats;

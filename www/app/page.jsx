@@ -73,10 +73,10 @@ export default function Page() {
                   ))}
                 </div>
                 <div className="text-smoke/30 mt-4 pt-3 border-t border-white/5">
-                  3 need you · 2 working · 1 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
+                  1 needs attention · 1 done · 2 working · 1 idle &nbsp;<span className="text-parchment/30">↗ = relay</span>
                 </div>
                 <div className="text-smoke/25 mt-1">
-                  5 done today · 18/24h active · <span className="text-parchment/40">◆</span> 3-day streak
+                  18/24h active  ·  5 done today  ·  12 this week  ·  2 open TODOs
                 </div>
                 <HeroPromptGlyph />
               </div>
