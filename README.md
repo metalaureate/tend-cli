@@ -40,7 +40,7 @@ TEND                                       Wed Mar 18, 19:02
 ```bash
 td                           # the board — everything at a glance
 td 1                         # drill into project 1 — session log, recent git
-td #1                        # jump to project 1 in your editor
+td #3                        # jump to project 3 in your editor
 
 td add "migrate to Stripe"   # add a TODO to the current project
 td add 3 "fix auth"          # add a TODO to project 3
