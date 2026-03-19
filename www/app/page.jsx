@@ -11,7 +11,7 @@ const board = [
 
 const helpCommands = [
   ['td', 'Show the status board'],
-  ['td -', 'Live dashboard (auto-refreshes every minute)'],
+  ['td watch', 'Live dashboard (auto-refreshes every minute)'],
   ['td <project>', 'Project detail + agent sessions'],
   ['td init [project]', 'Initialize .tend/ in a project'],
   ['td clear [project]', 'Clear events history for a project'],
@@ -39,12 +39,12 @@ export default function Page() {
         <HeroReveal>
           <div className="max-w-3xl mx-auto">
             <h1 className="hero-el font-heading font-bold text-parchment text-3xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight">
-              Run more agents.<br />
-              <span className="text-smoke">Know when they need you.</span>
+              Tend your agents.<br />
+              <span className="text-smoke">Stay in flow.</span>
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Lightweight attention infrastructure for humans and agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+              Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. Tend is the instrument that makes that feel like flow.
             </p>
 
             {/* The Board */}
@@ -126,18 +126,20 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              Reclaim your flow.<br />
-              <span className="text-smoke">Maximize your agents.</span>
+              Stoke. Tend. Flow.
             </h2>
 
             <p className="why-el font-mono text-xs text-smoke/70 mt-4">For developers running 2+ AI agents across projects.</p>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+                Some work is conversational: tight, turn by turn, you and an agent building something together. Some runs for hours untouched. Most sits somewhere in between — a check-in here, a course correction there.
               </p>
               <p>
-                The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you, without it taking over your day.
+                The skill is moving fluidly across that distribution — present when it matters, free when it doesn&apos;t — without losing the thread of any of it. The craft is knowing when each agent needs you, and getting better over time at engineering more of them not to.
+              </p>
+              <p>
+                Tend is the instrument that makes that feel like flow.
               </p>
             </div>
           </div>

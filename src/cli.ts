@@ -2,6 +2,7 @@
 
 import { cmdBoard } from './commands/board.js';
 import { cmdDashboard } from './commands/dashboard.js';
+import { cmdDemo } from './commands/demo.js';
 import { cmdDetail } from './commands/detail.js';
 import { cmdInit } from './commands/init.js';
 import { cmdEmit } from './commands/emit.js';
@@ -27,8 +28,12 @@ async function main(): Promise<void> {
       case '':
         await cmdBoard();
         break;
-      case '-':
+      case 'watch':
+      case '-': // legacy alias
         await cmdDashboard();
+        break;
+      case 'demo':
+        await cmdDemo(rest);
         break;
       case 'init':
         cmdInit(rest);

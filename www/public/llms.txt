@@ -1,8 +1,8 @@
 # Tend
 
-> Run more agents. Know when they need you.
+> Tend your agents. Stay in flow.
 
-Tend is a pull-based CLI for developers running multiple AI agents. It replaces dashboards with a single status board and a shell prompt glyph. One command, one glance, then back to work.
+Tend is a pull-based CLI for developers running multiple AI agents. Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. One glance keeps you present when it matters, free when it doesn't.
 
 ## Key Facts
 
@@ -31,7 +31,7 @@ td            # show the board from anywhere
 ## Commands
 
 - td                     — Show the board
-- td -                   — Live dashboard (auto-refreshes every minute)
+- td watch                   — Live dashboard (auto-refreshes every minute)
 - td <project>           — Project detail + agent sessions
 - td <N>                 — Project detail by board number
 - td #<N>                — Switch to project N

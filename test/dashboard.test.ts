@@ -11,7 +11,7 @@ describe('dashboard', () => {
     const dir = ctx.makeProject('dash-alpha');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'working', 'testing dashboard'], { cwd: dir });
-    const r = ctx.tend(['-']);
+    const r = ctx.tend(['watch']);
     expect(r.stdout).toContain('TEND');
     expect(r.stdout).toContain('dash-alpha');
     expect(r.stdout).toContain('working');
@@ -19,14 +19,14 @@ describe('dashboard', () => {
   });
 
   it('shows no-projects message in non-TTY mode', () => {
-    const r = ctx.tend(['-']);
+    const r = ctx.tend(['watch']);
     expect(r.stdout).toContain('No tended projects');
     expect(r.exitCode).toBe(0);
   });
 
   it('is documented in help', () => {
     const r = ctx.tend(['help']);
-    expect(r.stdout).toContain('tend -');
+    expect(r.stdout).toContain('tend watch');
     expect(r.stdout).toContain('dashboard');
   });
 });
