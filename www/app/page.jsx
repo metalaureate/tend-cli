@@ -126,8 +126,8 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              The scarce resource isn&apos;t compute.<br />
-              <span className="text-smoke">It&apos;s your attention.</span>
+              Reclaim your flow.<br />
+              <span className="text-smoke">Maximize your agents.</span>
             </h2>
 
             <p className="why-el font-mono text-xs text-smoke/40 mt-4">For developers running 2+ AI agents across projects.</p>
