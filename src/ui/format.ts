@@ -28,11 +28,15 @@ export function isStale(ts: string, thresholdSeconds: number): boolean {
   return (now - tsEpoch) > thresholdSeconds;
 }
 
-/** Format current local time as ISO-8601 (YYYY-MM-DDTHH:MM:SS) */
-export function tsLocal(): string {
-  const d = new Date();
+/** Format a Date as ISO-8601 local time (YYYY-MM-DDTHH:MM:SS) */
+export function formatTs(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+/** Format current local time as ISO-8601 (YYYY-MM-DDTHH:MM:SS) */
+export function tsLocal(): string {
+  return formatTs(new Date());
 }
 
 /** Format current date for board header: "Sun Mar 15, 14:32" */

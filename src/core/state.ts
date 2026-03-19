@@ -16,7 +16,14 @@ export function aggregateState(
 
   const sessions = new Map<string, SessionState>();
   const sessionWorkPending = new Map<string, boolean>();
+  const sessionLastWorkingTs = new Map<string, string>();
   let lastTs = '';
+
+  // Maximum gap (seconds) between a working event and a subsequent idle event
+  // for the idle to be inferred as 'waiting'. Longer gaps indicate a natural
+  // end-of-session that went idle without an explicit done, rather than a
+  // mid-task pause that needs attention.
+  const WAITING_INFERENCE_WINDOW_SECONDS = 600; // 10 minutes
 
   for (const evt of events) {
     lastTs = evt.ts;
@@ -25,6 +32,7 @@ export function aggregateState(
       // Global reset marker — clear all sessions (backward compat)
       sessions.clear();
       sessionWorkPending.clear();
+      sessionLastWorkingTs.clear();
       sessions.set('_', { state: evt.state, ts: evt.ts, message: '' });
       continue;
     }
@@ -37,6 +45,7 @@ export function aggregateState(
         if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
           sessions.delete(sid);
           sessionWorkPending.delete(sid);
+          sessionLastWorkingTs.delete(sid);
         }
       }
       continue;
@@ -45,13 +54,26 @@ export function aggregateState(
     // Track working-without-done per session
     if (evt.state === 'working') {
       sessionWorkPending.set(evt.sessionId, true);
+      sessionLastWorkingTs.set(evt.sessionId, evt.ts);
     } else if (evt.state === 'done') {
       sessionWorkPending.set(evt.sessionId, false);
+      sessionLastWorkingTs.delete(evt.sessionId);
     }
 
-    // Infer waiting: idle after working without done means work wasn't completed
-    const effectiveState = evt.state === 'idle' && sessionWorkPending.get(evt.sessionId)
-      ? 'waiting' : evt.state;
+    // Infer waiting: idle after working without done, but only if the session
+    // went idle within WAITING_INFERENCE_WINDOW seconds of the last working
+    // event. Long-running sessions that end naturally (idle after hours of
+    // work) should not be shown as waiting.
+    let effectiveState = evt.state;
+    if (evt.state === 'idle' && sessionWorkPending.get(evt.sessionId)) {
+      const lastWorkingTs = sessionLastWorkingTs.get(evt.sessionId);
+      const recentEnough = lastWorkingTs
+        ? (toEpoch(evt.ts) - toEpoch(lastWorkingTs)) <= WAITING_INFERENCE_WINDOW_SECONDS
+        : false;
+      if (recentEnough) {
+        effectiveState = 'waiting';
+      }
+    }
 
     sessions.set(evt.sessionId, {
       state: effectiveState,

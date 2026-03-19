@@ -88,4 +88,6 @@ esac
 
 echo ""
 echo "Get started:"
-echo "  cd ~/your-project && td init"
+echo "  tend demo                    — see the board with demo projects (start here)"
+echo "  cd ~/your-project && tend init   — set up tend in a real project"
+echo "  td                           — show the board (short alias for tend)"

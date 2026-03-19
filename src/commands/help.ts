@@ -4,6 +4,7 @@ export function cmdHelp(): void {
 Usage:
   tend                          Show the departures board
   tend watch                    Live dashboard (auto-refreshes every minute)
+  tend demo                     Show board with demo projects (great for first run)
   tend <project>                Show project detail + sessions
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
