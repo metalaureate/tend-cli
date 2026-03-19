@@ -1,14 +1,14 @@
 # Tend — Full Documentation
 
-> Stop hunting between agents. Stay in flow.
+> Tend your agents. Stay in flow.
 
 ---
 
 ## What is Tend?
 
-Tend is a pull-based CLI for developers running multiple AI agents. It replaces the hunt for "what needs me next" with a single glance — a status board and a shell prompt glyph. One command, then back to work.
+Tend is a pull-based CLI for developers running multiple AI agents. One glance tells you who needs stoking right now and who can keep running without you — so you stay in rhythm across everything from tight interactive sessions to long autonomous runs.
 
-You're running agents around the clock — on code, docs, ops, and research. The agents aren't the bottleneck. You are. Every time you finish a turn, you have to figure out where to go next: what's done and waiting for review? what's blocked and needs unblocking? which one can move forward right now? That constant hunt destroys flow state, fragments concentration, and compounds mental exhaustion.
+Like a tender on a steam train, your job is to keep the fires burning — not just watch them. Some agents need a quick turn of your attention. Others can run for hours. Tend shows you who needs stoking so you can step back and let the rest run.
 
 ## Install
 
@@ -191,11 +191,13 @@ The relay is optional. If you never set up a relay token, everything works exact
 
 ## Why Tend Exists
 
-You're running agents around the clock — on code, docs, ops, and research. The agents aren't the bottleneck. You are. Every time you finish a turn, you have to figure out where to go next: what's done and waiting for review? what's blocked and needs unblocking? which one can actually move forward right now?
+Like a tender on a steam train, your job isn't just to watch — it's to keep the fires burning. Some agents need a quick turn of your attention right now. Others are humming along and can run for hours. The question isn't just who's blocked — it's who needs stoking so you can step back and let them run.
 
-That constant hunt destroys flow state. It fragments concentration and compounds mental exhaustion. It's the one thing standing between you and 24/7 agentic productivity without burning out.
+You're working across a wide range: tight interactive sessions where you're in the loop every few minutes, and long autonomous runs you barely touch. The goal is a satisfying rhythm across all of it — and over time, getting better at engineering tasks so agents need less of you, not more.
 
-Tend replaces the hunt with a single glance. Pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
+Tend gives you the board: one glance to see what's running, what needs stoking, and what can keep going without you. 24/7 agentic productivity — work/life balance intact.
+
+Pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
 
 ### Design Principles
 

@@ -39,12 +39,12 @@ export default function Page() {
         <HeroReveal>
           <div className="max-w-3xl mx-auto">
             <h1 className="hero-el font-heading font-bold text-parchment text-3xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight">
-              Stop hunting between agents.<br />
+              Tend your agents.<br />
               <span className="text-smoke">Stay in flow.</span>
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Agents are always running — but when one finishes or gets stuck, you end up hunting: what&apos;s done? who&apos;s blocked? where do I go next? That hunt fragments concentration and compounds mental exhaustion. Tend ends the hunt. One glance, you know exactly where to go.
+              You&apos;re running agents at every scale — quick interactive turns and long autonomous runs. The skill is knowing when to stoke and when to step back. Tend shows you at a glance who needs your attention right now, so you keep everything moving without breaking your rhythm.
             </p>
 
             {/* The Board */}
@@ -126,21 +126,20 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              You&apos;re the one who&apos;s stuck.<br />
-              <span className="text-smoke">Not the agents.</span>
+              Stoke. Tend. Flow.
             </h2>
 
             <p className="why-el font-mono text-xs text-smoke/70 mt-4">For developers running 2+ AI agents across projects.</p>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                You&apos;re running agents around the clock — on code, docs, ops, and research. The agents aren&apos;t the bottleneck. You are. Every time you finish a turn, you have to figure out where to go next: what&apos;s done and waiting for review? what&apos;s blocked and needs unblocking? which one can actually move forward right now?
+                Like a tender on a steam train, your job isn&apos;t just to watch — it&apos;s to keep the fires burning. Some agents need a quick turn of your attention right now. Others are humming along and can run for hours. The question isn&apos;t just who&apos;s blocked — it&apos;s who needs stoking so you can step back and let them run.
               </p>
               <p>
-                That constant hunt destroys flow state. It fragments concentration and compounds mental exhaustion. It&apos;s the one thing standing between you and 24/7 agentic productivity — without burning out.
+                You&apos;re working across a wide range: tight interactive sessions where you&apos;re in the loop every few minutes, and long autonomous runs you barely touch. The goal is a satisfying rhythm across all of it — and over time, getting better at engineering tasks so agents need less of you, not more.
               </p>
               <p>
-                Tend replaces the hunt with a single glance.
+                Tend gives you the board: one glance to see what&apos;s running, what needs stoking, and what can keep going without you. 24/7 agentic productivity — work/life balance intact.
               </p>
             </div>
           </div>

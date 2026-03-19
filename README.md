@@ -1,10 +1,10 @@
 # Tend
 
-**Stop hunting between agents. Stay in flow.**
+**Tend your agents. Stay in flow.**
 
-Agents are always running — but when one finishes or gets stuck, you end up hunting: what's done? who's blocked? where do I go next? That hunt fragments concentration and compounds mental exhaustion. It's the one thing standing between you and 24/7 agentic productivity without burning out.
+You're running agents at every scale — quick interactive turns and long autonomous runs. The skill is knowing when to stoke and when to step back. Like a tender on a steam train, your job is to keep the fires burning, not just watch them.
 
-Tend ends the hunt. It's lightweight attention infrastructure for developers running multiple AI agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+Tend shows you at a glance who needs your attention right now, so you keep everything moving without breaking your rhythm. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
 
 ---
 
