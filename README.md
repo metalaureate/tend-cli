@@ -2,11 +2,9 @@
 
 **Run more agents. Know when they need you.**
 
-You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+You have agents running at every turn — building features, drafting docs, running ops. They're always doing something, but the question that keeps surfacing is: *who needs my attention right now? What should I work on next?*
 
-The bottleneck isn't the agents. It's knowing when they need you, without it taking over your day.
-
-Tend is lightweight attention infrastructure. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+Tend answers that question in one glance. It's lightweight attention infrastructure for developers running multiple AI agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
 
 ---
 
@@ -78,7 +76,7 @@ No config files. No database. No daemon.
 | Command | Description |
 |---|---|
 | `td` | Show the board |
-| `td -` | Live dashboard (auto-refreshes every minute) |
+| `td watch` | Live dashboard (auto-refreshes every minute) |
 | `td <project>` | Project detail + sessions |
 | `td <N>` | Project detail by board number |
 | `td #<N>` | Switch to project N |

@@ -11,7 +11,7 @@ const board = [
 
 const helpCommands = [
   ['td', 'Show the status board'],
-  ['td -', 'Live dashboard (auto-refreshes every minute)'],
+  ['td watch', 'Live dashboard (auto-refreshes every minute)'],
   ['td <project>', 'Project detail + agent sessions'],
   ['td init [project]', 'Initialize .tend/ in a project'],
   ['td clear [project]', 'Clear events history for a project'],
@@ -39,12 +39,12 @@ export default function Page() {
         <HeroReveal>
           <div className="max-w-3xl mx-auto">
             <h1 className="hero-el font-heading font-bold text-parchment text-3xl md:text-5xl lg:text-6xl leading-[1.1] tracking-tight">
-              Run more agents.<br />
-              <span className="text-smoke">Know when they need you.</span>
+              Agents at every turn.<br />
+              <span className="text-smoke">Who needs you next?</span>
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Lightweight attention infrastructure for humans and agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+              You have agents running everywhere — building, drafting, deploying. Something is always working, stuck, or waiting. Tend tells you at a glance who needs your attention now, so you always know what to work on next.
             </p>
 
             {/* The Board */}
@@ -134,10 +134,10 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+                You have agents running at every turn — on code, docs, ops, and research. Something is always building, blocked, or waiting for your judgment. The question that keeps surfacing: <em>what should I work on right now? Who needs me?</em>
               </p>
               <p>
-                The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you, without it taking over your day.
+                The bottleneck isn&apos;t the agents. It&apos;s knowing which one needs you next, without letting that vigilance take over your day.
               </p>
             </div>
           </div>

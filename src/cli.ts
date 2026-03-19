@@ -27,7 +27,8 @@ async function main(): Promise<void> {
       case '':
         await cmdBoard();
         break;
-      case '-':
+      case 'watch':
+      case '-': // legacy alias
         await cmdDashboard();
         break;
       case 'init':
