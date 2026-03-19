@@ -44,7 +44,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Lightweight attention infrastructure for humans and agents. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
+              Lightweight attention infrastructure for humans and agents. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
             </p>
 
             {/* The Board */}
@@ -134,10 +134,10 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+                You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
               </p>
               <p>
-                The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you — without it taking over your day.
+                The bottleneck isn&apos;t the agents. It&apos;s knowing when they need you, without it taking over your day.
               </p>
             </div>
           </div>
@@ -157,8 +157,8 @@ export default function Page() {
 
             <p className="glyph-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
               The shell prompt indicator updates after every command you run. It&apos;s already in your visual field.
-              When it says <span className="font-mono text-parchment">○</span>, nothing needs you. The uncertainty — which
-              is what drives the compulsive checking — is gone.
+              When it says <span className="font-mono text-parchment">○</span>, nothing needs you. The uncertainty
+              that drives compulsive checking is gone.
             </p>
 
             <GlyphDemo />
@@ -263,7 +263,7 @@ export default function Page() {
             </h2>
 
             <p className="todo-el font-body text-smoke text-sm mt-6 leading-relaxed max-w-2xl">
-              You&apos;re deep in one project and think of something for another. Don&apos;t context-switch to write it down. Type it from where you are — the agent picks it up on its next session.
+              You&apos;re deep in one project and think of something for another. Don&apos;t context-switch to write it down. Type it from where you are. The agent picks it up on its next session.
             </p>
 
             {/* Terminal demo */}
@@ -316,7 +316,7 @@ export default function Page() {
             </h2>
 
             <p className="relay-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
-              Local agents write to <span className="font-mono text-parchment">.tend/events</span> — plain text, no network. But when agents run elsewhere (Codex, CI, SSH, remote worktrees), set one token and the relay brings them onto your board.
+              Local agents write to <span className="font-mono text-parchment">.tend/events</span>. Plain text, no network. But when agents run elsewhere (Codex, CI, SSH, remote worktrees), set one token and the relay brings them onto your board.
             </p>
 
             {/* Relay setup demo */}
@@ -346,7 +346,7 @@ export default function Page() {
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   Run <span className="font-mono text-parchment">td relay setup</span> on your laptop.
                   Copy the token to each remote environment.
-                  That&apos;s it. Agents don&apos;t change — same <code className="text-parchment/60">td init</code> setup everywhere.
+                  That&apos;s it. Agents don&apos;t change. Same <code className="text-parchment/60">td init</code> setup everywhere.
                 </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-5">

@@ -2,11 +2,11 @@
 
 **Run more agents. Know when they need you.**
 
-You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
 
-The bottleneck isn't the agents. It's knowing when they need you — without it taking over your day.
+The bottleneck isn't the agents. It's knowing when they need you, without it taking over your day.
 
-Tend is lightweight attention infrastructure. Works with any agent framework — Copilot, Claude, Codex, or your own — on any machine, local or remote.
+Tend is lightweight attention infrastructure. Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
 
 ---
 
@@ -50,7 +50,7 @@ td add 3 "fix auth"          # add a TODO to project 3
 td add                       # see all TODOs across all projects
 ```
 
-`td` is a symlink to `tend` — use either.
+`td` is a symlink to `tend`. Use either.
 
 ---
 
@@ -96,7 +96,7 @@ No config files. No database. No daemon.
 
 ## How It Works
 
-Agents emit state changes to `.tend/events` — a one-line-per-event append-only log:
+Agents emit state changes to `.tend/events`, a one-line-per-event append-only log:
 
 ```
 2026-03-18T14:20:00 _cli working refactoring auth module
@@ -122,7 +122,7 @@ Plain text. ISO 8601 timestamps. No YAML, no JSON.
 
 ---
 
-## TODOs — Super Lightweight Cross-Agent Backlog
+## TODOs
 
 `.tend/TODO` is a plain-text file committed to each project. Agents read it on session start; humans manage it from the terminal.
 
@@ -146,15 +146,15 @@ TODO (other-project):
 Enter to dismiss, or #s to remove (e.g. 1,3):
 ```
 
-Type comma-separated numbers to remove completed items, or press Enter to dismiss. That's the entire interface — no boards, no drag-and-drop, no status fields.
+Type comma-separated numbers to remove completed items, or press Enter to dismiss. That's the entire interface. No boards, no drag-and-drop, no status fields.
 
 Agents pick up TODOs automatically via the `SessionStart` lifecycle hook, which reads `.tend/TODO` and proposes backlog items to the developer. The file is just lines of text, so any agent can read or append to it.
 
 ---
 
-## Relay — Remote Agent Support
+## Relay
 
-Local agents write to `.tend/events` directly — no network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Each environment has its own access patterns. Without a common protocol, the developer maintains per-environment solutions.
+Local agents write to `.tend/events` directly. No network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Each environment has its own access patterns. Without a common protocol, the developer maintains per-environment solutions.
 
 The relay is a lightweight hosted service at `relay.tend.dev`. The agent never touches it directly. The command is always the same:
 
@@ -207,7 +207,7 @@ Remote projects show a `↗` indicator. `td <project>` shows per-session breakdo
 
 ### Performance
 
-- `td status` (shell prompt) reads from local cache only — never hits the network, stays under 100ms
+- `td status` (shell prompt) reads from local cache only. Never hits the network, stays under 100ms
 - `td` (board) refreshes the relay cache on each invocation, then renders from cache
 - No daemon. No background sync.
 
@@ -219,13 +219,13 @@ Local agents still just write to a file. If you never set up a relay token, ever
 
 ## Why Tend Exists
 
-You want to run as many agents as possible — across code, docs, ops, research — at every level of autonomy. Some run for hours unattended. Others need your judgment every few minutes. The mix changes constantly.
+You want to run as many agents as possible, across code, docs, ops, and research, at every level of autonomy. Some run for hours unattended. Others need your judgment every few minutes. The mix changes constantly.
 
 The unsolved problem is knowing when they need you, without that knowledge becoming a second job. Dashboards are a permanent invitation to break focus. Notification badges are interrupts. They add vigilance, not concentration.
 
-Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point — the agent is running, you've finished a thought, you need a break — you glance at the board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
+Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point (the agent is running, you've finished a thought, you need a break), you glance at the board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
 
-The shell prompt indicator (`○` / `?N` / `◐N` / `◉N`) means you often don't even need the board. It's already in your visual field after every command. When it says `○`, nothing needs you. The uncertainty — which is what drives compulsive tab-switching — is gone.
+The shell prompt indicator (`○` / `?N` / `◐N` / `◉N`) means you often don't even need the board. It's already in your visual field after every command. When it says `○`, nothing needs you. The uncertainty that drives compulsive tab-switching is gone.
 
 ### Design Principles
 
@@ -245,9 +245,9 @@ The shell prompt indicator (`○` / `?N` / `◐N` / `◉N`) means you often don'
 | `UserPromptSubmit` | Emits `working` to `.tend/events` each time the user sends a prompt |
 | `Stop` | Emits `idle` to `.tend/events` when the agent session ends |
 
-Hooks are powered by `td hook <subcommand>` — the same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
+Hooks are powered by `td hook <subcommand>`. Same CLI, no separate scripts. They work anywhere `tend` is on the PATH.
 
-The `.github/hooks/` location is loaded by default in VS Code — no settings changes needed.
+The `.github/hooks/` location is loaded by default in VS Code. No settings changes needed.
 
 ---
 

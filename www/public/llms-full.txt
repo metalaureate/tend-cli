@@ -8,7 +8,7 @@
 
 Tend is a pull-based CLI for developers running multiple AI agents. It replaces dashboards with a single status board and a shell prompt glyph. One command, one glance, then back to work.
 
-You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. The bottleneck isn't the agents. It's knowing when they need you — without it taking over your day.
+You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. The bottleneck isn't the agents. It's knowing when they need you, without it taking over your day.
 
 ## Install
 
@@ -75,7 +75,7 @@ TEND                                       Wed Mar 18, 19:02
 
 ## How It Works
 
-Agents emit state changes to `.tend/events` — a one-line-per-event append-only log:
+Agents emit state changes to `.tend/events`, a one-line-per-event append-only log:
 
 ```
 2026-03-18T14:20:00 _cli working refactoring auth module
@@ -99,7 +99,7 @@ If a `working` event is older than 30 minutes, the project shows as `unknown` (c
 
 Plain text. ISO 8601 timestamps. No YAML, no JSON.
 
-## TODOs — Cross-Agent Backlog
+## TODOs: Cross-Agent Backlog
 
 `.tend/TODO` is a plain-text file committed to each project. Agents read it on session start; humans manage it from the terminal.
 
@@ -146,9 +146,9 @@ This updates after every command you run. The uncertainty that drives compulsive
 | `UserPromptSubmit` | Emits `working` to `.tend/events` each time the user sends a prompt |
 | `Stop` | Emits `idle` to `.tend/events` when the agent session ends |
 
-## Relay — Remote Agent Support
+## Relay
 
-Local agents write to `.tend/events` directly — no network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees.
+Local agents write to `.tend/events` directly. No network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees.
 
 The relay is a lightweight hosted service at `relay.tend.dev`. The agent never touches it directly. The command is always the same:
 
@@ -183,7 +183,7 @@ No accounts. No passwords. No signup. Just a token.
 
 ### Performance
 
-- `td status` (shell prompt) reads from local cache only — never hits the network, stays under 100ms
+- `td status` (shell prompt) reads from local cache only. Never hits the network, stays under 100ms
 - `td` (board) refreshes the relay cache on each invocation, then renders from cache
 - No daemon. No background sync.
 
@@ -191,9 +191,9 @@ The relay is optional. If you never set up a relay token, everything works exact
 
 ## Why Tend Exists
 
-You want to run as many agents as possible, across every kind of work — from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
+You want to run as many agents as possible, across every kind of work, from set-it-and-forget-it builds to hands-on development that demands your judgment at every turn. More agents means more throughput, more leverage, more of what AI actually promises.
 
-The bottleneck isn't the agents. It's knowing when they need you — without it taking over your day. Every existing tool for managing agents builds a dashboard — a push-model interface that pulls attention. Tend takes the opposite approach: pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
+The bottleneck isn't the agents. It's knowing when they need you, without it taking over your day. Every existing tool for managing agents builds a dashboard, a push-model interface that pulls attention. Tend takes the opposite approach: pull, not push. No notifications. No badges. No live updates. It speaks only when spoken to.
 
 ### Design Principles
 

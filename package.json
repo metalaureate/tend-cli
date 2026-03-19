@@ -2,7 +2,7 @@
   "name": "tend-cli",
   "version": "0.1.133",
   "type": "module",
-  "description": "Tend — a pull-based CLI for developers running multiple AI agents",
+  "description": "Tend: a pull-based CLI for developers running multiple AI agents",
   "bin": {
     "tend": "bin/tend"
   },

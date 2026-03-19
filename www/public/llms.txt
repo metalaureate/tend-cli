@@ -8,7 +8,7 @@ Tend is a pull-based CLI for developers running multiple AI agents. It replaces 
 
 - Single binary, zero dependencies, no daemon, no database
 - Five agent states: working, done, stuck, waiting, idle
-- Agents emit events to `.tend/events` — plain text, append-only
+- Agents emit events to `.tend/events` (plain text, append-only)
 - Shell prompt glyph (○ / ?N ◐N ◉N) provides ambient certainty
 - Works locally and remotely via an optional relay
 - MIT licensed
