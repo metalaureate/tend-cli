@@ -52,7 +52,7 @@ describe('hooks', () => {
     expect(lastEvent).toContain('sess-snake1');
   });
 
-  it('stop emits done when session was working', () => {
+  it('stop emits idle (not done) when session was working', () => {
     const dir = ctx.makeProject('golf2');
     ctx.tend(['init'], { cwd: dir });
     ctx.tend(['emit', 'working', 'building feature'], { cwd: dir });
@@ -61,7 +61,19 @@ describe('hooks', () => {
       stdin: '{"stop_hook_active": false}',
     });
     const lastEvent = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').pop()!;
-    expect(lastEvent).toContain('done');
+    // Stop hook should emit idle, not done — done only comes from explicit `tend emit done`
+    expect(lastEvent).toContain('idle');
+    expect(lastEvent).not.toContain('done');
+  });
+
+  it('user-prompt deduplicates identical prompts', () => {
+    const dir = ctx.makeProject('dedup1');
+    ctx.tend(['init'], { cwd: dir });
+    const stdin = '{"session_id":"sess-dedup","prompt":"fix the bug"}';
+    ctx.tend(['hook', 'user-prompt'], { cwd: dir, stdin });
+    ctx.tend(['hook', 'user-prompt'], { cwd: dir, stdin });
+    const lines = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').filter(l => l.includes('sess-dedup'));
+    expect(lines).toHaveLength(1);
   });
 
   it('stop skips when stop_hook_active is true', () => {

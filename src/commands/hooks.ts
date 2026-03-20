@@ -117,10 +117,28 @@ async function hookUserPrompt(): Promise<void> {
     const sessionId = extractSessionId(input, projectPath);
     const prompt = extractPrompt(input);
     const ts = tsLocal();
+    const eventsFile = join(projectPath, '.tend', 'events');
+
+    // Deduplicate: skip if the last event for this session is already "working" with the same prompt
+    if (sessionId && existsSync(eventsFile)) {
+      const content = readFileSync(eventsFile, 'utf-8').trimEnd();
+      const lines = content.split('\n');
+      const baseId = stripUserTag(sessionId);
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].includes(` ${baseId} `) || lines[i].includes(` ${baseId}@`)) {
+          const parts = lines[i].split(/\s+/);
+          if (parts.length >= 3 && parts[2] === 'working' && parts.slice(3).join(' ') === prompt) {
+            return; // duplicate
+          }
+          break;
+        }
+      }
+    }
+
     if (sessionId) {
-      appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, 'working', prompt);
+      appendEvent(eventsFile, ts, sessionId, 'working', prompt);
     } else {
-      appendFileSync(join(projectPath, '.tend', 'events'), `${ts} working${prompt ? ' ' + prompt : ''}\n`);
+      appendFileSync(eventsFile, `${ts} working${prompt ? ' ' + prompt : ''}\n`);
     }
     invalidateStatusCache();
   }
@@ -180,21 +198,14 @@ async function hookStop(): Promise<void> {
     }
   }
 
-  if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting') return;
+  if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting' || lastState === 'idle') return;
 
+  // Emit idle (not done) — the stop hook fires between turns, not just at session end.
+  // "done" should only come from explicit `tend emit done` or agent instructions.
   if (sessionId) {
-    if (lastState === 'working') {
-      // Session had work — emit done (not idle, so the board shows "done")
-      appendEvent(eventsFile, ts, sessionId, 'done', 'session completed');
-    } else {
-      appendEvent(eventsFile, ts, sessionId, 'idle', 'session ended');
-    }
+    appendEvent(eventsFile, ts, sessionId, 'idle', '');
   } else {
-    if (lastState === 'working') {
-      appendFileSync(eventsFile, `${ts} done session completed\n`);
-    } else {
-      appendFileSync(eventsFile, `${ts} idle session ended\n`);
-    }
+    appendFileSync(eventsFile, `${ts} idle\n`);
   }
   invalidateStatusCache();
 }
