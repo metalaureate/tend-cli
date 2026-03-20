@@ -1,7 +1,8 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { config } from '../core/config.js';
 import { relayToken, relaySync } from '../core/relay.js';
+import { readEvents } from '../core/events.js';
 
 export async function cmdRelay(args: string[]): Promise<void> {
   const subcmd = args[0];
@@ -19,19 +20,23 @@ export async function cmdRelay(args: string[]): Promise<void> {
     case 'token':
       relayShowToken();
       break;
+    case 'debug':
+      relayDebug();
+      break;
     case undefined:
     case '':
-      process.stdout.write(`Usage: tend relay <setup|status|pull|token>
+      process.stdout.write(`Usage: tend relay <setup|status|pull|token|debug>
 
   setup    Register with relay, get a token
   status   Show relay configuration
   pull     Force-refresh event cache from relay
   token    Print raw token (for copying to remote envs)
+  debug    Show relay session diagnostics
 `);
       break;
     default:
       process.stderr.write(`tend: unknown relay command '${subcmd}'\n`);
-      process.stderr.write('Usage: tend relay <setup|status|pull|token>\n');
+      process.stderr.write('Usage: tend relay <setup|status|pull|token|debug>\n');
       process.exit(1);
   }
 }
@@ -121,4 +126,52 @@ function relayShowToken(): void {
 Set in your remote environment (Codespaces, CI, etc.):
   export TEND_RELAY_TOKEN="${token}"
 `);
+}
+
+function relayDebug(): void {
+  const token = relayToken();
+
+  process.stdout.write(`Relay URL:  ${config.relayUrl}\n`);
+  process.stdout.write(`Token:      ${token ? `configured (${token.slice(0, 8)}...${token.slice(-4)})` : 'not configured'}\n`);
+  process.stdout.write(`Cache dir:  ${config.relayCacheDir}\n`);
+
+  if (!existsSync(config.relayCacheDir)) {
+    process.stdout.write('Projects:   0\n');
+    process.stdout.write('Sessions:   0\n');
+    process.stdout.write('\nNo relay sessions seen yet.\n');
+    return;
+  }
+
+  let projects: string[] = [];
+  try {
+    projects = readdirSync(config.relayCacheDir);
+  } catch {
+    // ignore
+  }
+
+  process.stdout.write(`Projects:   ${projects.length}\n`);
+
+  const sessions = new Set<string>();
+  for (const project of projects) {
+    const cacheFile = join(config.relayCacheDir, project);
+    const events = readEvents(cacheFile);
+    for (const e of events) {
+      // Skip local CLI sessions ('_cli'), old-format events with no session ID,
+      // and reset markers (e.g. '*' or '*@user') — only count genuine remote sessions.
+      if (e.sessionId && e.sessionId !== '_cli' && !e.sessionId.startsWith('*')) {
+        sessions.add(e.sessionId);
+      }
+    }
+  }
+
+  process.stdout.write(`Sessions:   ${sessions.size}\n`);
+
+  if (sessions.size === 0) {
+    process.stdout.write('\nNo relay sessions seen yet.\n');
+  } else {
+    process.stdout.write('\nSessions seen:\n');
+    for (const s of [...sessions].sort()) {
+      process.stdout.write(`  ${s}\n`);
+    }
+  }
 }

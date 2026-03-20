@@ -45,6 +45,51 @@ describe('relay', () => {
     expect(r.stdout).toContain('◉1');
   });
 
+  it('debug shows not configured when no token', () => {
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Token:      not configured');
+    expect(r.stdout).toContain('No relay sessions seen yet.');
+  });
+
+  it('debug shows session count from relay cache', () => {
+    const cacheDir = join(ctx.home, '.tend', 'relay_cache');
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(join(cacheDir, 'proj-a'), '2026-03-14T14:00:00 agent-1 working doing stuff\n');
+    writeFileSync(join(cacheDir, 'proj-b'), '2026-03-14T14:05:00 agent-2 done finished\n2026-03-14T14:10:00 agent-1 idle\n');
+
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Projects:   2');
+    expect(r.stdout).toContain('Sessions:   2');
+    expect(r.stdout).toContain('agent-1');
+    expect(r.stdout).toContain('agent-2');
+  });
+
+  it('debug shows zero sessions when cache has no session ids', () => {
+    const cacheDir = join(ctx.home, '.tend', 'relay_cache');
+    mkdirSync(cacheDir, { recursive: true });
+    writeFileSync(join(cacheDir, 'old-proj'), '2026-03-14T14:00:00 working legacy event\n');
+
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Projects:   1');
+    expect(r.stdout).toContain('Sessions:   0');
+    expect(r.stdout).toContain('No relay sessions seen yet.');
+  });
+
+  it('debug shows configured token when relay token is set', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'abcdef1234567890');
+
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Token:      configured');
+    expect(r.stdout).toContain('abcdef12');
+  });
+
+  it('usage includes debug subcommand', () => {
+    const r = ctx.tend(['relay']);
+    expect(r.stdout).toContain('debug');
+  });
+
   it('detail shows both local and relay sessions', () => {
     const dir = ctx.makeProject('mixed-proj');
     ctx.tend(['init'], { cwd: dir });
