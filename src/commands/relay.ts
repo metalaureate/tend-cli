@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync } from 'fs';
 import { dirname, join } from 'path';
 import { config } from '../core/config.js';
-import { relayToken, relaySync, projectRelayTokenFile } from '../core/relay.js';
+import { relayToken, relaySync, projectRelayTokenFile, relayCreateBoardToken } from '../core/relay.js';
 import { readEvents } from '../core/events.js';
 
 const BOARD_URL_BASE = 'https://relay.tend.cx';
@@ -28,21 +28,25 @@ export async function cmdRelay(args: string[]): Promise<void> {
     case 'link':
       relayLink();
       break;
+    case 'share':
+      await relayShare();
+      break;
     case undefined:
     case '':
-      process.stdout.write(`Usage: tend relay <setup|status|pull|token|link|debug>
+      process.stdout.write(`Usage: tend relay <setup|status|pull|token|link|share|debug>
 
   setup    Register with relay, get a token
   status   Show relay configuration
   pull     Force-refresh event cache from relay
   token    Print raw token (for copying to remote envs)
   link     Write relay token to this project's .tend/relay_token
+  share    Generate a read-only board URL (safe to share)
   debug    Show relay session diagnostics
 `);
       break;
     default:
       process.stderr.write(`tend: unknown relay command '${subcmd}'\n`);
-      process.stderr.write('Usage: tend relay <setup|status|pull|token|link|debug>\n');
+      process.stderr.write('Usage: tend relay <setup|status|pull|token|link|share|debug>\n');
       process.exit(1);
   }
 }
@@ -169,6 +173,8 @@ function relayShowToken(): void {
 
 Board URL: ${BOARD_URL_BASE}/${token}
 
+⚠  This token grants write access. Use 'tend relay share' for read-only board links.
+
 Commit the token to your project for cloud agents (no env var needed):
   cd <your-project>
   tend relay link
@@ -181,6 +187,32 @@ Or set in your remote agent environment (Codespaces, CI, etc.):
 Verify the token is available in the agent session:
   echo "TEND_RELAY_TOKEN=\${TEND_RELAY_TOKEN:-NOT SET}"
   tend relay debug
+`);
+}
+
+async function relayShare(): Promise<void> {
+  const token = relayToken();
+  if (!token) {
+    process.stderr.write("tend: relay not configured. Run 'tend relay setup' first.\n");
+    process.exit(1);
+  }
+
+  process.stdout.write('Generating read-only board token...\n');
+  const boardToken = await relayCreateBoardToken();
+  if (!boardToken) {
+    process.stderr.write('tend: failed to create board token\n');
+    process.exit(1);
+  }
+
+  process.stdout.write(`
+✓ Read-only board URL:
+  ${BOARD_URL_BASE}/${boardToken}
+
+Share this URL with teammates. It grants view-only access to your board.
+It cannot be used to emit events, create todos, or modify anything.
+
+LLM-readable version:
+  ${BOARD_URL_BASE}/${boardToken}/llms.txt
 `);
 }
 

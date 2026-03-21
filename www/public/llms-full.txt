@@ -71,6 +71,7 @@ TEND                                       Wed Mar 18, 19:02
 | `td status` | Status indicator: `○` or `?N ◐N ◉N` |
 | `td remove [project]` | Remove tend from a project (with confirmation) |
 | `td relay <subcmd>` | Manage relay connection (see below) |
+| `td dispatch [--dry-run]` | Dispatch pending TODOs as GitHub issues to Copilot |
 
 ## How It Works
 
@@ -179,6 +180,29 @@ No accounts. No passwords. No signup. Just a token.
 | `td relay status` | Show masked token, relay URL, cache info |
 | `td relay pull` | Force-refresh event cache from relay |
 | `td relay token` | Print raw token (for copying to remote envs) |
+| `td relay link` | Write relay token to this project's .tend/relay_token |
+| `td relay share` | Generate a read-only board URL (safe to share) |
+| `td relay debug` | Show relay session diagnostics |
+
+### Board Tokens
+
+The relay supports two token types:
+- `tnd_` — Write token. Used as Bearer auth for the API. Grants full read/write access.
+- `tnb_` — Board token. Read-only. Can only view the HTML board and llms.txt. Safe to share.
+
+`td relay share` generates a `tnb_` board URL. Share it with teammates without exposing write access.
+
+### Agent Dispatch
+
+`td dispatch` creates GitHub issues from pending TODOs and assigns the Copilot coding agent:
+
+```bash
+td add "implement dark mode"      # adds to .tend/TODO + relay
+td dispatch --dry-run              # preview what would be dispatched
+td dispatch                        # create issues, assign copilot
+```
+
+The agent picks up the issue, reads AGENTS.md, emits events back to the relay, and the developer sees the state change on their board. Requires `gh` CLI.
 
 ### Performance
 

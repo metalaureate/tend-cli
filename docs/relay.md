@@ -166,6 +166,115 @@ Authorization: Bearer <token>
 
 Invalid or missing token returns `401`.
 
+### Board Token: `POST /v1/board-token`
+
+Generate a read-only board token. Requires auth.
+
+**Response** `201`:
+```json
+{ "board_token": "tnb_xyz789..." }
+```
+
+Board tokens (`tnb_` prefix) can only be used for:
+- `GET /<tnb_token>` — view the HTML board
+- `GET /<tnb_token>/llms.txt` — view the LLM-readable board
+
+They cannot be used as Bearer tokens for any `/v1/*` endpoint. This makes them safe to share with teammates.
+
+### Board Token: `DELETE /v1/board-token`
+
+Revoke all board tokens for this write token. Requires auth.
+
+**Response** `200`:
+```json
+{ "ok": true }
+```
+
+### TODO: `POST /v1/todos`
+
+Create a TODO item. Requires auth.
+
+**Body**:
+```json
+{
+  "project": "my-app",
+  "message": "add dark mode support"
+}
+```
+
+`project` is optional (defaults to `_global`).
+
+**Response** `201`:
+```json
+{
+  "id": 1,
+  "project": "my-app",
+  "message": "add dark mode support",
+  "status": "pending",
+  "issue_url": null,
+  "created_at": "2026-03-21 14:20:00",
+  "updated_at": "2026-03-21 14:20:00"
+}
+```
+
+### TODO: `GET /v1/todos`
+
+List TODOs. Requires auth.
+
+**Query params**:
+- `status` — filter by status (`pending`, `dispatched`, `done`)
+- `project` — filter by project name
+
+**Response** `200`:
+```json
+{
+  "todos": [
+    {
+      "id": 1,
+      "project": "my-app",
+      "message": "add dark mode",
+      "status": "pending",
+      "issue_url": null,
+      "created_at": "2026-03-21 14:20:00",
+      "updated_at": "2026-03-21 14:20:00"
+    }
+  ]
+}
+```
+
+### TODO: `PATCH /v1/todos/:id`
+
+Update a TODO's status. Requires auth.
+
+**Body**:
+```json
+{
+  "status": "dispatched",
+  "issue_url": "https://github.com/owner/repo/issues/42"
+}
+```
+
+`issue_url` is optional. Status transitions are validated:
+- `pending` → `dispatched` or `done`
+- `dispatched` → `done`
+- Any → `done` (always allowed)
+
+Invalid transitions return `409 Conflict`.
+
+**Response** `200`:
+```json
+{ "ok": true, "updated": { "id": 1, "status": "dispatched" } }
+```
+
+### TODO: `DELETE /v1/todos/:id`
+
+Remove a TODO. Requires auth.
+
+**Response** `200`:
+```json
+{ "ok": true }
+```
+
 ---
 
 ## D1 Schema
@@ -188,8 +297,28 @@ CREATE TABLE events (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE board_tokens (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL,
+  board_token_hash TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (token_hash) REFERENCES tokens(token_hash)
+);
+
+CREATE TABLE todos (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL,
+  project TEXT NOT NULL DEFAULT '_global',
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dispatched', 'done')),
+  issue_url TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX idx_events_token_project ON events (token_hash, project);
 CREATE INDEX idx_events_token_project_ts ON events (token_hash, project, timestamp);
+CREATE INDEX idx_todos_token_status ON todos (token_hash, status);
 ```
 
 ---
@@ -214,6 +343,33 @@ else:
 | `tend relay status` | Show masked token, relay URL, last sync time |
 | `tend relay pull` | Force-refresh event cache from relay |
 | `tend relay token` | Print raw token (for copying to remote envs) |
+| `tend relay link` | Write relay token to this project's `.tend/relay_token` |
+| `tend relay share` | Generate a read-only board URL (safe to share with teammates) |
+| `tend relay debug` | Show relay session diagnostics |
+
+### New: `tend dispatch`
+
+Dispatch pending TODOs from the relay as GitHub issues assigned to the Copilot coding agent.
+
+```bash
+tend dispatch              # Create issues for all pending TODOs
+tend dispatch --dry-run    # Preview what would be dispatched
+tend dispatch --project X  # Only dispatch TODOs for project X
+```
+
+Requires `gh` (GitHub CLI) to be installed and authenticated.
+
+**Flow**:
+1. Fetches pending TODOs from relay
+2. Creates a GitHub issue for each with `tend: <message>` title
+3. Marks the TODO as `dispatched` on the relay with the issue URL
+4. Copilot picks up the issue, reads `AGENTS.md`, and emits events back to relay
+
+### Modified: `tend add`
+
+Now dual-writes to relay (best-effort) when a relay token is configured:
+- Local: appends to `.tend/TODO`
+- Relay: `POST /v1/todos`
 
 ### Modified: Departures board
 

@@ -39,6 +39,16 @@ function generateToken(): string {
   return `tnd_${base62}`;
 }
 
+function generateBoardToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  const base62 = Array.from(bytes)
+    .map(b => b.toString(36))
+    .join('')
+    .slice(0, 40);
+  return `tnb_${base62}`;
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -64,6 +74,25 @@ interface ProjectRow {
   timestamp: string;
 }
 
+interface TodoRow {
+  id: number;
+  project: string;
+  message: string;
+  status: string;
+  issue_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Resolve a tnb_ board token to its parent tnd_ token_hash */
+async function resolveBoardToken(boardToken: string, db: D1Database): Promise<string | null> {
+  const boardHash = await hashToken(boardToken);
+  const row = await db.prepare('SELECT token_hash FROM board_tokens WHERE board_token_hash = ?')
+    .bind(boardHash)
+    .first<{ token_hash: string }>();
+  return row ? row.token_hash : null;
+}
+
 function stateIcon(state: string): string {
   switch (state) {
     case 'stuck':
@@ -84,7 +113,7 @@ function stateClass(state: string): string {
   }
 }
 
-function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
+function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = []): string {
   const rowsHtml = rows.map(r => {
     const icon = stateIcon(r.state);
     const cls = stateClass(r.state);
@@ -247,6 +276,25 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
       ${emptyMsg}
       ${rowsHtml}
       </section>
+      ${todos.length > 0 ? `
+      <section class="backlog" aria-label="Backlog">
+        <header class="board-header" style="margin-top:14px;margin-bottom:8px;">
+          <span>BACKLOG</span>
+          <span>${todos.length} item${todos.length === 1 ? '' : 's'}</span>
+        </header>
+        ${todos.map(t => {
+          const statusCls = t.status === 'dispatched' ? 'working' : 'idle';
+          const statusIcon = t.status === 'dispatched' ? '◐' : '○';
+          const msg = (t.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const proj = t.project === '_global' ? '' : t.project;
+          return `<article class="row">
+            <span class="icon ${statusCls}" aria-hidden="true">${statusIcon}</span>
+            <span class="name" title="${proj}">${proj}</span>
+            <span class="state ${statusCls}">${t.status}</span>
+            <span class="msg">${msg}</span>
+          </article>`;
+        }).join('\n')}
+      </section>` : ''}
       <footer class="footer">${footerHtml}</footer>
     </main>
   </div>
@@ -417,15 +465,24 @@ function buildNotFoundHtml(): string {
 </html>`;
 }
 
+/** Resolve a raw token (tnd_ or tnb_) to the owning token_hash for board views */
+async function resolveTokenForBoard(rawToken: string, db: D1Database): Promise<string | null> {
+  if (rawToken.startsWith('tnb_')) {
+    return resolveBoardToken(rawToken, db);
+  }
+  // tnd_ token: hash it and check if it exists
+  const tokenHash = await hashToken(rawToken);
+  const row = await db.prepare('SELECT token_hash FROM tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first<{ token_hash: string }>();
+  return row ? row.token_hash : null;
+}
+
 async function handleBoardView(request: Request, db: D1Database, rawToken: string): Promise<Response> {
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
 
-  const tokenHash = await hashToken(rawToken);
-  const tokenRow = await db.prepare('SELECT token_hash FROM tokens WHERE token_hash = ?')
-    .bind(tokenHash)
-    .first<{ token_hash: string }>();
-
-  if (!tokenRow) {
+  const tokenHash = await resolveTokenForBoard(rawToken, db);
+  if (!tokenHash) {
     return htmlResponse(buildNotFoundHtml(), 404);
   }
 
@@ -447,10 +504,12 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
   const pad = (n: number) => String(n).padStart(2, '0');
   const updatedAt = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
-  return htmlResponse(buildBoardHtml(result.results, updatedAt));
+  const todos = await fetchTodos(db, tokenHash);
+
+  return htmlResponse(buildBoardHtml(result.results, updatedAt, todos));
 }
 
-function buildLlmsTxt(rows: ProjectRow[], updatedAt: string): string {
+function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = []): string {
   const now = new Date();
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -484,6 +543,26 @@ function buildLlmsTxt(rows: ProjectRow[], updatedAt: string): string {
     }
   }
 
+  if (todos.length > 0) {
+    const pending = todos.filter(t => t.status === 'pending');
+    const dispatched = todos.filter(t => t.status === 'dispatched');
+    out += `## Backlog\n\n`;
+    if (pending.length > 0) {
+      out += `### Pending (${pending.length})\n`;
+      for (const t of pending) {
+        out += `- [#${t.id}] ${t.message}${t.project !== '_global' ? ` (${t.project})` : ''}\n`;
+      }
+      out += `\n`;
+    }
+    if (dispatched.length > 0) {
+      out += `### Dispatched (${dispatched.length})\n`;
+      for (const t of dispatched) {
+        out += `- [#${t.id}] ${t.message}${t.issue_url ? ` → ${t.issue_url}` : ''}${t.project !== '_global' ? ` (${t.project})` : ''}\n`;
+      }
+      out += `\n`;
+    }
+  }
+
   return out;
 }
 
@@ -497,12 +576,8 @@ function textResponse(body: string, status = 200): Response {
 async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string): Promise<Response> {
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
 
-  const tokenHash = await hashToken(rawToken);
-  const tokenRow = await db.prepare('SELECT token_hash FROM tokens WHERE token_hash = ?')
-    .bind(tokenHash)
-    .first<{ token_hash: string }>();
-
-  if (!tokenRow) {
+  const tokenHash = await resolveTokenForBoard(rawToken, db);
+  if (!tokenHash) {
     return textResponse('# Tend Board\n\nToken not found.\n', 404);
   }
 
@@ -523,7 +598,9 @@ async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string)
   const pad = (n: number) => String(n).padStart(2, '0');
   const updatedAt = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
-  return textResponse(buildLlmsTxt(result.results, updatedAt));
+  const todos = await fetchTodos(db, tokenHash);
+
+  return textResponse(buildLlmsTxt(result.results, updatedAt, todos));
 }
 
 async function handleLandingPage(_request: Request): Promise<Response> {
@@ -617,6 +694,169 @@ async function handleGetProjects(request: Request, db: D1Database, tokenHash: st
   return jsonResponse({ projects: result.results.map(r => r.project) });
 }
 
+// ── Board Token Handlers ──
+
+async function handleCreateBoardToken(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+
+  const boardToken = generateBoardToken();
+  const boardTokenHash = await hashToken(boardToken);
+
+  await db.prepare('INSERT INTO board_tokens (token_hash, board_token_hash) VALUES (?, ?)')
+    .bind(tokenHash, boardTokenHash)
+    .run();
+
+  return jsonResponse({ board_token: boardToken }, 201);
+}
+
+async function handleDeleteBoardToken(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'DELETE') return errorResponse('Method not allowed', 405);
+
+  await db.prepare('DELETE FROM board_tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .run();
+
+  return jsonResponse({ ok: true });
+}
+
+// ── TODO Handlers ──
+
+const VALID_TODO_STATUSES = ['pending', 'dispatched', 'done'] as const;
+
+async function handleCreateTodo(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
+
+  const { project, message } = body as { project?: string; message?: string };
+
+  if (!message || typeof message !== 'string') {
+    return errorResponse('Missing or invalid "message"', 400);
+  }
+
+  const proj = project && typeof project === 'string' ? project : '_global';
+
+  const result = await db.prepare(
+    'INSERT INTO todos (token_hash, project, message) VALUES (?, ?, ?) RETURNING id, project, message, status, issue_url, created_at, updated_at'
+  )
+    .bind(tokenHash, proj, message)
+    .first<TodoRow>();
+
+  return jsonResponse(result, 201);
+}
+
+async function handleListTodos(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status');
+  const project = url.searchParams.get('project');
+
+  let query = 'SELECT id, project, message, status, issue_url, created_at, updated_at FROM todos WHERE token_hash = ?';
+  const params: unknown[] = [tokenHash];
+
+  if (status) {
+    if (!(VALID_TODO_STATUSES as readonly string[]).includes(status)) {
+      return errorResponse(`Invalid "status". Must be one of: ${VALID_TODO_STATUSES.join(', ')}`, 400);
+    }
+    query += ' AND status = ?';
+    params.push(status);
+  }
+  if (project) {
+    query += ' AND project = ?';
+    params.push(project);
+  }
+
+  query += ' ORDER BY id ASC';
+
+  const result = await db.prepare(query).bind(...params).all<TodoRow>();
+  return jsonResponse({ todos: result.results });
+}
+
+async function handleUpdateTodo(request: Request, db: D1Database, tokenHash: string, todoId: string): Promise<Response> {
+  if (request.method !== 'PATCH') return errorResponse('Method not allowed', 405);
+
+  const id = parseInt(todoId, 10);
+  if (isNaN(id)) return errorResponse('Invalid todo ID', 400);
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
+
+  const { status, issue_url } = body as { status?: string; issue_url?: string };
+
+  if (!status || typeof status !== 'string' || !(VALID_TODO_STATUSES as readonly string[]).includes(status)) {
+    return errorResponse(`Invalid "status". Must be one of: ${VALID_TODO_STATUSES.join(', ')}`, 400);
+  }
+
+  // Fetch current todo to validate ownership and transition
+  const existing = await db.prepare('SELECT status FROM todos WHERE id = ? AND token_hash = ?')
+    .bind(id, tokenHash)
+    .first<{ status: string }>();
+
+  if (!existing) {
+    return errorResponse('Todo not found', 404);
+  }
+
+  // Optimistic locking: validate state transitions
+  const current = existing.status;
+  const valid =
+    (current === 'pending' && (status === 'dispatched' || status === 'done')) ||
+    (current === 'dispatched' && status === 'done') ||
+    status === 'done'; // any → done always allowed
+
+  if (!valid) {
+    return errorResponse(`Cannot transition from "${current}" to "${status}"`, 409);
+  }
+
+  const now = new Date().toISOString().slice(0, 19);
+
+  if (issue_url && typeof issue_url === 'string') {
+    await db.prepare('UPDATE todos SET status = ?, issue_url = ?, updated_at = ? WHERE id = ? AND token_hash = ?')
+      .bind(status, issue_url, now, id, tokenHash)
+      .run();
+  } else {
+    await db.prepare('UPDATE todos SET status = ?, updated_at = ? WHERE id = ? AND token_hash = ?')
+      .bind(status, now, id, tokenHash)
+      .run();
+  }
+
+  return jsonResponse({ ok: true, updated: { id, status } });
+}
+
+async function handleDeleteTodo(request: Request, db: D1Database, tokenHash: string, todoId: string): Promise<Response> {
+  if (request.method !== 'DELETE') return errorResponse('Method not allowed', 405);
+
+  const id = parseInt(todoId, 10);
+  if (isNaN(id)) return errorResponse('Invalid todo ID', 400);
+
+  const result = await db.prepare('DELETE FROM todos WHERE id = ? AND token_hash = ?')
+    .bind(id, tokenHash)
+    .run();
+
+  if (result.meta.changes === 0) {
+    return errorResponse('Todo not found', 404);
+  }
+
+  return jsonResponse({ ok: true });
+}
+
+/** Fetch pending/dispatched todos for a token (used by board views) */
+async function fetchTodos(db: D1Database, tokenHash: string): Promise<TodoRow[]> {
+  const result = await db.prepare(
+    "SELECT id, project, message, status, issue_url, created_at, updated_at FROM todos WHERE token_hash = ? AND status IN ('pending', 'dispatched') ORDER BY id ASC"
+  ).bind(tokenHash).all<TodoRow>();
+  return result.results;
+}
+
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -628,7 +868,7 @@ export default {
         status: 204,
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization, Content-Type',
         },
       });
@@ -639,14 +879,14 @@ export default {
       return handleLandingPage(request);
     }
 
-    // Board view: GET /<token> (token starts with tnd_)
-    if (request.method === 'GET' && /^\/tnd_[a-z0-9]+$/i.test(path)) {
+    // Board view: GET /<token> (tnd_ or tnb_)
+    if (request.method === 'GET' && /^\/(tnd|tnb)_[a-z0-9]+$/i.test(path)) {
       const rawToken = decodeURIComponent(path.slice(1));
       return handleBoardView(request, env.DB, rawToken);
     }
 
-    // LLM-readable plain text: GET /<token>/llms.txt
-    if (request.method === 'GET' && /^\/tnd_[a-z0-9]+\/llms\.txt$/i.test(path)) {
+    // LLM-readable plain text: GET /<token>/llms.txt (tnd_ or tnb_)
+    if (request.method === 'GET' && /^\/(tnd|tnb)_[a-z0-9]+\/llms\.txt$/i.test(path)) {
       const rawToken = decodeURIComponent(path.split('/')[1]);
       return handleLlmsTxt(request, env.DB, rawToken);
     }
@@ -658,7 +898,7 @@ export default {
       return response;
     }
 
-    // All other routes require auth
+    // All other /v1/* routes require auth (tnd_ Bearer token only)
     const tokenHash = await authenticate(request, env.DB);
     if (!tokenHash) {
       return errorResponse('Unauthorized', 401);
@@ -682,6 +922,32 @@ export default {
     // Route: GET /v1/projects
     else if (path === '/v1/projects') {
       response = await handleGetProjects(request, env.DB, tokenHash);
+    }
+    // Route: POST /v1/board-token
+    else if (path === '/v1/board-token' && request.method === 'POST') {
+      response = await handleCreateBoardToken(request, env.DB, tokenHash);
+    }
+    // Route: DELETE /v1/board-token
+    else if (path === '/v1/board-token' && request.method === 'DELETE') {
+      response = await handleDeleteBoardToken(request, env.DB, tokenHash);
+    }
+    // Route: POST /v1/todos
+    else if (path === '/v1/todos' && request.method === 'POST') {
+      response = await handleCreateTodo(request, env.DB, tokenHash);
+    }
+    // Route: GET /v1/todos
+    else if (path === '/v1/todos' && request.method === 'GET') {
+      response = await handleListTodos(request, env.DB, tokenHash);
+    }
+    // Route: PATCH /v1/todos/:id
+    else if (/^\/v1\/todos\/\d+$/.test(path) && request.method === 'PATCH') {
+      const todoId = path.slice('/v1/todos/'.length);
+      response = await handleUpdateTodo(request, env.DB, tokenHash, todoId);
+    }
+    // Route: DELETE /v1/todos/:id
+    else if (/^\/v1\/todos\/\d+$/.test(path) && request.method === 'DELETE') {
+      const todoId = path.slice('/v1/todos/'.length);
+      response = await handleDeleteTodo(request, env.DB, tokenHash, todoId);
     }
     else {
       response = errorResponse('Not found', 404);

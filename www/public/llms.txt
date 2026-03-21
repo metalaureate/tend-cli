@@ -40,6 +40,7 @@ td            # show the board from anywhere
 - td ack [project]       — Clear done/stuck/waiting → idle
 - td status              — Shell prompt indicator (○ or ?N ◐N ◉N)
 - td remove [project]    — Remove tend from a project
-- td relay <subcmd>      — Manage relay (setup|status|pull|token)
+- td relay <subcmd>      — Manage relay (setup|status|pull|token|share)
+- td dispatch [--dry-run]— Dispatch pending TODOs as GitHub issues to Copilot
 - td emit <state> "msg"  — Emit an event (used by agents)
 - td help                — Show help

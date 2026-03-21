@@ -156,3 +156,123 @@ export function relayOnlyProjects(): string[] {
     return [];
   }
 }
+
+// ── TODO API ──
+
+export interface RelayTodo {
+  id: number;
+  project: string;
+  message: string;
+  status: string;
+  issue_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Create a TODO on the relay */
+export async function relayAddTodo(project: string, message: string): Promise<boolean> {
+  const token = relayToken();
+  if (!token) return false;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/todos`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ project, message }),
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** List TODOs from the relay */
+export async function relayListTodos(status?: string, project?: string): Promise<RelayTodo[]> {
+  const token = relayToken();
+  if (!token) return [];
+
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+  if (project) params.set('project', project);
+  const qs = params.toString() ? `?${params.toString()}` : '';
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/todos${qs}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return [];
+    const data = await response.json() as { todos: RelayTodo[] };
+    return data.todos || [];
+  } catch {
+    return [];
+  }
+}
+
+/** Update a TODO's status on the relay */
+export async function relayUpdateTodo(
+  id: number,
+  status: string,
+  issueUrl?: string,
+): Promise<boolean> {
+  const token = relayToken();
+  if (!token) return false;
+
+  const body: Record<string, string> = { status };
+  if (issueUrl) body.issue_url = issueUrl;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/todos/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Delete a TODO from the relay */
+export async function relayDeleteTodo(id: number): Promise<boolean> {
+  const token = relayToken();
+  if (!token) return false;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/todos/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Create a read-only board token */
+export async function relayCreateBoardToken(): Promise<string | null> {
+  const token = relayToken();
+  if (!token) return null;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/board-token`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) return null;
+    const data = await response.json() as { board_token: string };
+    return data.board_token;
+  } catch {
+    return null;
+  }
+}

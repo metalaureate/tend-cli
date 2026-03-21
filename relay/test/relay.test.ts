@@ -15,6 +15,13 @@ async function applySchema(db: D1Database) {
   );
   await db.exec("CREATE INDEX IF NOT EXISTS idx_events_token_project ON events (token_hash, project)");
   await db.exec("CREATE INDEX IF NOT EXISTS idx_events_token_project_ts ON events (token_hash, project, timestamp)");
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS board_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, board_token_hash TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+  );
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL DEFAULT '_global', message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dispatched', 'done')), issue_url TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
+  );
+  await db.exec("CREATE INDEX IF NOT EXISTS idx_todos_token_status ON todos (token_hash, status)");
 }
 
 async function makeRequest(method: string, path: string, body?: unknown, token?: string): Promise<Response> {
@@ -41,7 +48,7 @@ describe('Tend Relay', () => {
   beforeEach(async () => {
     await applySchema(env.DB);
     // Clean tables between tests
-    await env.DB.exec('DELETE FROM events; DELETE FROM tokens;');
+    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM tokens;');
   });
 
   describe('POST /v1/register', () => {
@@ -434,6 +441,281 @@ describe('Tend Relay', () => {
       const html = await response.text();
       expect(html).not.toContain('secret-project');
       expect(html).not.toContain('private work');
+    });
+  });
+
+  describe('Board tokens (tnb_)', () => {
+    it('creates a board token with tnb_ prefix', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('POST', '/v1/board-token', undefined, token);
+      expect(response.status).toBe(201);
+      const data = await response.json() as { board_token: string };
+      expect(data.board_token).toMatch(/^tnb_/);
+    });
+
+    it('board token can view board HTML', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working', message: 'building',
+      }, token);
+
+      const btResponse = await makeRequest('POST', '/v1/board-token', undefined, token);
+      const { board_token } = await btResponse.json() as { board_token: string };
+
+      const request = new Request(`http://localhost/${board_token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      const html = await response.text();
+      expect(html).toContain('my-app');
+      expect(html).toContain('working');
+    });
+
+    it('board token can view llms.txt', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'done', message: 'complete',
+      }, token);
+
+      const btResponse = await makeRequest('POST', '/v1/board-token', undefined, token);
+      const { board_token } = await btResponse.json() as { board_token: string };
+
+      const request = new Request(`http://localhost/${board_token}/llms.txt`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      const text = await response.text();
+      expect(text).toContain('my-app');
+      expect(text).toContain('done');
+    });
+
+    it('board token cannot write events', async () => {
+      const token = await registerToken();
+      const btResponse = await makeRequest('POST', '/v1/board-token', undefined, token);
+      const { board_token } = await btResponse.json() as { board_token: string };
+
+      const response = await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working',
+      }, board_token);
+      expect(response.status).toBe(401);
+    });
+
+    it('board token cannot access /v1/projects', async () => {
+      const token = await registerToken();
+      const btResponse = await makeRequest('POST', '/v1/board-token', undefined, token);
+      const { board_token } = await btResponse.json() as { board_token: string };
+
+      const response = await makeRequest('GET', '/v1/projects', undefined, board_token);
+      expect(response.status).toBe(401);
+    });
+
+    it('board token cannot create todos', async () => {
+      const token = await registerToken();
+      const btResponse = await makeRequest('POST', '/v1/board-token', undefined, token);
+      const { board_token } = await btResponse.json() as { board_token: string };
+
+      const response = await makeRequest('POST', '/v1/todos', { message: 'hack' }, board_token);
+      expect(response.status).toBe(401);
+    });
+
+    it('DELETE /v1/board-token revokes all board tokens', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working', message: 'building',
+      }, token);
+
+      const btResponse = await makeRequest('POST', '/v1/board-token', undefined, token);
+      const { board_token } = await btResponse.json() as { board_token: string };
+
+      // Revoke
+      const delResponse = await makeRequest('DELETE', '/v1/board-token', undefined, token);
+      expect(delResponse.status).toBe(200);
+
+      // Board token should no longer work
+      const request = new Request(`http://localhost/${board_token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('TODO API', () => {
+    it('POST /v1/todos creates a todo', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('POST', '/v1/todos', {
+        message: 'add dark mode',
+      }, token);
+      expect(response.status).toBe(201);
+      const data = await response.json() as { id: number; project: string; message: string; status: string };
+      expect(data.id).toBeGreaterThan(0);
+      expect(data.project).toBe('_global');
+      expect(data.message).toBe('add dark mode');
+      expect(data.status).toBe('pending');
+    });
+
+    it('POST /v1/todos with project', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('POST', '/v1/todos', {
+        project: 'my-app',
+        message: 'fix bug #42',
+      }, token);
+      expect(response.status).toBe(201);
+      const data = await response.json() as { project: string };
+      expect(data.project).toBe('my-app');
+    });
+
+    it('POST /v1/todos rejects missing message', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('POST', '/v1/todos', {}, token);
+      expect(response.status).toBe(400);
+    });
+
+    it('GET /v1/todos lists todos', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/todos', { message: 'task one' }, token);
+      await makeRequest('POST', '/v1/todos', { message: 'task two' }, token);
+
+      const response = await makeRequest('GET', '/v1/todos', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { todos: Array<{ message: string }> };
+      expect(data.todos).toHaveLength(2);
+    });
+
+    it('GET /v1/todos filters by status', async () => {
+      const token = await registerToken();
+      const createResp = await makeRequest('POST', '/v1/todos', { message: 'task one' }, token);
+      const created = await createResp.json() as { id: number };
+      await makeRequest('POST', '/v1/todos', { message: 'task two' }, token);
+
+      // Mark first as done
+      await makeRequest('PATCH', `/v1/todos/${created.id}`, { status: 'done' }, token);
+
+      const response = await makeRequest('GET', '/v1/todos?status=pending', undefined, token);
+      const data = await response.json() as { todos: Array<{ message: string }> };
+      expect(data.todos).toHaveLength(1);
+      expect(data.todos[0].message).toBe('task two');
+    });
+
+    it('GET /v1/todos filters by project', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/todos', { project: 'app-a', message: 'task a' }, token);
+      await makeRequest('POST', '/v1/todos', { project: 'app-b', message: 'task b' }, token);
+
+      const response = await makeRequest('GET', '/v1/todos?project=app-a', undefined, token);
+      const data = await response.json() as { todos: Array<{ message: string }> };
+      expect(data.todos).toHaveLength(1);
+      expect(data.todos[0].message).toBe('task a');
+    });
+
+    it('PATCH /v1/todos/:id transitions pending → dispatched', async () => {
+      const token = await registerToken();
+      const createResp = await makeRequest('POST', '/v1/todos', { message: 'task' }, token);
+      const { id } = await createResp.json() as { id: number };
+
+      const response = await makeRequest('PATCH', `/v1/todos/${id}`, {
+        status: 'dispatched',
+        issue_url: 'https://github.com/owner/repo/issues/1',
+      }, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { ok: boolean; updated: { id: number; status: string } };
+      expect(data.ok).toBe(true);
+      expect(data.updated.status).toBe('dispatched');
+    });
+
+    it('PATCH /v1/todos/:id transitions dispatched → done', async () => {
+      const token = await registerToken();
+      const createResp = await makeRequest('POST', '/v1/todos', { message: 'task' }, token);
+      const { id } = await createResp.json() as { id: number };
+
+      await makeRequest('PATCH', `/v1/todos/${id}`, { status: 'dispatched' }, token);
+      const response = await makeRequest('PATCH', `/v1/todos/${id}`, { status: 'done' }, token);
+      expect(response.status).toBe(200);
+    });
+
+    it('PATCH /v1/todos/:id rejects dispatched → pending', async () => {
+      const token = await registerToken();
+      const createResp = await makeRequest('POST', '/v1/todos', { message: 'task' }, token);
+      const { id } = await createResp.json() as { id: number };
+
+      await makeRequest('PATCH', `/v1/todos/${id}`, { status: 'dispatched' }, token);
+      const response = await makeRequest('PATCH', `/v1/todos/${id}`, { status: 'pending' }, token);
+      expect(response.status).toBe(409);
+    });
+
+    it('PATCH /v1/todos/:id returns 404 for wrong token', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+      const createResp = await makeRequest('POST', '/v1/todos', { message: 'task' }, token1);
+      const { id } = await createResp.json() as { id: number };
+
+      const response = await makeRequest('PATCH', `/v1/todos/${id}`, { status: 'done' }, token2);
+      expect(response.status).toBe(404);
+    });
+
+    it('DELETE /v1/todos/:id removes a todo', async () => {
+      const token = await registerToken();
+      const createResp = await makeRequest('POST', '/v1/todos', { message: 'task' }, token);
+      const { id } = await createResp.json() as { id: number };
+
+      const response = await makeRequest('DELETE', `/v1/todos/${id}`, undefined, token);
+      expect(response.status).toBe(200);
+
+      // Verify it's gone
+      const listResp = await makeRequest('GET', '/v1/todos', undefined, token);
+      const data = await listResp.json() as { todos: unknown[] };
+      expect(data.todos).toHaveLength(0);
+    });
+
+    it('DELETE /v1/todos/:id returns 404 for unknown id', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('DELETE', '/v1/todos/99999', undefined, token);
+      expect(response.status).toBe(404);
+    });
+
+    it('todos appear in llms.txt backlog section', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/todos', { message: 'implement dark mode' }, token);
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle',
+      }, token);
+
+      const request = new Request(`http://localhost/${token}/llms.txt`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const text = await response.text();
+      expect(text).toContain('## Backlog');
+      expect(text).toContain('implement dark mode');
+    });
+
+    it('todos appear in board HTML backlog section', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/todos', { message: 'add tests' }, token);
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle',
+      }, token);
+
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const html = await response.text();
+      expect(html).toContain('BACKLOG');
+      expect(html).toContain('add tests');
+    });
+
+    it('cross-token isolation for todos', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+
+      await makeRequest('POST', '/v1/todos', { message: 'secret task' }, token1);
+
+      const response = await makeRequest('GET', '/v1/todos', undefined, token2);
+      const data = await response.json() as { todos: unknown[] };
+      expect(data.todos).toHaveLength(0);
     });
   });
 });

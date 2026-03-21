@@ -13,7 +13,8 @@ Usage:
   tend add [project] "msg"      Add a TODO (or show TODOs if no message)
   tend ack [project]            Clear done/stuck/waiting → idle
   tend switch <project>         Focus VSCode window for project
-  tend relay <subcmd>           Relay management (setup|status|pull|token)
+  tend relay <subcmd>           Relay management (setup|status|pull|token|share)
+  tend dispatch [--dry-run]     Dispatch pending TODOs as GitHub issues to Copilot
   tend remove [project]         Remove tend from a project
   tend hook <subcmd>            Lifecycle hooks (session-start|user-prompt|stop)
   tend version                  Show version

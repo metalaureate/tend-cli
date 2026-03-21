@@ -12,6 +12,7 @@ import { cmdAdd } from './commands/add.js';
 import { cmdAck } from './commands/ack.js';
 import { cmdSwitch } from './commands/switch.js';
 import { cmdRelay } from './commands/relay.js';
+import { cmdDispatch } from './commands/dispatch.js';
 import { cmdHook } from './commands/hooks.js';
 import { cmdVersion } from './commands/version.js';
 import { cmdHelp } from './commands/help.js';
@@ -65,6 +66,9 @@ async function main(): Promise<void> {
         break;
       case 'relay':
         await cmdRelay(rest);
+        break;
+      case 'dispatch':
+        await cmdDispatch(rest);
         break;
       case 'remove':
         await cmdRemove(rest);

@@ -4,6 +4,7 @@ import { join, basename } from 'path';
 import { tsLocal } from '../ui/format.js';
 import { C } from '../ui/colors.js';
 import { createInterface } from 'readline';
+import { relayAddTodo } from '../core/relay.js';
 
 interface TodoEntry {
   projectPath: string;
@@ -91,6 +92,9 @@ export async function cmdAdd(args: string[]): Promise<void> {
   const ts = tsLocal();
   appendFileSync(join(projectPath, '.tend', 'TODO'), `[${ts}] ${message}\n`);
   process.stdout.write(`✓ Added to ${pName}/TODO\n`);
+
+  // Best-effort dual-write to relay
+  relayAddTodo(pName, message).catch(() => {});
 }
 
 /** Collect all TODO entries across projects with global numbering */
