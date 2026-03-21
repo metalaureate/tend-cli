@@ -25,23 +25,7 @@ export async function cmdEmit(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set (env var) or relay_token file exists
-  const token = relayToken();
-  if (token) {
-    let projectName: string;
-    try {
-      projectName = resolveProjectName();
-    } catch {
-      projectName = process.cwd().split('/').pop() || 'unknown';
-    }
-    const rawEmail = gitUserEmail(process.cwd());
-    const rawSessionId = config.sessionId || '';
-    const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
-    const ok = await relayEmit(projectName, state, message, sessionId);
-    if (ok) return;
-    process.stderr.write('tend: relay unreachable, falling back to local\n');
-  }
-
+  // Always write locally first.
   const projectPath = (() => {
     try {
       return resolveProjectPath();
@@ -63,4 +47,19 @@ export async function cmdEmit(args: string[]): Promise<void> {
   const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
   appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, state as State, message);
   invalidateStatusCache();
+
+  // Also send to relay if a token is configured (best-effort, does not affect local write).
+  const token = relayToken();
+  if (token) {
+    let projectName: string;
+    try {
+      projectName = resolveProjectName();
+    } catch {
+      projectName = process.cwd().split('/').pop() || 'unknown';
+    }
+    const rawEmailRelay = gitUserEmail(process.cwd());
+    const rawSessionIdRelay = config.sessionId || '';
+    const sessionIdRelay = rawEmailRelay ? `${rawSessionIdRelay}@${sanitizeUserTag(rawEmailRelay)}` : rawSessionIdRelay;
+    await relayEmit(projectName, state, message, sessionIdRelay);
+  }
 }
