@@ -136,9 +136,6 @@ export default function Page() {
                 Agentic development is maturing. The early thrill of vibe coding — watching an AI conjure code from thin air — gives way to something deeper: the craft of orchestrating multiple agents across multiple projects, knowing when each one needs you and engineering more of them not to.
               </p>
               <p>
-                You&apos;re not the one writing every line anymore. You&apos;re the conductor, the master smith, the head chef — setting direction, tasting the sauce, inspecting the weld, keeping five things moving while giving each one exactly the attention it needs.
-              </p>
-              <p>
                 Tend is the instrument that makes that feel like flow.
               </p>
             </div>
