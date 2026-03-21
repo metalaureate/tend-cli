@@ -117,7 +117,31 @@ describe('hooks', () => {
     expect(lastEvent).toContain('done');
   });
 
-  it('session-start does not emit events', () => {
+  it('user-prompt falls back to local write when relay token is set but relay unreachable', () => {
+    const dir = ctx.makeProject('relay-fallback1');
+    ctx.tend(['init'], { cwd: dir });
+    ctx.tend(['hook', 'user-prompt'], {
+      cwd: dir,
+      stdin: '{"session_id":"sess-relay1","prompt":"fix auth"}',
+      env: { TEND_RELAY_TOKEN: 'tnd_test_token', TEND_RELAY_URL: 'http://127.0.0.1:19999' },
+    });
+    const lastEvent = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').pop()!;
+    expect(lastEvent).toContain('working');
+    expect(lastEvent).toContain('sess-relay1');
+  });
+
+  it('stop falls back to local write when relay token is set but relay unreachable', () => {
+    const dir = ctx.makeProject('relay-fallback2');
+    ctx.tend(['init'], { cwd: dir });
+    ctx.tend(['emit', 'working', 'active task'], { cwd: dir });
+    ctx.tend(['hook', 'stop'], {
+      cwd: dir,
+      stdin: '{"stop_hook_active":false}',
+      env: { TEND_RELAY_TOKEN: 'tnd_test_token', TEND_RELAY_URL: 'http://127.0.0.1:19999' },
+    });
+    const lastEvent = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').pop()!;
+    expect(lastEvent).toContain('idle');
+  });
     const dir = ctx.makeProject('papa2');
     ctx.tend(['init'], { cwd: dir });
     const beforeCount = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').filter(l => l).length;

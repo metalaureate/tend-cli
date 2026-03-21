@@ -3,8 +3,9 @@ import { appendEvent, sanitizeUserTag, stripUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { gitUserEmail } from '../core/git.js';
+import { relayEmit } from '../core/relay.js';
 import { existsSync, readFileSync, appendFileSync } from 'fs';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { invalidateStatusCache } from './status.js';
 
 /** Extract session_id or sessionId from JSON input, tagged with git user email */
@@ -113,10 +114,22 @@ async function hookUserPrompt(): Promise<void> {
     return;
   }
 
+  const sessionId = extractSessionId(input, projectPath);
+  const prompt = extractPrompt(input);
+  const ts = tsLocal();
+
+  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set
+  if (config.relayToken) {
+    const projectName = basename(projectPath);
+    const ok = await relayEmit(projectName, 'working', prompt, sessionId);
+    if (ok) {
+      invalidateStatusCache();
+      return;
+    }
+    // Fall through to local on relay failure
+  }
+
   if (existsSync(join(projectPath, '.tend'))) {
-    const sessionId = extractSessionId(input, projectPath);
-    const prompt = extractPrompt(input);
-    const ts = tsLocal();
     const eventsFile = join(projectPath, '.tend', 'events');
 
     // Deduplicate: skip if the last event for this session is already "working" with the same prompt
@@ -144,6 +157,32 @@ async function hookUserPrompt(): Promise<void> {
   }
 }
 
+/** Read the last state for a session from a local events file */
+function readLastState(eventsFile: string, sessionId: string): string {
+  if (!existsSync(eventsFile)) return '';
+  const content = readFileSync(eventsFile, 'utf-8').trimEnd();
+  const lines = content.split('\n');
+  if (sessionId) {
+    const baseId = stripUserTag(sessionId);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (lines[i].includes(` ${baseId} `) || lines[i].includes(` ${baseId}@`)) {
+        const parts = lines[i].split(/\s+/);
+        if (parts.length >= 3) return parts[2];
+        break;
+      }
+    }
+  } else {
+    const lastLine = lines[lines.length - 1] || '';
+    const parts = lastLine.split(/\s+/);
+    if (parts.length >= 3 && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(parts[2])) {
+      return parts[2];
+    } else if (parts.length >= 2) {
+      return parts[1];
+    }
+  }
+  return '';
+}
+
 async function hookStop(): Promise<void> {
   const input = await readStdin();
   hookDebug('stop', input);
@@ -158,46 +197,30 @@ async function hookStop(): Promise<void> {
     return;
   }
 
-  if (!existsSync(join(projectPath, '.tend'))) return;
-
   const sessionId = extractSessionId(input, projectPath);
   const ts = tsLocal();
   const eventsFile = join(projectPath, '.tend', 'events');
 
-  // Only demote to idle if current state is "working".
-  // Preserve intentional terminal states (done, stuck, waiting).
-  let lastState = '';
-  if (existsSync(eventsFile)) {
-    const content = readFileSync(eventsFile, 'utf-8').trimEnd();
-    const lines = content.split('\n');
-
-    if (sessionId) {
-      // Find last event for this session (match by base UUID, ignoring user tag)
-      const baseId = stripUserTag(sessionId);
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].includes(` ${baseId} `) || lines[i].includes(` ${baseId}@`)) {
-          const parts = lines[i].split(/\s+/);
-          if (parts.length >= 3) {
-            lastState = parts[2];
-            break;
-          }
-        }
-      }
-    } else {
-      // No session — check last line (may or may not have a session ID)
-      const lastLine = lines[lines.length - 1] || '';
-      const parts = lastLine.split(/\s+/);
-      // Event format: <ts> [sessionId] <state> [message...]
-      // With session: parts = [ts, sessionId, state, ...]
-      // Without session: parts = [ts, state, ...]
-      if (parts.length >= 3 && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(parts[2])) {
-        lastState = parts[2];
-      } else if (parts.length >= 2) {
-        lastState = parts[1];
-      }
+  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set
+  if (config.relayToken) {
+    // Only demote to idle if local events indicate the session is still "working".
+    // If no local file exists, emit idle unconditionally (can't check relay history).
+    const lastState = readLastState(eventsFile, sessionId);
+    if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting' || lastState === 'idle') return;
+    const projectName = basename(projectPath);
+    const ok = await relayEmit(projectName, 'idle', '', sessionId);
+    if (ok) {
+      invalidateStatusCache();
+      return;
     }
+    // Fall through to local on relay failure
   }
 
+  if (!existsSync(join(projectPath, '.tend'))) return;
+
+  // Only demote to idle if current state is "working".
+  // Preserve intentional terminal states (done, stuck, waiting).
+  const lastState = readLastState(eventsFile, sessionId);
   if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting' || lastState === 'idle') return;
 
   // Emit idle (not done) — the stop hook fires between turns, not just at session end.
