@@ -92,6 +92,23 @@ describe('relay', () => {
     expect(r.stdout).toContain('Token src:  env (TEND_RELAY_TOKEN)');
   });
 
+  it('debug performs live relay check when token is configured', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'abcdef1234567890');
+
+    // Point to a local port that is not listening so the connection fails fast
+    const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_URL: 'http://127.0.0.1:19999' } });
+    expect(r.stdout).toContain('Checking relay...');
+    expect(r.stdout).toContain('Relay:      ✗');
+  });
+
+  it('debug skips live relay check when no token configured', () => {
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).not.toContain('Checking relay...');
+    expect(r.stdout).toContain('No relay sessions seen yet.');
+  });
+
   it('debug shows none token source when no token configured', () => {
     const r = ctx.tend(['relay', 'debug']);
     expect(r.stdout).toContain('Token src:  none');
