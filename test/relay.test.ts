@@ -259,7 +259,7 @@ describe('relay', () => {
 
     const r = ctx.tend(['relay', 'status']);
     expect(r.stdout).toContain('Board URL:');
-    expect(r.stdout).toContain('tend.cx/tnd_statustoken1234');
+    expect(r.stdout).toContain('relay.tend.cx/tnd_statustoken1234');
   });
 
   it('relay token shows board URL', () => {
@@ -269,7 +269,7 @@ describe('relay', () => {
 
     const r = ctx.tend(['relay', 'token']);
     expect(r.stdout).toContain('Board URL:');
-    expect(r.stdout).toContain('tend.cx/tnd_tokentoken5678');
+    expect(r.stdout).toContain('relay.tend.cx/tnd_tokentoken5678');
   });
 
   it('relay debug shows board URL when token is configured', () => {
@@ -279,7 +279,7 @@ describe('relay', () => {
 
     const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_URL: 'http://127.0.0.1:19999' } });
     expect(r.stdout).toContain('Board URL:');
-    expect(r.stdout).toContain('tend.cx/tnd_debugtoken9999');
+    expect(r.stdout).toContain('relay.tend.cx/tnd_debugtoken9999');
   });
 
   it('emit dual-writes to local when relay token is set but relay unreachable', () => {

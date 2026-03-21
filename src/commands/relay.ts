@@ -4,7 +4,7 @@ import { config } from '../core/config.js';
 import { relayToken, relaySync, projectRelayTokenFile } from '../core/relay.js';
 import { readEvents } from '../core/events.js';
 
-const BOARD_URL_BASE = 'https://tend.cx';
+const BOARD_URL_BASE = 'https://relay.tend.cx';
 
 export async function cmdRelay(args: string[]): Promise<void> {
   const subcmd = args[0];

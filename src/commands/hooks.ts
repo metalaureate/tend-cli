@@ -3,7 +3,7 @@ import { appendEvent, sanitizeUserTag, stripUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { gitUserEmail } from '../core/git.js';
-import { relayEmit } from '../core/relay.js';
+import { relayEmit, relayToken } from '../core/relay.js';
 import { existsSync, readFileSync, appendFileSync } from 'fs';
 import { join, basename } from 'path';
 import { invalidateStatusCache } from './status.js';
@@ -118,21 +118,12 @@ async function hookUserPrompt(): Promise<void> {
   const prompt = extractPrompt(input);
   const ts = tsLocal();
 
-  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set
-  if (config.relayToken) {
-    const projectName = basename(projectPath);
-    const ok = await relayEmit(projectName, 'working', prompt, sessionId);
-    if (ok) {
-      invalidateStatusCache();
-      return;
-    }
-    // Fall through to local on relay failure
-  }
-
+  // Always write locally first
   if (existsSync(join(projectPath, '.tend'))) {
     const eventsFile = join(projectPath, '.tend', 'events');
 
     // Deduplicate: skip if the last event for this session is already "working" with the same prompt
+    let isDuplicate = false;
     if (sessionId && existsSync(eventsFile)) {
       const content = readFileSync(eventsFile, 'utf-8').trimEnd();
       const lines = content.split('\n');
@@ -141,19 +132,27 @@ async function hookUserPrompt(): Promise<void> {
         if (lines[i].includes(` ${baseId} `) || lines[i].includes(` ${baseId}@`)) {
           const parts = lines[i].split(/\s+/);
           if (parts.length >= 3 && parts[2] === 'working' && parts.slice(3).join(' ') === prompt) {
-            return; // duplicate
+            isDuplicate = true;
           }
           break;
         }
       }
     }
 
-    if (sessionId) {
-      appendEvent(eventsFile, ts, sessionId, 'working', prompt);
-    } else {
-      appendFileSync(eventsFile, `${ts} working${prompt ? ' ' + prompt : ''}\n`);
+    if (!isDuplicate) {
+      if (sessionId) {
+        appendEvent(eventsFile, ts, sessionId, 'working', prompt);
+      } else {
+        appendFileSync(eventsFile, `${ts} working${prompt ? ' ' + prompt : ''}\n`);
+      }
+      invalidateStatusCache();
     }
-    invalidateStatusCache();
+  }
+
+  // Also send to relay if a token is configured (best-effort)
+  if (relayToken()) {
+    const projectName = basename(projectPath);
+    await relayEmit(projectName, 'working', prompt, sessionId);
   }
 }
 
@@ -201,36 +200,28 @@ async function hookStop(): Promise<void> {
   const ts = tsLocal();
   const eventsFile = join(projectPath, '.tend', 'events');
 
-  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set
-  if (config.relayToken) {
-    // Only demote to idle if local events indicate the session is still "working".
-    // If no local file exists, emit idle unconditionally (can't check relay history).
-    const lastState = readLastState(eventsFile, sessionId);
-    if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting' || lastState === 'idle') return;
-    const projectName = basename(projectPath);
-    const ok = await relayEmit(projectName, 'idle', '', sessionId);
-    if (ok) {
-      invalidateStatusCache();
-      return;
-    }
-    // Fall through to local on relay failure
-  }
-
-  if (!existsSync(join(projectPath, '.tend'))) return;
-
   // Only demote to idle if current state is "working".
   // Preserve intentional terminal states (done, stuck, waiting).
   const lastState = readLastState(eventsFile, sessionId);
   if (lastState === 'done' || lastState === 'stuck' || lastState === 'waiting' || lastState === 'idle') return;
 
-  // Emit idle (not done) — the stop hook fires between turns, not just at session end.
-  // "done" should only come from explicit `tend emit done` or agent instructions.
-  if (sessionId) {
-    appendEvent(eventsFile, ts, sessionId, 'idle', '');
-  } else {
-    appendFileSync(eventsFile, `${ts} idle\n`);
+  // Always write locally first
+  if (existsSync(join(projectPath, '.tend'))) {
+    // Emit idle (not done) — the stop hook fires between turns, not just at session end.
+    // "done" should only come from explicit `tend emit done` or agent instructions.
+    if (sessionId) {
+      appendEvent(eventsFile, ts, sessionId, 'idle', '');
+    } else {
+      appendFileSync(eventsFile, `${ts} idle\n`);
+    }
+    invalidateStatusCache();
   }
-  invalidateStatusCache();
+
+  // Also send to relay if a token is configured (best-effort)
+  if (relayToken()) {
+    const projectName = basename(projectPath);
+    await relayEmit(projectName, 'idle', '', sessionId);
+  }
 }
 
 export async function cmdHook(args: string[]): Promise<void> {
