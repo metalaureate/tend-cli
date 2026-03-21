@@ -98,6 +98,7 @@ No config files. No database. No daemon.
 | `td ack [project]` | Clear done/stuck/waiting → idle |
 | `td status` | Status indicator: `○` or `?N ◐N ◉N` |
 | `td remove [project]` | Remove tend from a project (with confirmation) |
+| `td dispatch` | Dispatch pending TODOs as GitHub issues to Copilot |
 | `td relay <subcmd>` | Manage relay connection (see below) |
 
 ---
@@ -212,6 +213,7 @@ Remote projects show a `↗` indicator. `td <project>` shows per-session breakdo
 | `td relay status` | Show masked token, relay URL, cache info |
 | `td relay pull` | Force-refresh event cache from relay |
 | `td relay token` | Print raw token (for copying to remote envs) |
+| `td relay share` | Generate a read-only board link (`tnb_` token) |
 
 ### Performance
 
@@ -219,9 +221,45 @@ Remote projects show a `↗` indicator. `td <project>` shows per-session breakdo
 - `td` (board) refreshes the relay cache on each invocation, then renders from cache
 - No daemon. No background sync.
 
+### Board Sharing
+
+Relay tokens (`tnd_`) grant write access — don't share them. Use `td relay share` to generate a read-only board link:
+
+```bash
+td relay share
+# → https://relay.tend.cx/tnb_abc123...
+```
+
+The `tnb_` link lets anyone view your board but not write events or modify TODOs. You can revoke it and generate a new one at any time.
+
 ### The Relay is Optional
 
 Local agents still just write to a file. If you never set up a relay token, everything works exactly the same. The relay is what makes one board possible when your agents are spread across environments.
+
+---
+
+## Dispatch
+
+Once you have TODOs on the relay, `td dispatch` turns them into GitHub issues and assigns the Copilot coding agent:
+
+```bash
+# Add tasks
+td add "migrate auth to Stripe"
+td add "fix rate limiting bug"
+
+# Preview what would be dispatched
+td dispatch --dry-run
+
+# Create issues and assign to Copilot
+td dispatch
+# → ✓ Dispatched: migrate auth to Stripe → https://github.com/you/repo/issues/42
+# → ✓ Dispatched: fix rate limiting bug → https://github.com/you/repo/issues/43
+# → Dispatched 2 tasks to Copilot
+```
+
+Requires the [GitHub CLI](https://cli.github.com/) (`gh`) and a relay token. Each TODO becomes an issue with the task description and a reference to AGENTS.md. The TODO status moves from `pending` → `dispatched` on the relay.
+
+The agent clones the repo, reads AGENTS.md, and uses `tend emit` to report progress back to your board.
 
 ---
 
