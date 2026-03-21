@@ -2,22 +2,29 @@
 
 **Tend your agents. Stay in flow.**
 
-Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. Tend is the instrument that makes that feel like flow.
+A pull-based status board for developers running multiple AI agents. Glance at the board when you're ready — not when a notification demands it.
 
-Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote.
+Works with any agent framework: Copilot, Claude, Codex, or your own. Local or remote. No config files, no database, no daemon.
 
 ---
 
 ## Quick Start
 
 ```bash
+# See it without setting anything up:
+td demo
+```
+
+Or set it up in a project:
+
+```bash
 cd ~/projects/my-app
 tend init
 ```
 
-That's it. `tend init` sets up everything: `.tend/` directory, AGENTS.md integration, shell prompt indicator, and project registry.
+`tend init` sets up everything: `.tend/` directory, AGENTS.md integration, shell prompt indicator, and project registry.
 
-Now run `td` from anywhere:
+Run `td` from anywhere:
 
 ```
 % td                                                 ◐1 ◉1
@@ -218,13 +225,11 @@ Local agents still just write to a file. If you never set up a relay token, ever
 
 ## Why Tend Exists
 
-Agentic development is maturing. The early thrill of vibe coding — watching an AI conjure code from thin air — gives way to something deeper: the craft of orchestrating multiple agents across multiple projects, knowing when each one needs you and engineering more of them not to.
+Running multiple AI agents simultaneously is the new normal. Some finish in minutes, others run for hours. The problem isn't the agents — it's knowing when each one needs you without that knowledge becoming a second job.
 
-You want to run as many agents as possible, across code, docs, ops, and research, at every level of autonomy. Some run for hours unattended. Others need your judgment every few minutes. The mix changes constantly.
+Dashboards are a permanent invitation to break focus. Notification badges are interrupts. They add vigilance, not concentration.
 
-The unsolved problem is knowing when they need you, without that knowledge becoming a second job. Dashboards are a permanent invitation to break focus. Notification badges are interrupts. They add vigilance, not concentration.
-
-Tend uses a different model. You stay in your train of thought. When you reach a natural stopping point (the agent is running, you've finished a thought, you need a break), you glance at the board. It shows you what needs you, what's running fine, and what's been idle. You handle what needs handling and get back to work.
+Tend uses a different model: **pull, not push.** When you reach a natural stopping point — the agent is running, you've finished a thought, you need a break — you glance at the board. It shows what needs you, what's running, and what's idle. You handle what needs handling and get back to work.
 
 The shell prompt indicator (`○` / `?N` / `◐N` / `◉N`) means you often don't even need the board. It's already in your visual field after every command. When it says `○`, nothing needs you. The uncertainty that drives compulsive tab-switching is gone.
 
