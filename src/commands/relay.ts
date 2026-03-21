@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync } from 'fs';
 import { dirname, join } from 'path';
 import { config } from '../core/config.js';
-import { relayToken, relaySync } from '../core/relay.js';
+import { relayToken, relaySync, projectRelayTokenFile } from '../core/relay.js';
 import { readEvents } from '../core/events.js';
 
 export async function cmdRelay(args: string[]): Promise<void> {
@@ -23,20 +23,24 @@ export async function cmdRelay(args: string[]): Promise<void> {
     case 'debug':
       await relayDebug();
       break;
+    case 'link':
+      relayLink();
+      break;
     case undefined:
     case '':
-      process.stdout.write(`Usage: tend relay <setup|status|pull|token|debug>
+      process.stdout.write(`Usage: tend relay <setup|status|pull|token|link|debug>
 
   setup    Register with relay, get a token
   status   Show relay configuration
   pull     Force-refresh event cache from relay
   token    Print raw token (for copying to remote envs)
+  link     Write relay token to this project's .tend/relay_token
   debug    Show relay session diagnostics
 `);
       break;
     default:
       process.stderr.write(`tend: unknown relay command '${subcmd}'\n`);
-      process.stderr.write('Usage: tend relay <setup|status|pull|token|debug>\n');
+      process.stderr.write('Usage: tend relay <setup|status|pull|token|link|debug>\n');
       process.exit(1);
   }
 }
@@ -74,7 +78,14 @@ async function relaySetup(): Promise<void> {
 Your relay token:
   ${token}
 
-Set this in your remote agent environment (Codespaces, CI, etc.):
+To use relay in cloud agents (GitHub Copilot, Codespaces, CI, etc.) without
+setting an environment variable, commit the token to your project:
+  cd <your-project>
+  tend relay link
+  git add .tend/relay_token
+  git commit -m "add tend relay token"
+
+Alternatively, set the token as an environment variable:
   export TEND_RELAY_TOKEN="${token}"
 
 Verify the token is available in the agent session:
@@ -118,6 +129,30 @@ async function relayPull(): Promise<void> {
   process.stdout.write('✓ Cache refreshed\n');
 }
 
+function relayLink(): void {
+  const token = relayToken();
+  if (!token) {
+    process.stderr.write("tend: relay not configured. Run 'tend relay setup' first.\n");
+    process.exit(1);
+  }
+
+  const projectFile = projectRelayTokenFile();
+  if (!projectFile) {
+    process.stderr.write('tend: not inside a git project. Run this command from a project directory.\n');
+    process.exit(1);
+  }
+
+  mkdirSync(dirname(projectFile), { recursive: true });
+  writeFileSync(projectFile, token);
+
+  process.stdout.write(`✓ Token written to ${projectFile}
+
+Commit this file so cloud agents pick it up automatically:
+  git add .tend/relay_token
+  git commit -m "add tend relay token"
+`);
+}
+
 function relayShowToken(): void {
   const token = relayToken();
   if (!token) {
@@ -127,7 +162,13 @@ function relayShowToken(): void {
 
   process.stdout.write(`${token}
 
-Set in your remote agent environment (Codespaces, CI, etc.):
+Commit the token to your project for cloud agents (no env var needed):
+  cd <your-project>
+  tend relay link
+  git add .tend/relay_token
+  git commit -m "add tend relay token"
+
+Or set in your remote agent environment (Codespaces, CI, etc.):
   export TEND_RELAY_TOKEN="${token}"
 
 Verify the token is available in the agent session:
@@ -139,16 +180,34 @@ Verify the token is available in the agent session:
 async function relayDebug(): Promise<void> {
   const token = relayToken();
   const envToken = process.env.TEND_RELAY_TOKEN;
-  const fileToken = existsSync(config.relayTokenFile)
+  const globalFileToken = existsSync(config.relayTokenFile)
     ? readFileSync(config.relayTokenFile, 'utf-8').trim()
+    : null;
+  const projectFile = projectRelayTokenFile();
+  const projectFileToken = projectFile && existsSync(projectFile)
+    ? readFileSync(projectFile, 'utf-8').trim()
     : null;
 
   process.stdout.write(`Relay URL:  ${config.relayUrl}\n`);
   process.stdout.write(`Token:      ${token ? `configured (${token.slice(0, 8)}...${token.slice(-4)})` : 'not configured'}\n`);
-  process.stdout.write(`Token src:  ${envToken ? 'env (TEND_RELAY_TOKEN)' : fileToken ? `file (${config.relayTokenFile})` : 'none'}\n`);
-  if (fileToken && !envToken) {
-    process.stdout.write(`            ↳ cloud agents need TEND_RELAY_TOKEN set as an env var\n`);
-    process.stdout.write(`               export TEND_RELAY_TOKEN="$(tend relay token | head -1)"\n`);
+
+  let tokenSrc: string;
+  let showHint = false;
+  if (envToken) {
+    tokenSrc = 'env (TEND_RELAY_TOKEN)';
+  } else if (projectFileToken) {
+    tokenSrc = `file (${projectFile})`;
+  } else if (globalFileToken) {
+    tokenSrc = `file (${config.relayTokenFile})`;
+    showHint = true;
+  } else {
+    tokenSrc = 'none';
+  }
+
+  process.stdout.write(`Token src:  ${tokenSrc}\n`);
+  if (showHint) {
+    process.stdout.write(`            ↳ run 'tend relay link' to commit the token to your project\n`);
+    process.stdout.write(`               or: export TEND_RELAY_TOKEN="$(tend relay token | head -1)"\n`);
   }
   process.stdout.write(`Emit mode:  ${token ? `relay → ${config.relayUrl}` : 'local'}\n`);
   process.stdout.write(`Session ID: ${config.sessionId || 'not set (events will use _cli)'}\n`);
@@ -208,7 +267,8 @@ async function relayDebug(): Promise<void> {
       process.stdout.write(`Relay:      ✓ connected (${relayProjects.length} project${relayProjects.length === 1 ? '' : 's'} on relay)\n`);
       if (relayProjects.length === 0) {
         process.stdout.write('\nNo cloud agent events received yet.\n');
-        process.stdout.write('Ensure TEND_RELAY_TOKEN is set in your remote agent environment:\n');
+        process.stdout.write("Run 'tend relay link' in your project to commit the token to git,\n");
+        process.stdout.write('or ensure TEND_RELAY_TOKEN is set in your remote agent environment:\n');
         process.stdout.write(`  export TEND_RELAY_TOKEN="${token}"\n`);
       }
     } else {

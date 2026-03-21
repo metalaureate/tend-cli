@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestContext, type TestContext } from './helpers.js';
-import { writeFileSync, mkdirSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 
 let ctx: TestContext;
@@ -84,7 +84,7 @@ describe('relay', () => {
     expect(r.stdout).toContain('Token:      configured');
     expect(r.stdout).toContain('abcdef12');
     expect(r.stdout).toContain('Token src:  file');
-    expect(r.stdout).toContain('cloud agents need TEND_RELAY_TOKEN');
+    expect(r.stdout).toContain("tend relay link");
   });
 
   it('debug shows env token source when TEND_RELAY_TOKEN env var is set', () => {
@@ -148,6 +148,79 @@ describe('relay', () => {
   it('usage includes debug subcommand', () => {
     const r = ctx.tend(['relay']);
     expect(r.stdout).toContain('debug');
+  });
+
+  it('usage includes link subcommand', () => {
+    const r = ctx.tend(['relay']);
+    expect(r.stdout).toContain('link');
+  });
+
+  it('relay link writes token to project .tend directory', () => {
+    const dir = ctx.makeProject('link-proj');
+    ctx.tend(['init'], { cwd: dir });
+
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'tnd_globaltoken123');
+
+    const r = ctx.tend(['relay', 'link'], { cwd: dir });
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('Token written to');
+    expect(r.stdout).toContain('.tend/relay_token');
+
+    const written = readFileSync(join(dir, '.tend', 'relay_token'), 'utf-8').trim();
+    expect(written).toBe('tnd_globaltoken123');
+  });
+
+  it('relay link fails when no token configured', () => {
+    const dir = ctx.makeProject('link-notoken-proj');
+    const r = ctx.tend(['relay', 'link'], { cwd: dir });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr).toContain("relay setup");
+  });
+
+  it('relay link fails when not in a git project', () => {
+    // testDir has no .git, so detectProject returns null
+    const r = ctx.tend(['relay', 'link'], {
+      env: { TEND_RELAY_TOKEN: 'tnd_sometoken123' },
+    });
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr).toContain('not inside a git project');
+  });
+
+  it('debug reads token from project-level .tend/relay_token', () => {
+    const dir = ctx.makeProject('proj-token-proj');
+    mkdirSync(join(dir, '.tend'), { recursive: true });
+    writeFileSync(join(dir, '.tend', 'relay_token'), 'tnd_projtoken456');
+
+    const r = ctx.tend(['relay', 'debug'], { cwd: dir });
+    expect(r.stdout).toContain('Token:      configured');
+    expect(r.stdout).toContain('tnd_proj');
+    expect(r.stdout).toContain('Token src:  file');
+    expect(r.stdout).toContain('.tend/relay_token');
+  });
+
+  it('debug shows no hint when project file token is configured', () => {
+    const dir = ctx.makeProject('proj-nohint-proj');
+    mkdirSync(join(dir, '.tend'), { recursive: true });
+    writeFileSync(join(dir, '.tend', 'relay_token'), 'tnd_projtoken789');
+
+    const r = ctx.tend(['relay', 'debug'], { cwd: dir });
+    expect(r.stdout).not.toContain("tend relay link");
+  });
+
+  it('project-level relay token takes precedence over global token', () => {
+    const dir = ctx.makeProject('priority-proj');
+    mkdirSync(join(dir, '.tend'), { recursive: true });
+    writeFileSync(join(dir, '.tend', 'relay_token'), 'tnd_projecttoken');
+
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'tnd_globaltoken');
+
+    const r = ctx.tend(['relay', 'debug'], { cwd: dir });
+    expect(r.stdout).toContain('tnd_proj');
+    expect(r.stdout).not.toContain('tnd_glob');
   });
 
   it('detail shows both local and relay sessions', () => {
