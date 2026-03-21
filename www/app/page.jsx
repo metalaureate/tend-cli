@@ -316,15 +316,15 @@ export default function Page() {
       <section id="relay" className="bg-anvil py-20 md:py-28 px-6">
         <ScrollReveal triggerClassName="relay-el">
           <div className="max-w-3xl mx-auto">
-            <p className="relay-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Remote agents</p>
+            <p className="relay-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">The relay</p>
 
             <h2 className="relay-el font-heading font-bold text-2xl md:text-4xl text-parchment leading-tight">
-              One board. Every agent.<br />
-              <span className="text-smoke">Wherever they run.</span>
+              Your board in the browser.<br />
+              <span className="text-smoke">Readable by humans and machines.</span>
             </h2>
 
             <p className="relay-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
-              Local agents write to <span className="font-mono text-parchment">.tend/events</span>. Plain text, no network. But when agents run elsewhere (Codex, CI, SSH, remote worktrees), set one token and the relay brings them onto your board.
+              One command gives you a live web board at <span className="font-mono text-parchment">relay.tend.cx</span>. Check on your agents from your phone, another machine, or share the link with your team. Every board also exposes a structured <span className="font-mono text-parchment">/llms.txt</span> endpoint — so other agents can read your board and take action on your behalf.
             </p>
 
             {/* Relay setup demo */}
@@ -342,25 +342,32 @@ export default function Page() {
                 </div>
                 <div className="text-smoke/50">Registering with relay at https://relay.tend.cx...</div>
                 <div className="text-patina mt-1">✓ Token stored in ~/.tend/relay_token</div>
-                <div className="mt-2 text-smoke/50">Set this on remote environments:</div>
-                <div className="text-parchment/80 ml-2">export TEND_RELAY_TOKEN=&quot;tnd_281w29...392t&quot;</div>
+                <div className="mt-3 text-smoke/50">Your board is live at:</div>
+                <div className="text-parchment/80 ml-2">https://relay.tend.cx/tnd_281w29...392t</div>
+                <div className="mt-2 text-smoke/50">Structured agent view:</div>
+                <div className="text-parchment/80 ml-2">https://relay.tend.cx/tnd_281w29...392t/llms.txt</div>
               </div>
             </div>
 
-            {/* Two cards only */}
-            <div className="relay-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Three cards */}
+            <div className="relay-el mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white/5 rounded-2xl p-5">
-                <p className="font-heading font-bold text-parchment text-sm">No accounts. One token.</p>
+                <p className="font-heading font-bold text-parchment text-sm">Live web board</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  Run <span className="font-mono text-parchment">td relay setup</span> on your laptop.
-                  Copy the token to each remote environment.
-                  That&apos;s it. Agents don&apos;t change. Same <code className="text-parchment/60">td init</code> setup everywhere.
+                  See all your agents from any browser. Auto-refreshes every 60 seconds. No login, no app — just your token in the URL.
                 </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-5">
-                <p className="font-heading font-bold text-parchment text-sm">Completely optional</p>
+                <p className="font-heading font-bold text-parchment text-sm">Agent-readable</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  Local agents just write to a file. No relay needed. If your agents are all local, everything works without it. The relay only matters when agents are spread across machines.
+                  Every board serves <span className="font-mono text-parchment/60">/llms.txt</span> — structured Markdown that orchestrator agents can fetch to triage, route, or act on stuck projects.
+                </p>
+              </div>
+              <div className="bg-white/5 rounded-2xl p-5">
+                <p className="font-heading font-bold text-parchment text-sm">No accounts. One token.</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Run <span className="font-mono text-parchment">td relay setup</span> once.
+                  Commit the token or set it as an env var. Local and remote agents on one board.
                 </p>
               </div>
             </div>
