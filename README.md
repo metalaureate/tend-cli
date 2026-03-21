@@ -83,6 +83,7 @@ No config files. No database. No daemon.
 | `td init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `td add [project] "msg"` | Add a TODO |
 | `td add [project]` | Show & manage TODOs (enter # to remove) |
+| `td clear [project]` | Clear events history for a project |
 | `td switch <project>` | Focus the editor window (or `td #N`) |
 | `td emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `td ack [project]` | Clear done/stuck/waiting → idle |
@@ -154,7 +155,7 @@ Agents pick up TODOs automatically via the `SessionStart` lifecycle hook, which 
 
 Local agents write to `.tend/events` directly. No network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees. Each environment has its own access patterns. Without a common protocol, the developer maintains per-environment solutions.
 
-The relay is a lightweight hosted service at `relay.tend.dev`. The agent never touches it directly. The command is always the same:
+The relay is a lightweight hosted service at `relay.tend.cx`. The agent never touches it directly. The command is always the same:
 
 ```bash
 tend emit working "building auth scaffold"
@@ -167,7 +168,7 @@ On a local machine, that writes to `.tend/events`. On a remote machine with `TEN
 ```bash
 # On your laptop — one-time setup
 td relay setup
-# → Gets a token from relay.tend.dev
+# → Gets a token from relay.tend.cx
 # → Stores it in ~/.tend/relay_token
 # → Prints the token for you to copy
 
@@ -216,6 +217,8 @@ Local agents still just write to a file. If you never set up a relay token, ever
 ---
 
 ## Why Tend Exists
+
+Agentic development is maturing. The early thrill of vibe coding — watching an AI conjure code from thin air — gives way to something deeper: the craft of orchestrating multiple agents across multiple projects, knowing when each one needs you and engineering more of them not to.
 
 You want to run as many agents as possible, across code, docs, ops, and research, at every level of autonomy. Some run for hours unattended. Others need your judgment every few minutes. The mix changes constantly.
 

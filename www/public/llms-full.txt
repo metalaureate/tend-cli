@@ -64,6 +64,7 @@ TEND                                       Wed Mar 18, 19:02
 | `td init [project]` | Initialize `.tend/`, AGENTS.md, shell prompt |
 | `td add [project] "msg"` | Add a TODO |
 | `td add [project]` | Show & manage TODOs (enter # to remove) |
+| `td clear [project]` | Clear events history for a project |
 | `td switch <project>` | Focus the editor window (or `td #N`) |
 | `td emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `td ack [project]` | Clear done/stuck/waiting → idle |
@@ -148,7 +149,7 @@ This updates after every command you run. The uncertainty that drives compulsive
 
 Local agents write to `.tend/events` directly. No network, no accounts, plain text. But agents increasingly run elsewhere: Codex in the cloud, CI pipelines, SSH sessions, remote worktrees.
 
-The relay is a lightweight hosted service at `relay.tend.dev`. The agent never touches it directly. The command is always the same:
+The relay is a lightweight hosted service at `relay.tend.cx`. The agent never touches it directly. The command is always the same:
 
 ```bash
 td emit working "building auth scaffold"
@@ -161,7 +162,7 @@ On a local machine, that writes to `.tend/events`. On a remote machine with `TEN
 ```bash
 # On your laptop — one-time setup
 td relay setup
-# → Gets a token from relay.tend.dev
+# → Gets a token from relay.tend.cx
 # → Stores it in ~/.tend/relay_token
 
 # On each remote environment — set the token
