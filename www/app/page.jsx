@@ -139,7 +139,7 @@ export default function Page() {
                 You&apos;re not the one writing every line anymore. You&apos;re the conductor, the master smith, the head chef — setting direction, tasting the sauce, inspecting the weld, keeping five things moving while giving each one exactly the attention it needs.
               </p>
               <p>
-                Tend is the instrument that makes that feel like flow.
+                Tend is the instrument that makes that feel like flow, rather than endless blockages and interruptions.
               </p>
             </div>
           </div>
