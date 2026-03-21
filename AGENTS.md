@@ -40,16 +40,18 @@ make test
 This writes full output to `.scratch/test_results.txt` and prints the summary.
 
 - Tests use isolated temp directories — no impact on real projects or shell config.
-- If you add a new command or change behavior, add a corresponding test to `test/test_tend.sh`.
-- Tests should be self-contained: each test calls `setup` (creates temp dirs) and `teardown` (cleans up).
-- Use the existing assertion helpers: `assert_eq`, `assert_contains`, `assert_not_contains`, `assert_file_exists`, `assert_exit`.
+- If you add a new command or change behavior, add a corresponding test file under `test/` (e.g. `test/myfeature.test.ts`).
+- Tests are written in TypeScript using [Vitest](https://vitest.dev/).
+- Tests should be self-contained: each test calls `createTestContext()` in `beforeEach` and `ctx.cleanup()` in `afterEach`.
+- Use Vitest's built-in assertions: `expect(x).toBe(y)`, `expect(x).toContain(y)`, `expect(x).toMatch(/pattern/)`, etc.
+- See `test/helpers.ts` for the `createTestContext()` helper and the `TestContext` interface.
 
 ## Terminal Output (VS Code)
 
 VS Code's integrated terminal swallows stdout. **Always** redirect output to a workspace file and read it back with `read_file`:
 
 ```bash
-bash test/test_tend.sh > .scratch/tests.txt 2>&1; echo "EXIT:$?" >> .scratch/tests.txt
+npx vitest run > .scratch/tests.txt 2>&1; echo "EXIT:$?" >> .scratch/tests.txt
 ```
 
 Then use the `read_file` tool on `.scratch/tests.txt` to see results. Tests take ~45 seconds — use a 120-second timeout.
