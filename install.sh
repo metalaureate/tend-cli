@@ -16,7 +16,9 @@ case "$OS" in
   Linux)  os="linux" ;;
   *)
     echo "Error: Unsupported OS: $OS" >&2
-    echo "Tend supports macOS and Linux. Windows users: install via WSL." >&2
+    echo "Tend requires a Unix-like shell and does not run natively on Windows." >&2
+    echo "Windows users: install WSL first, then run this script from a WSL terminal." >&2
+    echo "  https://learn.microsoft.com/en-us/windows/wsl/install" >&2
     exit 1
     ;;
 esac
