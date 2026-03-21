@@ -1,12 +1,35 @@
 import { readFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
 import { join, basename } from 'path';
 import { config } from './config.js';
-import { discoverProjects } from './projects.js';
+import { discoverProjects, detectProject } from './projects.js';
 import { tsLocal } from '../ui/format.js';
 
-/** Read the relay token from env or file */
+/** Get the path to the project-level relay token file in the current git root */
+export function projectRelayTokenFile(): string | null {
+  const project = detectProject();
+  if (!project) return null;
+  return join(project, '.tend', 'relay_token');
+}
+
+/** Read the relay token from env, project file, or global file */
 export function relayToken(): string | null {
+  // 1. Env var takes highest precedence
   if (config.relayToken) return config.relayToken;
+
+  // 2. Project-level .tend/relay_token (committable to git)
+  const projectFile = projectRelayTokenFile();
+  if (projectFile) {
+    try {
+      if (existsSync(projectFile)) {
+        const t = readFileSync(projectFile, 'utf-8').trim();
+        if (t) return t;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 3. Global ~/.tend/relay_token
   try {
     if (existsSync(config.relayTokenFile)) {
       return readFileSync(config.relayTokenFile, 'utf-8').trim();
