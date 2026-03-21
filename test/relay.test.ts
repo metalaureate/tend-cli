@@ -251,4 +251,49 @@ describe('relay', () => {
     // stuck is needs-attention, should show ?
     expect(r.stdout).toContain('?');
   });
+
+  it('relay status shows board URL when token is configured', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'tnd_statustoken1234');
+
+    const r = ctx.tend(['relay', 'status']);
+    expect(r.stdout).toContain('Board URL:');
+    expect(r.stdout).toContain('10.cx/tnd_statustoken1234');
+  });
+
+  it('relay token shows board URL', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'tnd_tokentoken5678');
+
+    const r = ctx.tend(['relay', 'token']);
+    expect(r.stdout).toContain('Board URL:');
+    expect(r.stdout).toContain('10.cx/tnd_tokentoken5678');
+  });
+
+  it('relay debug shows board URL when token is configured', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'tnd_debugtoken9999');
+
+    const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_URL: 'http://127.0.0.1:19999' } });
+    expect(r.stdout).toContain('Board URL:');
+    expect(r.stdout).toContain('10.cx/tnd_debugtoken9999');
+  });
+
+  it('emit dual-writes to local when relay token is set but relay unreachable', () => {
+    const dir = ctx.makeProject('dual-write-proj');
+    ctx.tend(['init'], { cwd: dir });
+
+    // Point to unreachable relay, events should still land locally
+    ctx.tend(['emit', 'working', 'local task'], {
+      cwd: dir,
+      env: { TEND_RELAY_URL: 'http://127.0.0.1:19999', TEND_RELAY_TOKEN: 'tnd_sometoken' },
+    });
+
+    const events = require('fs').readFileSync(join(dir, '.tend', 'events'), 'utf-8');
+    expect(events).toContain('working');
+    expect(events).toContain('local task');
+  });
 });

@@ -313,4 +313,127 @@ describe('Tend Relay', () => {
       expect(response.status).toBe(404);
     });
   });
+
+  describe('GET / (landing page)', () => {
+    it('returns HTML landing page', async () => {
+      const request = new Request('http://localhost/', { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Content-Type')).toContain('text/html');
+      const html = await response.text();
+      expect(html).toContain('tend board');
+      expect(html).toContain('tnd_');
+    });
+  });
+
+  describe('GET /<token> (board view)', () => {
+    it('returns 404 HTML for unknown token', async () => {
+      const request = new Request('http://localhost/tnd_unknowntoken000000', { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(404);
+      const html = await response.text();
+      expect(html).toContain('Token not found');
+    });
+
+    it('returns HTML board for valid token with no events', async () => {
+      const token = await registerToken();
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Content-Type')).toContain('text/html');
+      const html = await response.text();
+      expect(html).toContain('tend board');
+      expect(html).toContain('No events yet');
+    });
+
+    it('shows project and state in board HTML for valid token with events', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app',
+        state: 'working',
+        message: 'building auth',
+        timestamp: '2026-03-14T14:20:00',
+      }, token);
+      await makeRequest('POST', '/v1/events', {
+        project: 'other-proj',
+        state: 'done',
+        message: 'PR ready',
+        timestamp: '2026-03-14T14:30:00',
+      }, token);
+
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      const html = await response.text();
+      expect(html).toContain('my-app');
+      expect(html).toContain('working');
+      expect(html).toContain('building auth');
+      expect(html).toContain('other-proj');
+      expect(html).toContain('done');
+      expect(html).toContain('PR ready');
+    });
+
+    it('shows only latest state per project', async () => {
+      const token = await registerToken();
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app',
+        state: 'working',
+        message: 'old task',
+        timestamp: '2026-03-14T14:00:00',
+      }, token);
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app',
+        state: 'done',
+        message: 'task complete',
+        timestamp: '2026-03-14T15:00:00',
+      }, token);
+
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(response.status).toBe(200);
+      const html = await response.text();
+      expect(html).toContain('done');
+      expect(html).toContain('task complete');
+    });
+
+    it('auto-refresh countdown script is present', async () => {
+      const token = await registerToken();
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const html = await response.text();
+      expect(html).toContain('location.reload');
+      expect(html).toContain('countdown');
+    });
+
+    it('isolates boards between tokens', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'secret-project',
+        state: 'working',
+        message: 'private work',
+      }, token1);
+
+      const request = new Request(`http://localhost/${token2}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const html = await response.text();
+      expect(html).not.toContain('secret-project');
+      expect(html).not.toContain('private work');
+    });
+  });
 });

@@ -4,6 +4,8 @@ import { config } from '../core/config.js';
 import { relayToken, relaySync, projectRelayTokenFile } from '../core/relay.js';
 import { readEvents } from '../core/events.js';
 
+const BOARD_URL_BASE = 'https://10.cx';
+
 export async function cmdRelay(args: string[]): Promise<void> {
   const subcmd = args[0];
 
@@ -102,18 +104,19 @@ function relayStatus(): void {
   }
 
   const masked = `${token.slice(0, 8)}...${token.slice(-4)}`;
-  process.stdout.write(`Relay:  ${config.relayUrl}\n`);
-  process.stdout.write(`Token:  ${masked}\n`);
+  process.stdout.write(`Relay:     ${config.relayUrl}\n`);
+  process.stdout.write(`Token:     ${masked}\n`);
+  process.stdout.write(`Board URL: ${BOARD_URL_BASE}/${token}\n`);
 
   if (existsSync(config.relayCacheDir)) {
     try {
       const count = readdirSync(config.relayCacheDir).length;
-      process.stdout.write(`Cached: ${count} project(s)\n`);
+      process.stdout.write(`Cached:    ${count} project(s)\n`);
     } catch {
-      process.stdout.write('Cache:  empty\n');
+      process.stdout.write('Cache:     empty\n');
     }
   } else {
-    process.stdout.write('Cache:  empty\n');
+    process.stdout.write('Cache:     empty\n');
   }
 }
 
@@ -162,6 +165,8 @@ function relayShowToken(): void {
 
   process.stdout.write(`${token}
 
+Board URL: ${BOARD_URL_BASE}/${token}
+
 Commit the token to your project for cloud agents (no env var needed):
   cd <your-project>
   tend relay link
@@ -190,6 +195,9 @@ async function relayDebug(): Promise<void> {
 
   process.stdout.write(`Relay URL:  ${config.relayUrl}\n`);
   process.stdout.write(`Token:      ${token ? `configured (${token.slice(0, 8)}...${token.slice(-4)})` : 'not configured'}\n`);
+  if (token) {
+    process.stdout.write(`Board URL:  ${BOARD_URL_BASE}/${token}\n`);
+  }
 
   let tokenSrc: string;
   let showHint = false;
