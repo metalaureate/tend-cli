@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestContext, type TestContext } from './helpers.js';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 let ctx: TestContext;
@@ -24,6 +24,27 @@ describe('init', () => {
     expect(content).toContain('Tend Integration');
     expect(content).toContain('tend emit');
     expect(content).toContain('.tend/events');
+  });
+
+  it('AGENTS.md includes relay instructions with TEND_RELAY_TOKEN', () => {
+    const dir = ctx.makeProject('bravo3');
+    ctx.tend(['init'], { cwd: dir });
+    const content = readFileSync(join(dir, 'AGENTS.md'), 'utf-8');
+    expect(content).toContain('TEND_RELAY_TOKEN');
+    expect(content).toContain('tend relay debug');
+    expect(content).toContain('Relay');
+  });
+
+  it('updates stale AGENTS.md block missing relay instructions', () => {
+    const dir = ctx.makeProject('bravo4');
+    const agentsFile = join(dir, 'AGENTS.md');
+    // Simulate an old AGENTS.md block that has the marker and "always emit when you finish"
+    // but lacks relay instructions
+    writeFileSync(agentsFile, '## Tend Integration\n\n**IMPORTANT: always emit when you finish** a task.\n');
+    ctx.tend(['init'], { cwd: dir });
+    const content = readFileSync(agentsFile, 'utf-8');
+    expect(content).toContain('TEND_RELAY_TOKEN');
+    expect(content).toContain('tend relay debug');
   });
 
   it('appends to existing AGENTS.md', () => {
