@@ -114,6 +114,16 @@ describe('relay', () => {
     expect(r.stdout).toContain('Token src:  none');
   });
 
+  it('debug shows session id when TEND_SESSION_ID is set', () => {
+    const r = ctx.tend(['relay', 'debug'], { env: { TEND_SESSION_ID: 'my-agent-42' } });
+    expect(r.stdout).toContain('Session ID: my-agent-42');
+  });
+
+  it('debug shows session id as not set when TEND_SESSION_ID is not set', () => {
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Session ID: not set');
+  });
+
   it('usage includes debug subcommand', () => {
     const r = ctx.tend(['relay']);
     expect(r.stdout).toContain('debug');
