@@ -44,7 +44,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              Some agents need you every few minutes. Others run for hours untouched. The craft is knowing when each one needs you — and engineering more of them not to. Tend is the instrument that makes that feel like flow.
+              A pull-based status board for developers running multiple AI agents. Glance when you&apos;re ready. Route yourself to what needs you. Get back to work.
             </p>
 
             {/* The Board */}
@@ -126,20 +126,20 @@ export default function Page() {
             <p className="why-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Why Tend exists</p>
 
             <h2 className="why-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              Stoke. Tend. Flow.
+              Pull, not push.
             </h2>
 
             <p className="why-el font-mono text-xs text-smoke/70 mt-4">For developers running 2+ AI agents across projects.</p>
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                Agentic development is maturing. The early thrill of vibe coding — watching an AI conjure code from thin air — gives way to something deeper: the craft of orchestrating multiple agents across multiple projects, knowing when each one needs you and engineering more of them not to.
+                Running multiple AI agents simultaneously is the new normal. Some finish in minutes, others run for hours. The problem isn&apos;t the agents — it&apos;s knowing when each one needs you without that knowledge becoming a second job.
               </p>
               <p>
-                You&apos;re not the one writing every line anymore. You&apos;re the conductor, the master smith, the head chef — setting direction, tasting the sauce, inspecting the weld, keeping five things moving while giving each one exactly the attention it needs.
+                Dashboards are a permanent invitation to break focus. Notification badges are interrupts. They add vigilance, not concentration.
               </p>
               <p>
-                Tend is the instrument that makes that feel like flow, rather than endless blockages and interruptions.
+                Tend uses a different model: you glance at the board when you&apos;re ready, not when a badge demands it. When it says <span className="font-mono">○</span>, nothing needs you. The uncertainty that drives compulsive tab-switching is gone.
               </p>
             </div>
           </div>
