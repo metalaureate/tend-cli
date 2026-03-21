@@ -21,7 +21,7 @@ export async function cmdRelay(args: string[]): Promise<void> {
       relayShowToken();
       break;
     case 'debug':
-      relayDebug();
+      await relayDebug();
       break;
     case undefined:
     case '':
@@ -128,7 +128,7 @@ Set in your remote environment (Codespaces, CI, etc.):
 `);
 }
 
-function relayDebug(): void {
+async function relayDebug(): Promise<void> {
   const token = relayToken();
   const envToken = process.env.TEND_RELAY_TOKEN;
   const fileToken = existsSync(config.relayTokenFile)
@@ -143,40 +143,67 @@ function relayDebug(): void {
   if (!existsSync(config.relayCacheDir)) {
     process.stdout.write('Projects:   0\n');
     process.stdout.write('Sessions:   0\n');
-    process.stdout.write('\nNo relay sessions seen yet.\n');
-    return;
-  }
+  } else {
+    let projects: string[] = [];
+    try {
+      projects = readdirSync(config.relayCacheDir);
+    } catch {
+      // ignore
+    }
 
-  let projects: string[] = [];
-  try {
-    projects = readdirSync(config.relayCacheDir);
-  } catch {
-    // ignore
-  }
+    process.stdout.write(`Projects:   ${projects.length}\n`);
 
-  process.stdout.write(`Projects:   ${projects.length}\n`);
+    const sessions = new Set<string>();
+    for (const project of projects) {
+      const cacheFile = join(config.relayCacheDir, project);
+      const events = readEvents(cacheFile);
+      for (const e of events) {
+        // Skip local CLI sessions ('_cli'), old-format events with no session ID,
+        // and reset markers (e.g. '*' or '*@user') — only count genuine remote sessions.
+        if (e.sessionId && e.sessionId !== '_cli' && !e.sessionId.startsWith('*')) {
+          sessions.add(e.sessionId);
+        }
+      }
+    }
 
-  const sessions = new Set<string>();
-  for (const project of projects) {
-    const cacheFile = join(config.relayCacheDir, project);
-    const events = readEvents(cacheFile);
-    for (const e of events) {
-      // Skip local CLI sessions ('_cli'), old-format events with no session ID,
-      // and reset markers (e.g. '*' or '*@user') — only count genuine remote sessions.
-      if (e.sessionId && e.sessionId !== '_cli' && !e.sessionId.startsWith('*')) {
-        sessions.add(e.sessionId);
+    process.stdout.write(`Sessions:   ${sessions.size}\n`);
+
+    if (sessions.size > 0) {
+      process.stdout.write('\nSessions seen:\n');
+      for (const s of [...sessions].sort()) {
+        process.stdout.write(`  ${s}\n`);
       }
     }
   }
 
-  process.stdout.write(`Sessions:   ${sessions.size}\n`);
-
-  if (sessions.size === 0) {
+  // Live relay connectivity check
+  if (!token) {
     process.stdout.write('\nNo relay sessions seen yet.\n');
-  } else {
-    process.stdout.write('\nSessions seen:\n');
-    for (const s of [...sessions].sort()) {
-      process.stdout.write(`  ${s}\n`);
+    return;
+  }
+
+  process.stdout.write('\nChecking relay...\n');
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/projects`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.ok) {
+      const data = await response.json() as { projects: string[] };
+      const relayProjects = data.projects || [];
+      process.stdout.write(`Relay:      ✓ connected (${relayProjects.length} project${relayProjects.length === 1 ? '' : 's'} on relay)\n`);
+      if (relayProjects.length === 0) {
+        process.stdout.write('\nNo relay sessions seen yet.\n');
+      }
+    } else {
+      process.stdout.write(`Relay:      ✗ error (HTTP ${response.status})\n`);
+    }
+  } catch (err) {
+    const isTimeout = err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError');
+    if (isTimeout) {
+      process.stdout.write(`Relay:      ✗ timed out connecting to ${config.relayUrl}\n`);
+    } else {
+      process.stdout.write(`Relay:      ✗ could not connect to ${config.relayUrl}\n`);
     }
   }
 }
