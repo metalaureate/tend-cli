@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestContext, type TestContext } from './helpers.js';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 let ctx: TestContext;
@@ -38,5 +38,25 @@ describe('emit', () => {
     const dir = ctx.makeProject('kilo');
     const r = ctx.tend(['emit', 'working', 'test'], { cwd: dir });
     expect(r.exitCode).toBe(1);
+  });
+
+  it('uses relay when relay_token file is configured', () => {
+    const dir = ctx.makeProject('lima');
+    ctx.tend(['init'], { cwd: dir });
+
+    // Write a relay token file (pointing to an unreachable URL so it falls back to local)
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'tnd_filetoken1234');
+
+    const r = ctx.tend(['emit', 'working', 'relayed event'], {
+      cwd: dir,
+      env: { TEND_RELAY_URL: 'http://127.0.0.1:19999' },
+    });
+    // Relay attempt was made (fell back to local on connection error) — process exits 0
+    // and the local events file has the event written as fallback
+    expect(r.exitCode).toBe(0);
+    const events = readFileSync(join(dir, '.tend', 'events'), 'utf-8');
+    expect(events).toContain('relayed event');
   });
 });

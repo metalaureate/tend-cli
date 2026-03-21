@@ -114,6 +114,25 @@ describe('relay', () => {
     expect(r.stdout).toContain('Token src:  none');
   });
 
+  it('debug shows emit mode as local when no token', () => {
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Emit mode:  local');
+  });
+
+  it('debug shows emit mode as relay when file token is configured', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'abcdef1234567890');
+
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Emit mode:  relay →');
+  });
+
+  it('debug shows emit mode as relay when env token is configured', () => {
+    const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_TOKEN: 'tnd_envtoken1234' } });
+    expect(r.stdout).toContain('Emit mode:  relay →');
+  });
+
   it('debug shows session id when TEND_SESSION_ID is set', () => {
     const r = ctx.tend(['relay', 'debug'], { env: { TEND_SESSION_ID: 'my-agent-42' } });
     expect(r.stdout).toContain('Session ID: my-agent-42');

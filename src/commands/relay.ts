@@ -138,6 +138,7 @@ async function relayDebug(): Promise<void> {
   process.stdout.write(`Relay URL:  ${config.relayUrl}\n`);
   process.stdout.write(`Token:      ${token ? `configured (${token.slice(0, 8)}...${token.slice(-4)})` : 'not configured'}\n`);
   process.stdout.write(`Token src:  ${envToken ? 'env (TEND_RELAY_TOKEN)' : fileToken ? `file (${config.relayTokenFile})` : 'none'}\n`);
+  process.stdout.write(`Emit mode:  ${token ? `relay → ${config.relayUrl}` : 'local'}\n`);
   process.stdout.write(`Session ID: ${config.sessionId || 'not set (events will use _cli)'}\n`);
   process.stdout.write(`Cache dir:  ${config.relayCacheDir}\n`);
 
