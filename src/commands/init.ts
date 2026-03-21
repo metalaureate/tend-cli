@@ -40,6 +40,19 @@ curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/bin/tend 
 - Emit \`tend emit done "<summary of what you accomplished>"\` before going idle.
 - If there are items in \`.tend/TODO\`, note the next item but wait for the developer to assign it (do not auto-start).
 
+### Relay (Cloud Monitoring)
+
+If \`TEND_RELAY_TOKEN\` is set in your environment, \`tend emit\` automatically posts events to the relay so the developer can monitor your progress in real-time.
+
+Verify relay connectivity at startup:
+
+\`\`\`bash
+echo "TEND_RELAY_TOKEN=\${TEND_RELAY_TOKEN:-NOT SET}"
+tend relay debug
+\`\`\`
+
+If the token is not set and you are running in a remote or cloud environment, inform the developer so they can provide \`TEND_RELAY_TOKEN\` for your session.
+
 ### Event Format
 
 If \`tend\` is not available, append a single line to \`.tend/events\`:
@@ -113,7 +126,7 @@ export function cmdInit(args: string[]): void {
     if (!content.includes(TEND_MARKER)) {
       appendFileSync(agentsFile, '\n' + AGENTS_TEMPLATE);
       process.stdout.write(`✓ Added tend integration to AGENTS.md in ${projectName}\n`);
-    } else if (!content.includes('always emit when you finish')) {
+    } else if (!content.includes('always emit when you finish') || !content.includes('TEND_RELAY_TOKEN')) {
       // Outdated block — replace it
       replaceAgentsBlock(agentsFile);
       process.stdout.write(`✓ Updated tend integration in AGENTS.md in ${projectName}\n`);
