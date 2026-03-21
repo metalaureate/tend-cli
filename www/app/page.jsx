@@ -133,10 +133,10 @@ export default function Page() {
 
             <div className="why-el mt-8 font-body text-smoke text-base md:text-lg leading-relaxed space-y-5 max-w-2xl">
               <p>
-                Some work is conversational: tight, turn by turn, you and an agent building something together. Some runs for hours untouched. Most sits somewhere in between — a check-in here, a course correction there.
+                Agentic development is maturing. The early thrill of vibe coding — watching an AI conjure code from thin air — gives way to something deeper: the craft of orchestrating multiple agents across multiple projects, knowing when each one needs you and engineering more of them not to.
               </p>
               <p>
-                The skill is moving fluidly across that distribution — present when it matters, free when it doesn&apos;t — without losing the thread of any of it. The craft is knowing when each agent needs you, and getting better over time at engineering more of them not to.
+                You&apos;re not the one writing every line anymore. You&apos;re the conductor, the master smith, the head chef — setting direction, tasting the sauce, inspecting the weld, keeping five things moving while giving each one exactly the attention it needs.
               </p>
               <p>
                 Tend is the instrument that makes that feel like flow.
