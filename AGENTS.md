@@ -13,6 +13,12 @@ This project uses Tend for workflow coordination.
 - `tend emit stuck "<what you need>"` — emit when you cannot proceed without human input (e.g., need a decision, credentials, access, or clarification).
 - `tend emit waiting "<what you're waiting for>"` — emit when blocked on an external dependency (e.g., CI, deployment, API response).
 
+> **Relay**: If `TEND_RELAY_TOKEN` is set in your bash environment, `tend emit` posts events to the relay so the developer sees them on their board. Verify with:
+> ```bash
+> echo "TEND_RELAY_TOKEN=${TEND_RELAY_TOKEN:-NOT SET}"
+> tend relay debug
+> ```
+
 If `tend` is not on PATH, append directly:
 ```bash
 echo "$(date +%Y-%m-%dT%H:%M:%S) ${TEND_SESSION_ID:-_cli} done <summary>" >> .tend/events

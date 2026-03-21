@@ -130,9 +130,14 @@ Set in your remote environment (Codespaces, CI, etc.):
 
 function relayDebug(): void {
   const token = relayToken();
+  const envToken = process.env.TEND_RELAY_TOKEN;
+  const fileToken = existsSync(config.relayTokenFile)
+    ? readFileSync(config.relayTokenFile, 'utf-8').trim()
+    : null;
 
   process.stdout.write(`Relay URL:  ${config.relayUrl}\n`);
   process.stdout.write(`Token:      ${token ? `configured (${token.slice(0, 8)}...${token.slice(-4)})` : 'not configured'}\n`);
+  process.stdout.write(`Token src:  ${envToken ? 'env (TEND_RELAY_TOKEN)' : fileToken ? `file (${config.relayTokenFile})` : 'none'}\n`);
   process.stdout.write(`Cache dir:  ${config.relayCacheDir}\n`);
 
   if (!existsSync(config.relayCacheDir)) {
