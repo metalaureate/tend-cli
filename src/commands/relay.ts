@@ -209,8 +209,7 @@ async function relayDebug(): Promise<void> {
       if (relayProjects.length === 0) {
         process.stdout.write('\nNo cloud agent events received yet.\n');
         process.stdout.write('Ensure TEND_RELAY_TOKEN is set in your remote agent environment:\n');
-        process.stdout.write('  export TEND_RELAY_TOKEN="<your token>"\n');
-        process.stdout.write('Copy your token with: tend relay token\n');
+        process.stdout.write(`  export TEND_RELAY_TOKEN="${token}"\n`);
       }
     } else {
       process.stdout.write(`Relay:      ✗ error (HTTP ${response.status})\n`);
