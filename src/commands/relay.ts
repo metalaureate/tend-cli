@@ -74,8 +74,12 @@ async function relaySetup(): Promise<void> {
 Your relay token:
   ${token}
 
-Set this on remote environments:
+Set this in your remote agent environment (Codespaces, CI, etc.):
   export TEND_RELAY_TOKEN="${token}"
+
+Verify the token is available in the agent session:
+  echo "TEND_RELAY_TOKEN=\${TEND_RELAY_TOKEN:-NOT SET}"
+  tend relay debug
 `);
 }
 
@@ -123,8 +127,12 @@ function relayShowToken(): void {
 
   process.stdout.write(`${token}
 
-Set in your remote environment (Codespaces, CI, etc.):
+Set in your remote agent environment (Codespaces, CI, etc.):
   export TEND_RELAY_TOKEN="${token}"
+
+Verify the token is available in the agent session:
+  echo "TEND_RELAY_TOKEN=\${TEND_RELAY_TOKEN:-NOT SET}"
+  tend relay debug
 `);
 }
 
@@ -138,6 +146,10 @@ async function relayDebug(): Promise<void> {
   process.stdout.write(`Relay URL:  ${config.relayUrl}\n`);
   process.stdout.write(`Token:      ${token ? `configured (${token.slice(0, 8)}...${token.slice(-4)})` : 'not configured'}\n`);
   process.stdout.write(`Token src:  ${envToken ? 'env (TEND_RELAY_TOKEN)' : fileToken ? `file (${config.relayTokenFile})` : 'none'}\n`);
+  if (fileToken && !envToken) {
+    process.stdout.write(`            ↳ cloud agents need TEND_RELAY_TOKEN set as an env var\n`);
+    process.stdout.write(`               export TEND_RELAY_TOKEN="$(tend relay token | head -1)"\n`);
+  }
   process.stdout.write(`Emit mode:  ${token ? `relay → ${config.relayUrl}` : 'local'}\n`);
   process.stdout.write(`Session ID: ${config.sessionId || 'not set (events will use _cli)'}\n`);
   process.stdout.write(`Cache dir:  ${config.relayCacheDir}\n`);

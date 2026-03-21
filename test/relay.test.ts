@@ -84,12 +84,14 @@ describe('relay', () => {
     expect(r.stdout).toContain('Token:      configured');
     expect(r.stdout).toContain('abcdef12');
     expect(r.stdout).toContain('Token src:  file');
+    expect(r.stdout).toContain('cloud agents need TEND_RELAY_TOKEN');
   });
 
   it('debug shows env token source when TEND_RELAY_TOKEN env var is set', () => {
     const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_TOKEN: 'tnd_envtoken1234' } });
     expect(r.stdout).toContain('Token:      configured');
     expect(r.stdout).toContain('Token src:  env (TEND_RELAY_TOKEN)');
+    expect(r.stdout).not.toContain('cloud agents need TEND_RELAY_TOKEN');
   });
 
   it('debug performs live relay check when token is configured', () => {
