@@ -1,6 +1,6 @@
 import { resolveProjectPath, resolveProjectName } from '../core/projects.js';
 import { appendEvent, sanitizeUserTag } from '../core/events.js';
-import { relayEmit } from '../core/relay.js';
+import { relayEmit, relayToken } from '../core/relay.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { isValidState, type State } from '../types.js';
@@ -25,8 +25,9 @@ export async function cmdEmit(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set
-  if (config.relayToken) {
+  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set (env var) or relay_token file exists
+  const token = relayToken();
+  if (token) {
     let projectName: string;
     try {
       projectName = resolveProjectName();

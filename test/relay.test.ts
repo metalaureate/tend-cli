@@ -84,12 +84,14 @@ describe('relay', () => {
     expect(r.stdout).toContain('Token:      configured');
     expect(r.stdout).toContain('abcdef12');
     expect(r.stdout).toContain('Token src:  file');
+    expect(r.stdout).toContain('cloud agents need TEND_RELAY_TOKEN');
   });
 
   it('debug shows env token source when TEND_RELAY_TOKEN env var is set', () => {
     const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_TOKEN: 'tnd_envtoken1234' } });
     expect(r.stdout).toContain('Token:      configured');
     expect(r.stdout).toContain('Token src:  env (TEND_RELAY_TOKEN)');
+    expect(r.stdout).not.toContain('cloud agents need TEND_RELAY_TOKEN');
   });
 
   it('debug performs live relay check when token is configured', () => {
@@ -112,6 +114,35 @@ describe('relay', () => {
   it('debug shows none token source when no token configured', () => {
     const r = ctx.tend(['relay', 'debug']);
     expect(r.stdout).toContain('Token src:  none');
+  });
+
+  it('debug shows emit mode as local when no token', () => {
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Emit mode:  local');
+  });
+
+  it('debug shows emit mode as relay when file token is configured', () => {
+    const tendDir = join(ctx.home, '.tend');
+    mkdirSync(tendDir, { recursive: true });
+    writeFileSync(join(tendDir, 'relay_token'), 'abcdef1234567890');
+
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Emit mode:  relay →');
+  });
+
+  it('debug shows emit mode as relay when env token is configured', () => {
+    const r = ctx.tend(['relay', 'debug'], { env: { TEND_RELAY_TOKEN: 'tnd_envtoken1234' } });
+    expect(r.stdout).toContain('Emit mode:  relay →');
+  });
+
+  it('debug shows session id when TEND_SESSION_ID is set', () => {
+    const r = ctx.tend(['relay', 'debug'], { env: { TEND_SESSION_ID: 'my-agent-42' } });
+    expect(r.stdout).toContain('Session ID: my-agent-42');
+  });
+
+  it('debug shows session id as not set when TEND_SESSION_ID is not set', () => {
+    const r = ctx.tend(['relay', 'debug']);
+    expect(r.stdout).toContain('Session ID: not set');
   });
 
   it('usage includes debug subcommand', () => {

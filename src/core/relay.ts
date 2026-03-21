@@ -24,7 +24,7 @@ export async function relayEmit(
   message: string = '',
   sessionId: string = '',
 ): Promise<boolean> {
-  const token = config.relayToken;
+  const token = relayToken();
   if (!token) return false;
 
   const ts = tsLocal();
