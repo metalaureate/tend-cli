@@ -231,7 +231,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
     </div>
     <div class="statusbar">
       <span>tend board &nbsp;·&nbsp; updated <span id="updated-at">${updatedAt}</span> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
-      <span>10.cx</span>
+      <span>tend.cx</span>
     </div>
     <div class="board">
       <div class="board-header">
@@ -375,7 +375,7 @@ function buildLandingHtml(): string {
       if (!t) return;
       window.location.href = '/' + encodeURIComponent(t);
     }
-    // Auto-fill from URL hash if present (e.g. 10.cx/#tnd_xxx)
+    // Auto-fill from URL hash if present (e.g. tend.cx/#tnd_xxx)
     if (window.location.hash) {
       var t = window.location.hash.slice(1);
       if (t) { document.getElementById('token-input').value = t; }

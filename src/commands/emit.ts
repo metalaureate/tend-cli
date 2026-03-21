@@ -25,39 +25,18 @@ export async function cmdEmit(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // Relay mode: POST to relay when TEND_RELAY_TOKEN is set (env var) or relay_token file exists
-  const token = relayToken();
-  let relayOk = false;
-  if (token) {
-    let projectName: string;
+  // Always write locally first.
+  const projectPath = (() => {
     try {
-      projectName = resolveProjectName();
-    } catch {
-      projectName = process.cwd().split('/').pop() || 'unknown';
+      return resolveProjectPath();
+    } catch (e) {
+      process.stderr.write(`tend: ${(e as Error).message}\n`);
+      process.exit(1);
     }
-    const rawEmail = gitUserEmail(process.cwd());
-    const rawSessionId = config.sessionId || '';
-    const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
-    relayOk = await relayEmit(projectName, state, message, sessionId);
-    if (!relayOk) {
-      process.stderr.write('tend: relay unreachable, falling back to local\n');
-    }
-  }
-
-  // Attempt to write locally too (so local board reflects current state).
-  // If relay already succeeded and local is not initialized, skip silently.
-  let projectPath: string;
-  try {
-    projectPath = resolveProjectPath();
-  } catch (e) {
-    if (relayOk) return; // relay succeeded, local not available — that's fine
-    process.stderr.write(`tend: ${(e as Error).message}\n`);
-    process.exit(1);
-  }
+  })();
 
   const tendDir = join(projectPath, '.tend');
   if (!existsSync(tendDir)) {
-    if (relayOk) return; // relay succeeded, local not initialized — that's fine
     process.stderr.write("tend: .tend/ not initialized. Run 'tend init' first.\n");
     process.exit(1);
   }
@@ -68,4 +47,19 @@ export async function cmdEmit(args: string[]): Promise<void> {
   const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
   appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, state as State, message);
   invalidateStatusCache();
+
+  // Also send to relay if a token is configured (best-effort, does not affect local write).
+  const token = relayToken();
+  if (token) {
+    let projectName: string;
+    try {
+      projectName = resolveProjectName();
+    } catch {
+      projectName = process.cwd().split('/').pop() || 'unknown';
+    }
+    const rawEmailRelay = gitUserEmail(process.cwd());
+    const rawSessionIdRelay = config.sessionId || '';
+    const sessionIdRelay = rawEmailRelay ? `${rawSessionIdRelay}@${sanitizeUserTag(rawEmailRelay)}` : rawSessionIdRelay;
+    await relayEmit(projectName, state, message, sessionIdRelay);
+  }
 }
