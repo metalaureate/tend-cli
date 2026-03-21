@@ -67,6 +67,8 @@ curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/install.s
 
 Downloads the latest release binary for your platform (macOS arm64/x64, Linux x64/arm64). Installs to `/usr/local/bin` with a `td` symlink.
 
+> **Windows users:** Tend requires a Unix-like shell and does not run natively on Windows. Use [WSL (Windows Subsystem for Linux)](https://learn.microsoft.com/en-us/windows/wsl/install) to run tend. Once WSL is set up, run the install command above from your WSL terminal.
+
 Or build from source:
 
 ```bash

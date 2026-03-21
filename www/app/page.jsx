@@ -229,6 +229,12 @@ export default function Page() {
               <span className="font-mono text-anvil">td init</span> creates the event log, installs agent hooks for both Copilot and Claude Code, and writes the protocol to AGENTS.md. Run <span className="font-mono text-anvil">td</span> from anywhere to see your board.
             </p>
 
+            <p className="inst-el font-body text-smoke/50 text-xs mt-4 leading-relaxed max-w-2xl">
+              macOS and Linux only. Windows users: install{' '}
+              <a href="https://learn.microsoft.com/en-us/windows/wsl/install" target="_blank" rel="noopener noreferrer" className="underline hover:text-smoke/80 transition-colors">WSL</a>
+              {' '}first, then run the install command from a WSL terminal.
+            </p>
+
             {/* Help output */}
             <div className="inst-el mt-10 bg-anvil rounded-[1.25rem] overflow-hidden">
               <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
