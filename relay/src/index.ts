@@ -89,15 +89,20 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
     const icon = stateIcon(r.state);
     const cls = stateClass(r.state);
     const name = r.project.length > 19 ? r.project.slice(0, 18) + '…' : r.project;
+    const fullName = r.project.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const msg = (r.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const ts = r.timestamp ? `data-ts="${r.timestamp.replace(/"/g, '')}"` : '';
-    return `<div class="row">
-      <span class="icon ${cls}">${icon}</span>
-      <span class="name">${name}</span>
+    const isoTs = r.timestamp ? r.timestamp.replace(/"/g, '') : '';
+    const tsAttr = isoTs ? `data-ts="${isoTs}"` : '';
+    const timeEl = isoTs
+      ? `<time class="time ${cls}" datetime="${isoTs}" ${tsAttr}></time>`
+      : `<span class="time ${cls}"></span>`;
+    return `<article class="row" data-project="${fullName}" data-state="${r.state}">
+      <span class="icon ${cls}" aria-hidden="true">${icon}</span>
+      <span class="name" title="${fullName}">${name}</span>
       <span class="state ${cls}">${r.state}</span>
       <span class="msg">${msg}</span>
-      <span class="time ${cls}" ${ts}></span>
-    </div>`;
+      ${timeEl}
+    </article>`;
   }).join('\n');
 
   const stuckCount = rows.filter(r => r.state === 'stuck' || r.state === 'waiting').length;
@@ -154,21 +159,21 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
     .dot-red   { background: rgba(232,85,61,0.4); }
     .dot-yel   { background: rgba(234,179,8,0.4); }
     .dot-grn   { background: rgba(46,158,110,0.4); }
-    .titlebar-label { font-size: 11px; color: rgba(138,138,138,0.4); margin-left: 6px; }
+    .titlebar-label { font-size: 11px; color: rgba(138,138,138,0.65); margin-left: 6px; }
     .statusbar {
       display: flex;
       justify-content: space-between;
       padding: 6px 14px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
       font-size: 11px;
-      color: rgba(138,138,138,0.5);
+      color: rgba(168,168,168,0.8);
     }
     .board { padding: 16px 14px 12px; }
     .board-header {
       display: flex;
       justify-content: space-between;
       margin-bottom: 14px;
-      color: rgba(245,242,235,0.6);
+      color: rgba(245,242,235,0.75);
       font-weight: 600;
       letter-spacing: 0.08em;
       font-size: 11px;
@@ -186,7 +191,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: rgba(245,242,235,0.7);
+      color: rgba(245,242,235,0.85);
       margin-left: 4px;
     }
     .state { width: 72px; flex-shrink: 0; font-size: 11px; }
@@ -195,29 +200,29 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      color: rgba(138,138,138,0.6);
+      color: rgba(168,168,168,0.85);
     }
-    .time { flex-shrink: 0; margin-left: 8px; font-size: 11px; color: rgba(138,138,138,0.35); }
+    .time { flex-shrink: 0; margin-left: 8px; font-size: 11px; color: rgba(168,168,168,0.6); }
     .footer {
       margin-top: 14px;
       padding-top: 10px;
       border-top: 1px solid rgba(255,255,255,0.05);
       font-size: 11px;
-      color: rgba(138,138,138,0.4);
+      color: rgba(168,168,168,0.7);
     }
     .empty {
-      color: rgba(138,138,138,0.4);
+      color: rgba(168,168,168,0.7);
       font-size: 12px;
       padding: 8px 0;
     }
-    .empty code { color: rgba(245,242,235,0.5); }
+    .empty code { color: rgba(245,242,235,0.65); }
     /* State colours */
     .ember   { color: #E8553D; }
     .patina  { color: #2E9E6E; }
     .working { color: #20A890; }
-    .idle    { color: rgba(138,138,138,0.45); }
+    .idle    { color: rgba(168,168,168,0.65); }
     /* Countdown */
-    .countdown { color: rgba(138,138,138,0.5); }
+    .countdown { color: rgba(168,168,168,0.8); }
     .countdown.warn { color: #E8553D; }
   </style>
 </head>
@@ -229,19 +234,21 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string): string {
       <span class="dot dot-grn"></span>
       <span class="titlebar-label">$ tend</span>
     </div>
-    <div class="statusbar">
-      <span>tend board &nbsp;·&nbsp; updated <span id="updated-at">${updatedAt}</span> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
+    <nav class="statusbar" aria-label="Board status">
+      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at">${updatedAt}</time> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
       <span>tend.cx</span>
-    </div>
-    <div class="board">
-      <div class="board-header">
+    </nav>
+    <main class="board" role="main">
+      <header class="board-header">
         <span>TEND</span>
-        <span id="datestamp"></span>
-      </div>
+        <time id="datestamp"></time>
+      </header>
+      <section class="project-list" aria-label="Projects">
       ${emptyMsg}
       ${rowsHtml}
-      <div class="footer">${footerHtml}</div>
-    </div>
+      </section>
+      <footer class="footer">${footerHtml}</footer>
+    </main>
   </div>
   <script>
     // Datestamp
@@ -443,6 +450,82 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
   return htmlResponse(buildBoardHtml(result.results, updatedAt));
 }
 
+function buildLlmsTxt(rows: ProjectRow[], updatedAt: string): string {
+  const now = new Date();
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const datestamp = `${days[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  const stuckCount = rows.filter(r => r.state === 'stuck' || r.state === 'waiting').length;
+  const doneCount = rows.filter(r => r.state === 'done').length;
+  const workingCount = rows.filter(r => r.state === 'working').length;
+  const idleCount = rows.filter(r => r.state === 'idle').length;
+
+  let out = `# Tend Board\n`;
+  out += `> Last updated: ${updatedAt} | ${datestamp}\n\n`;
+  out += `## Summary\n`;
+  out += `- Total projects: ${rows.length}\n`;
+  if (stuckCount > 0) out += `- Needs attention: ${stuckCount}\n`;
+  if (workingCount > 0) out += `- Working: ${workingCount}\n`;
+  if (doneCount > 0) out += `- Done: ${doneCount}\n`;
+  if (idleCount > 0) out += `- Idle: ${idleCount}\n`;
+  out += `\n## Projects\n\n`;
+
+  if (rows.length === 0) {
+    out += `No events yet.\n`;
+  } else {
+    for (const r of rows) {
+      out += `### ${r.project}\n`;
+      out += `- State: ${r.state}\n`;
+      if (r.message) out += `- Message: ${r.message}\n`;
+      if (r.timestamp) out += `- Last event: ${r.timestamp}\n`;
+      out += `\n`;
+    }
+  }
+
+  return out;
+}
+
+function textResponse(body: string, status = 200): Response {
+  return new Response(body, {
+    status,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
+async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string): Promise<Response> {
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+
+  const tokenHash = await hashToken(rawToken);
+  const tokenRow = await db.prepare('SELECT token_hash FROM tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first<{ token_hash: string }>();
+
+  if (!tokenRow) {
+    return textResponse('# Tend Board\n\nToken not found.\n', 404);
+  }
+
+  const result = await db.prepare(`
+    SELECT e.project, e.state, e.message, e.timestamp
+    FROM events e
+    INNER JOIN (
+      SELECT project, MAX(id) AS max_id
+      FROM events
+      WHERE token_hash = ?
+      GROUP BY project
+    ) latest ON e.project = latest.project AND e.id = latest.max_id
+    WHERE e.token_hash = ?
+    ORDER BY e.project
+  `).bind(tokenHash, tokenHash).all<ProjectRow>();
+
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const updatedAt = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+  return textResponse(buildLlmsTxt(result.results, updatedAt));
+}
+
 async function handleLandingPage(_request: Request): Promise<Response> {
   return htmlResponse(buildLandingHtml());
 }
@@ -560,6 +643,12 @@ export default {
     if (request.method === 'GET' && /^\/tnd_[a-z0-9]+$/i.test(path)) {
       const rawToken = decodeURIComponent(path.slice(1));
       return handleBoardView(request, env.DB, rawToken);
+    }
+
+    // LLM-readable plain text: GET /<token>/llms.txt
+    if (request.method === 'GET' && /^\/tnd_[a-z0-9]+\/llms\.txt$/i.test(path)) {
+      const rawToken = decodeURIComponent(path.split('/')[1]);
+      return handleLlmsTxt(request, env.DB, rawToken);
     }
 
     // Registration (no auth)
