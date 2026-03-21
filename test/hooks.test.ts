@@ -142,6 +142,8 @@ describe('hooks', () => {
     const lastEvent = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').pop()!;
     expect(lastEvent).toContain('idle');
   });
+
+  it('session-start does not write to events file', () => {
     const dir = ctx.makeProject('papa2');
     ctx.tend(['init'], { cwd: dir });
     const beforeCount = readFileSync(join(dir, '.tend', 'events'), 'utf-8').trim().split('\n').filter(l => l).length;
