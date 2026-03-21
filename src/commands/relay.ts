@@ -150,6 +150,8 @@ function relayLink(): void {
 
   process.stdout.write(`✓ Token written to ${projectFile}
 
+Board URL: ${BOARD_URL_BASE}/${token}
+
 Commit this file so cloud agents pick it up automatically:
   git add .tend/relay_token
   git commit -m "add tend relay token"
