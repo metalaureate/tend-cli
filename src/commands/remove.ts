@@ -1,7 +1,8 @@
 import { existsSync, readFileSync, writeFileSync, rmSync, readdirSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { createInterface } from 'readline';
 import { resolveProjectPath, unregisterProject } from '../core/projects.js';
+import { gitRepoName } from '../core/git.js';
 
 const TEND_MARKER = '## Tend Integration';
 const GITIGNORE_ENTRIES = ['.tend/events', '.tend/hook_debug.log', '.scratch/'];
@@ -18,7 +19,7 @@ export async function cmdRemove(args: string[]): Promise<void> {
     process.stderr.write(`tend: ${(e as Error).message}\n`);
     process.exit(1);
   }
-  const projectName = basename(projectPath);
+  const projectName = gitRepoName(projectPath);
 
   const tendDir = join(projectPath, '.tend');
   if (!existsSync(tendDir)) {

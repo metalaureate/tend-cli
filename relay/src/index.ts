@@ -486,19 +486,30 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
     return htmlResponse(buildNotFoundHtml(), 404);
   }
 
-  // Fetch latest state per project using a derived table join for efficiency
-  const result = await db.prepare(`
-    SELECT e.project, e.state, e.message, e.timestamp
-    FROM events e
-    INNER JOIN (
-      SELECT project, MAX(id) AS max_id
-      FROM events
-      WHERE token_hash = ?
-      GROUP BY project
-    ) latest ON e.project = latest.project AND e.id = latest.max_id
-    WHERE e.token_hash = ?
-    ORDER BY e.project
-  `).bind(tokenHash, tokenHash).all<ProjectRow>();
+  // Prefer synced project_states (pushed from CLI with full git context)
+  // Fall back to raw events query if no synced state exists
+  const synced = await db.prepare(
+    'SELECT project, state, message, timestamp FROM project_states WHERE token_hash = ? ORDER BY project'
+  ).bind(tokenHash).all<ProjectRow>();
+
+  let rows: ProjectRow[];
+  if (synced.results.length > 0) {
+    rows = synced.results;
+  } else {
+    const result = await db.prepare(`
+      SELECT e.project, e.state, e.message, e.timestamp
+      FROM events e
+      INNER JOIN (
+        SELECT project, MAX(id) AS max_id
+        FROM events
+        WHERE token_hash = ?
+        GROUP BY project
+      ) latest ON e.project = latest.project AND e.id = latest.max_id
+      WHERE e.token_hash = ?
+      ORDER BY e.project
+    `).bind(tokenHash, tokenHash).all<ProjectRow>();
+    rows = result.results;
+  }
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -506,7 +517,7 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
 
   const todos = await fetchTodos(db, tokenHash);
 
-  return htmlResponse(buildBoardHtml(result.results, updatedAt, todos));
+  return htmlResponse(buildBoardHtml(rows, updatedAt, todos));
 }
 
 function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = []): string {
@@ -581,18 +592,29 @@ async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string)
     return textResponse('# Tend Board\n\nToken not found.\n', 404);
   }
 
-  const result = await db.prepare(`
-    SELECT e.project, e.state, e.message, e.timestamp
-    FROM events e
-    INNER JOIN (
-      SELECT project, MAX(id) AS max_id
-      FROM events
-      WHERE token_hash = ?
-      GROUP BY project
-    ) latest ON e.project = latest.project AND e.id = latest.max_id
-    WHERE e.token_hash = ?
-    ORDER BY e.project
-  `).bind(tokenHash, tokenHash).all<ProjectRow>();
+  // Prefer synced project_states, fall back to raw events
+  const synced = await db.prepare(
+    'SELECT project, state, message, timestamp FROM project_states WHERE token_hash = ? ORDER BY project'
+  ).bind(tokenHash).all<ProjectRow>();
+
+  let rows: ProjectRow[];
+  if (synced.results.length > 0) {
+    rows = synced.results;
+  } else {
+    const result = await db.prepare(`
+      SELECT e.project, e.state, e.message, e.timestamp
+      FROM events e
+      INNER JOIN (
+        SELECT project, MAX(id) AS max_id
+        FROM events
+        WHERE token_hash = ?
+        GROUP BY project
+      ) latest ON e.project = latest.project AND e.id = latest.max_id
+      WHERE e.token_hash = ?
+      ORDER BY e.project
+    `).bind(tokenHash, tokenHash).all<ProjectRow>();
+    rows = result.results;
+  }
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -600,7 +622,7 @@ async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string)
 
   const todos = await fetchTodos(db, tokenHash);
 
-  return textResponse(buildLlmsTxt(result.results, updatedAt, todos));
+  return textResponse(buildLlmsTxt(rows, updatedAt, todos));
 }
 
 async function handleLandingPage(_request: Request): Promise<Response> {
@@ -857,6 +879,59 @@ async function fetchTodos(db: D1Database, tokenHash: string): Promise<TodoRow[]>
   return result.results;
 }
 
+// ── State Sync Handler ──
+
+async function handleSyncState(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
+
+  const { projects } = body as { projects?: Array<{ project: string; state: string; message?: string; timestamp: string }> };
+
+  if (!Array.isArray(projects)) {
+    return errorResponse('Missing or invalid "projects" array', 400);
+  }
+
+  if (projects.length > 100) {
+    return errorResponse('Too many projects (max 100)', 400);
+  }
+
+  const now = new Date().toISOString().slice(0, 19);
+
+  // Upsert each project state
+  for (const p of projects) {
+    if (!p.project || typeof p.project !== 'string') continue;
+    if (!p.state || typeof p.state !== 'string' || !isValidState(p.state)) continue;
+    if (!p.timestamp || typeof p.timestamp !== 'string') continue;
+
+    await db.prepare(`
+      INSERT INTO project_states (token_hash, project, state, message, timestamp, synced_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(token_hash, project) DO UPDATE SET
+        state = excluded.state,
+        message = excluded.message,
+        timestamp = excluded.timestamp,
+        synced_at = excluded.synced_at
+    `).bind(tokenHash, p.project, p.state, p.message ?? '', p.timestamp, now).run();
+  }
+
+  // Remove stale projects that are no longer in the sync payload
+  const syncedNames = projects.filter(p => p.project && p.state).map(p => p.project);
+  if (syncedNames.length > 0) {
+    const placeholders = syncedNames.map(() => '?').join(',');
+    await db.prepare(
+      `DELETE FROM project_states WHERE token_hash = ? AND project NOT IN (${placeholders})`
+    ).bind(tokenHash, ...syncedNames).run();
+  }
+
+  return jsonResponse({ ok: true, synced: syncedNames.length });
+}
+
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -948,6 +1023,10 @@ export default {
     else if (/^\/v1\/todos\/\d+$/.test(path) && request.method === 'DELETE') {
       const todoId = path.slice('/v1/todos/'.length);
       response = await handleDeleteTodo(request, env.DB, tokenHash, todoId);
+    }
+    // Route: POST /v1/sync
+    else if (path === '/v1/sync' && request.method === 'POST') {
+      response = await handleSyncState(request, env.DB, tokenHash);
     }
     else {
       response = errorResponse('Not found', 404);

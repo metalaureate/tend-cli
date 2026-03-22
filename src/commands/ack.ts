@@ -1,7 +1,7 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { appendReset, appendUserReset, sanitizeUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
-import { gitUserEmail } from '../core/git.js';
+import { gitUserEmail, gitRepoName } from '../core/git.js';
 import { cmdBoard } from './board.js';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
@@ -14,7 +14,7 @@ export async function cmdAck(args: string[]): Promise<void> {
     process.stderr.write(`tend: ${(e as Error).message}\n`);
     process.exit(1);
   }
-  const projectName = basename(projectPath);
+  const projectName = gitRepoName(projectPath);
 
   if (!existsSync(join(projectPath, '.tend'))) {
     process.stderr.write(`tend: .tend/ not initialized in ${projectName}. Run 'tend init' first.\n`);

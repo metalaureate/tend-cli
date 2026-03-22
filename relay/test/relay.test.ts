@@ -22,6 +22,9 @@ async function applySchema(db: D1Database) {
     "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL DEFAULT '_global', message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dispatched', 'done')), issue_url TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
   );
   await db.exec("CREATE INDEX IF NOT EXISTS idx_todos_token_status ON todos (token_hash, status)");
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS project_states (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, state TEXT NOT NULL CHECK (state IN ('working', 'done', 'stuck', 'waiting', 'idle')), message TEXT DEFAULT '', timestamp TEXT NOT NULL, synced_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(token_hash, project))"
+  );
 }
 
 async function makeRequest(method: string, path: string, body?: unknown, token?: string): Promise<Response> {
@@ -48,7 +51,7 @@ describe('Tend Relay', () => {
   beforeEach(async () => {
     await applySchema(env.DB);
     // Clean tables between tests
-    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM tokens;');
+    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM project_states; DELETE FROM tokens;');
   });
 
   describe('POST /v1/register', () => {
@@ -716,6 +719,111 @@ describe('Tend Relay', () => {
       const response = await makeRequest('GET', '/v1/todos', undefined, token2);
       const data = await response.json() as { todos: unknown[] };
       expect(data.todos).toHaveLength(0);
+    });
+  });
+
+  describe('POST /v1/sync (state sync)', () => {
+    it('syncs project states and board uses them', async () => {
+      const token = await registerToken();
+
+      // Emit an event (raw) — this is what the board would normally use
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle', message: 'old raw event', timestamp: '2026-01-01T00:00:00'
+      }, token);
+
+      // Sync computed state (CLI pushes this with full git context)
+      const syncRes = await makeRequest('POST', '/v1/sync', {
+        projects: [
+          { project: 'my-app', state: 'waiting', message: 'uncommitted work in src/auth', timestamp: '2026-03-22T10:00:00' },
+          { project: 'other-app', state: 'done', message: 'PR #42 merged', timestamp: '2026-03-22T09:30:00' },
+        ]
+      }, token);
+      expect(syncRes.status).toBe(200);
+      const syncData = await syncRes.json() as { ok: boolean; synced: number };
+      expect(syncData.ok).toBe(true);
+      expect(syncData.synced).toBe(2);
+
+      // Board should show synced state (waiting), not raw event (idle)
+      const boardRes = await makeRequest('GET', `/${token}`);
+      const html = await boardRes.text();
+      expect(html).toContain('waiting');
+      expect(html).toContain('my-app');
+      expect(html).toContain('other-app');
+
+      // llms.txt should also use synced state
+      const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
+      const llms = await llmsRes.text();
+      expect(llms).toContain('waiting');
+      expect(llms).toContain('PR #42 merged');
+    });
+
+    it('upserts on repeated sync', async () => {
+      const token = await registerToken();
+
+      await makeRequest('POST', '/v1/sync', {
+        projects: [{ project: 'app', state: 'working', message: 'building', timestamp: '2026-03-22T10:00:00' }]
+      }, token);
+
+      await makeRequest('POST', '/v1/sync', {
+        projects: [{ project: 'app', state: 'done', message: 'finished', timestamp: '2026-03-22T11:00:00' }]
+      }, token);
+
+      const boardRes = await makeRequest('GET', `/${token}/llms.txt`);
+      const llms = await boardRes.text();
+      expect(llms).toContain('done');
+      expect(llms).toContain('finished');
+      expect(llms).not.toContain('building');
+    });
+
+    it('removes stale projects not in sync payload', async () => {
+      const token = await registerToken();
+
+      // Sync with 2 projects
+      await makeRequest('POST', '/v1/sync', {
+        projects: [
+          { project: 'app-a', state: 'working', message: '', timestamp: '2026-03-22T10:00:00' },
+          { project: 'app-b', state: 'idle', message: '', timestamp: '2026-03-22T10:00:00' },
+        ]
+      }, token);
+
+      // Sync with only 1 project — app-b should be removed
+      await makeRequest('POST', '/v1/sync', {
+        projects: [
+          { project: 'app-a', state: 'done', message: 'finished', timestamp: '2026-03-22T11:00:00' },
+        ]
+      }, token);
+
+      const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
+      const llms = await llmsRes.text();
+      expect(llms).toContain('app-a');
+      expect(llms).not.toContain('app-b');
+    });
+
+    it('rejects invalid payload', async () => {
+      const token = await registerToken();
+
+      const res = await makeRequest('POST', '/v1/sync', { wrong: 'data' }, token);
+      expect(res.status).toBe(400);
+    });
+
+    it('cross-token isolation for synced state', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+
+      await makeRequest('POST', '/v1/sync', {
+        projects: [{ project: 'secret-app', state: 'working', message: 'classified', timestamp: '2026-03-22T10:00:00' }]
+      }, token1);
+
+      const boardRes = await makeRequest('GET', `/${token2}/llms.txt`);
+      const llms = await boardRes.text();
+      expect(llms).not.toContain('secret-app');
+    });
+
+    it('requires authentication', async () => {
+      const res = await makeRequest('POST', '/v1/sync', {
+        projects: [{ project: 'app', state: 'idle', message: '', timestamp: '2026-03-22T10:00:00' }]
+      });
+      expect(res.status).toBe(401);
     });
   });
 });

@@ -1,5 +1,5 @@
 import { resolveProjectPath } from '../core/projects.js';
-import { basename } from 'path';
+import { gitRepoName } from '../core/git.js';
 
 export function cmdSwitch(args: string[]): void {
   const name = args[0];
@@ -15,7 +15,7 @@ export function cmdSwitch(args: string[]): void {
     process.stderr.write(`tend: ${(e as Error).message}\n`);
     process.exit(1);
   }
-  const projectName = basename(projectPath);
+  const projectName = gitRepoName(projectPath);
 
   const result = Bun.spawnSync(['code', projectPath]);
   if (result.exitCode === 0) {

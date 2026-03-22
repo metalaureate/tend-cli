@@ -2,10 +2,10 @@ import { resolveProjectPath } from '../core/projects.js';
 import { appendEvent, sanitizeUserTag, stripUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
-import { gitUserEmail } from '../core/git.js';
+import { gitUserEmail, gitRepoName } from '../core/git.js';
 import { relayEmit, relayToken } from '../core/relay.js';
 import { existsSync, readFileSync, appendFileSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { invalidateStatusCache } from './status.js';
 
 /** Extract session_id or sessionId from JSON input, tagged with git user email */
@@ -151,7 +151,7 @@ async function hookUserPrompt(): Promise<void> {
 
   // Also send to relay if a token is configured (best-effort)
   if (relayToken()) {
-    const projectName = basename(projectPath);
+    const projectName = gitRepoName(projectPath);
     await relayEmit(projectName, 'working', prompt, sessionId);
   }
 }
@@ -219,7 +219,7 @@ async function hookStop(): Promise<void> {
 
   // Also send to relay if a token is configured (best-effort)
   if (relayToken()) {
-    const projectName = basename(projectPath);
+    const projectName = gitRepoName(projectPath);
     await relayEmit(projectName, 'idle', '', sessionId);
   }
 }

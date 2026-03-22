@@ -1,7 +1,8 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { clearEvents } from '../core/events.js';
 import { existsSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
+import { gitRepoName } from '../core/git.js';
 
 export function cmdClear(args: string[]): void {
   let projectPath: string;
@@ -11,7 +12,7 @@ export function cmdClear(args: string[]): void {
     process.stderr.write(`tend: ${(e as Error).message}\n`);
     process.exit(1);
   }
-  const projectName = basename(projectPath);
+  const projectName = gitRepoName(projectPath);
   const eventsFile = join(projectPath, '.tend', 'events');
 
   if (!existsSync(eventsFile)) {

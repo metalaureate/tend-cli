@@ -151,4 +151,13 @@ describe('init', () => {
     expect(content.hooks.SessionStart).toBeDefined();
     expect(content.permissions.allow).toContain('Read');
   });
+
+  it('fails without git repo', () => {
+    const dir = join(ctx.testDir, 'no-git');
+    require('fs').mkdirSync(dir, { recursive: true });
+    const result = ctx.tend(['init'], { cwd: dir });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain('not a git repository');
+    expect(result.stderr).toContain('companion to git');
+  });
 });

@@ -1,8 +1,9 @@
 import { resolveProjectPath, sortedProjects } from '../core/projects.js';
 import { existsSync, readFileSync, appendFileSync, writeFileSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { tsLocal } from '../ui/format.js';
 import { C } from '../ui/colors.js';
+import { gitRepoName } from '../core/git.js';
 import { createInterface } from 'readline';
 import { relayAddTodo } from '../core/relay.js';
 
@@ -82,7 +83,7 @@ export async function cmdAdd(args: string[]): Promise<void> {
     process.stderr.write(`tend: ${(e as Error).message}\n`);
     process.exit(1);
   }
-  const pName = basename(projectPath);
+  const pName = gitRepoName(projectPath);
 
   if (!existsSync(join(projectPath, '.tend'))) {
     process.stderr.write(`tend: .tend/ not initialized in ${pName}. Run 'tend init ${pName}' first.\n`);
@@ -123,7 +124,7 @@ function printTodos(todos: TodoEntry[], projects: string[]): void {
   for (const projectPath of projects) {
     const projectTodos = todos.filter(t => t.projectPath === projectPath);
     if (projectTodos.length === 0) continue;
-    const pName = basename(projectPath);
+    const pName = gitRepoName(projectPath);
     process.stdout.write(`${C.bold}TODO (${pName}):${C.reset}\n`);
     for (const todo of projectTodos) {
       n++;

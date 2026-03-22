@@ -3,6 +3,7 @@ import { join, dirname, basename } from 'path';
 import { config } from './config.js';
 import { lastEvent } from './events.js';
 import { toEpoch } from '../ui/format.js';
+import { gitRepoName } from './git.js';
 import type { ProjectInfo } from '../types.js';
 
 /** Read all registered project paths */
@@ -157,20 +158,23 @@ export function resolveProjectPath(name?: string): string {
       const content = readFileSync(config.registry, 'utf-8');
       const paths = content.split('\n').map((l: string) => l.trim()).filter(Boolean);
 
-      // Exact basename match
+      // Exact match (repo name or basename)
       for (const p of paths) {
-        if (basename(p) === name && existsSync(p)) return p;
+        const rn = gitRepoName(p);
+        if ((rn === name || basename(p) === name) && existsSync(p)) return p;
       }
       // Prefix match (require at least 2 chars to avoid accidental matches)
       if (name.length >= 2) {
         for (const p of paths) {
-          if (basename(p).startsWith(name) && existsSync(p)) return p;
+          const rn = gitRepoName(p);
+          if ((rn.startsWith(name) || basename(p).startsWith(name)) && existsSync(p)) return p;
         }
       }
       // Substring match (require at least 2 chars)
       if (name.length >= 2) {
         for (const p of paths) {
-          if (basename(p).includes(name) && existsSync(p)) return p;
+          const rn = gitRepoName(p);
+          if ((rn.includes(name) || basename(p).includes(name)) && existsSync(p)) return p;
         }
       }
     }
@@ -189,8 +193,8 @@ export function resolveProjectPath(name?: string): string {
   throw new Error('not inside a project (no .git found)');
 }
 
-/** Resolve project name (basename) from path or arg */
+/** Resolve project name from git remote origin, falling back to basename */
 export function resolveProjectName(nameOrPath?: string): string {
   const p = resolveProjectPath(nameOrPath);
-  return basename(p);
+  return gitRepoName(p);
 }

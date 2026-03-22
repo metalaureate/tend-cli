@@ -3,6 +3,7 @@ import { join, basename } from 'path';
 import { config } from './config.js';
 import { discoverProjects, detectProject } from './projects.js';
 import { tsLocal } from '../ui/format.js';
+import { gitRepoName } from './git.js';
 
 /** Get the path to the project-level relay token file in the current git root */
 export function projectRelayTokenFile(): string | null {
@@ -146,7 +147,7 @@ export function relayOnlyProjects(): string[] {
   if (!existsSync(config.relayCacheDir)) return [];
 
   const localProjects = new Set(
-    discoverProjects().map(p => basename(p)),
+    discoverProjects().map(p => gitRepoName(p)),
   );
 
   try {
@@ -274,5 +275,28 @@ export async function relayCreateBoardToken(): Promise<string | null> {
     return data.board_token;
   } catch {
     return null;
+  }
+}
+
+/** Push computed project states to the relay so the remote board mirrors local */
+export async function relaySyncState(
+  projects: Array<{ project: string; state: string; message: string; timestamp: string }>
+): Promise<boolean> {
+  const token = relayToken();
+  if (!token) return false;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/sync`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ projects }),
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }

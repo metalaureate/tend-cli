@@ -1,7 +1,7 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
 import { readEvents, mergeEvents, isResetMarker, stripUserTag, userTagFromSessionId } from '../core/events.js';
-import { currentBranch, commitsToday } from '../core/git.js';
+import { currentBranch, commitsToday, gitRepoName } from '../core/git.js';
 import { ago, isStale } from '../ui/format.js';
 import { C } from '../ui/colors.js';
 import { config } from '../core/config.js';
@@ -29,7 +29,7 @@ export function cmdDetail(name: string): void {
 
   try {
     projectPath = resolveProjectPath(name);
-    projectName = basename(projectPath);
+    projectName = gitRepoName(projectPath);
   } catch {
     // Check relay cache
     const cacheFile = join(config.relayCacheDir, name);

@@ -110,3 +110,29 @@ export function dirtySummary(projectPath: string): string {
   // Otherwise, count files
   return `${src.length} files changed`;
 }
+
+// Cache repo names to avoid repeated git calls within a single process
+const repoNameCache = new Map<string, string>();
+
+/** Extract the repository name from git remote origin URL.
+ *  Supports SSH (git@github.com:owner/repo.git) and HTTPS (https://github.com/owner/repo.git).
+ *  Falls back to the directory basename if no remote is configured. */
+export function gitRepoName(projectPath: string): string {
+  const cached = repoNameCache.get(projectPath);
+  if (cached) return cached;
+
+  const url = git(projectPath, 'remote', 'get-url', 'origin');
+  let name: string | null = null;
+  if (url) {
+    // SSH: git@github.com:owner/repo.git
+    const sshMatch = url.match(/[:/]([^/]+?)(?:\.git)?$/);
+    if (sshMatch) name = sshMatch[1];
+  }
+  if (!name) {
+    // Fallback to directory basename
+    name = projectPath.split('/').pop() || 'unknown';
+  }
+
+  repoNameCache.set(projectPath, name);
+  return name;
+}

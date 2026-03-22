@@ -2,7 +2,7 @@ import { config } from './config.js';
 import { type TendEvent, type SessionState, type ProjectState, type State, STATE_PRIORITY } from '../types.js';
 import { isStale, toEpoch } from '../ui/format.js';
 import { readEvents, mergeEvents, isResetMarker, userTagFromSessionId } from './events.js';
-import { lastCommitEpoch as getLastCommitEpoch } from './git.js';
+import { lastCommitEpoch as getLastCommitEpoch, gitRepoName } from './git.js';
 import { join } from 'path';
 import { existsSync } from 'fs';
 
@@ -130,7 +130,7 @@ export function aggregateState(
 /** Get aggregate state for a project path (reads local events + relay cache) */
 export function projectState(projectPath: string): ProjectState | null {
   const eventsFile = join(projectPath, '.tend', 'events');
-  const projectName = projectPath.split('/').pop() || '';
+  const projectName = gitRepoName(projectPath);
   const relayCache = join(config.relayCacheDir, projectName);
 
   const localEvents = readEvents(eventsFile);

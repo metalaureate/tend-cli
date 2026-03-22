@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from 'fs';
-import { join, basename } from 'path';
+import { join } from 'path';
 import { resolveProjectPath, registerProject } from '../core/projects.js';
+import { hasGit, gitRepoName } from '../core/git.js';
 import { homedir } from 'os';
 
 const HOOKS_JSON = JSON.stringify({
@@ -79,14 +80,34 @@ const GITIGNORE_ENTRIES = ['.tend/events', '.tend/hook_debug.log', '.scratch/'];
 
 export function cmdInit(args: string[]): void {
   let projectPath: string;
-  try {
-    projectPath = resolveProjectPath(args[0]);
-  } catch (e) {
-    process.stderr.write(`tend: ${(e as Error).message}\n`);
+  if (args[0]) {
+    try {
+      projectPath = resolveProjectPath(args[0]);
+    } catch (e) {
+      process.stderr.write(`tend: ${(e as Error).message}\n`);
+      process.exit(1);
+    }
+  } else {
+    // For init, use cwd directly (don't require .git for resolveProjectPath)
+    projectPath = process.cwd();
+  }
+
+  // Require git to be initialized
+  if (!hasGit(projectPath)) {
+    process.stderr.write('tend: this directory is not a git repository.\n');
+    process.stderr.write('Tend is a companion to git. Please initialize your git repo first:\n');
+    process.stderr.write('  git init\n');
     process.exit(1);
   }
-  const projectName = basename(projectPath);
+
+  const projectName = gitRepoName(projectPath);
   const tendDir = join(projectPath, '.tend');
+  if (!hasGit(projectPath)) {
+    process.stderr.write('tend: this directory is not a git repository.\n');
+    process.stderr.write('Tend is a companion to git. Please initialize your git repo first:\n');
+    process.stderr.write('  git init\n');
+    process.exit(1);
+  }
 
   // Create .tend/ directory
   mkdirSync(tendDir, { recursive: true });
