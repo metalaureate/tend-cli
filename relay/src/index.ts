@@ -74,6 +74,157 @@ interface ProjectRow {
   timestamp: string;
 }
 
+// ── State Aggregation (same logic as CLI's aggregateState) ──
+
+const STATE_PRIORITY: Record<string, number> = {
+  stuck: 5,
+  waiting: 4,
+  working: 3,
+  done: 2,
+  idle: 0,
+};
+
+const STALE_THRESHOLD_SECONDS = 1800; // 30 minutes
+const WAITING_INFERENCE_WINDOW_SECONDS = 600; // 10 minutes
+
+interface EventRow {
+  project: string;
+  session_id: string | null;
+  state: string;
+  message: string;
+  timestamp: string;
+}
+
+function toEpoch(ts: string): number {
+  // Handle timestamps with or without timezone suffix
+  let normalized = ts;
+  if (!/[Z+\-]\d{0,4}$/.test(ts) && /^\d{4}-\d{2}-\d{2}T/.test(ts)) {
+    normalized = ts + 'Z';
+  }
+  const d = new Date(normalized);
+  if (isNaN(d.getTime())) return 0;
+  return Math.floor(d.getTime() / 1000);
+}
+
+function isStale(ts: string): boolean {
+  return (Math.floor(Date.now() / 1000) - toEpoch(ts)) > STALE_THRESHOLD_SECONDS;
+}
+
+function userTagFromSessionId(sid: string): string {
+  const atIdx = sid.indexOf('@');
+  return atIdx >= 0 ? sid.slice(atIdx + 1) : '';
+}
+
+/** Aggregate raw events for a single project into a computed state (mirrors CLI logic) */
+function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
+  if (events.length === 0) return null;
+
+  const sessions = new Map<string, { state: string; ts: string; message: string }>();
+  const sessionWorkPending = new Map<string, boolean>();
+  const sessionLastWorkingTs = new Map<string, string>();
+  let lastTs = '';
+
+  for (const evt of events) {
+    const sessionId = evt.session_id || '_';
+    lastTs = evt.timestamp;
+
+    if (sessionId === '*') {
+      sessions.clear();
+      sessionWorkPending.clear();
+      sessionLastWorkingTs.clear();
+      sessions.set('_', { state: evt.state, ts: evt.timestamp, message: '' });
+      continue;
+    }
+
+    if (sessionId.startsWith('*@')) {
+      const userTag = userTagFromSessionId(sessionId.slice(1));
+      for (const [sid] of sessions) {
+        if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
+          sessions.delete(sid);
+          sessionWorkPending.delete(sid);
+          sessionLastWorkingTs.delete(sid);
+        }
+      }
+      continue;
+    }
+
+    if (evt.state === 'working') {
+      sessionWorkPending.set(sessionId, true);
+      sessionLastWorkingTs.set(sessionId, evt.timestamp);
+    } else if (evt.state === 'done') {
+      sessionWorkPending.set(sessionId, false);
+      sessionLastWorkingTs.delete(sessionId);
+    }
+
+    let effectiveState = evt.state;
+    if (evt.state === 'idle' && sessionWorkPending.get(sessionId)) {
+      const lastWorkingTs = sessionLastWorkingTs.get(sessionId);
+      const recentEnough = lastWorkingTs
+        ? (toEpoch(evt.timestamp) - toEpoch(lastWorkingTs)) <= WAITING_INFERENCE_WINDOW_SECONDS
+        : false;
+      if (recentEnough) {
+        effectiveState = 'waiting';
+      }
+    }
+
+    sessions.set(sessionId, { state: effectiveState, ts: evt.timestamp, message: evt.message });
+  }
+
+  if (sessions.size === 0) return null;
+
+  // Demote stale working/waiting to idle
+  for (const [id, sess] of sessions) {
+    if ((sess.state === 'working' || sess.state === 'waiting') && isStale(sess.ts)) {
+      sessions.set(id, { ...sess, state: 'idle' });
+    }
+  }
+
+  // Pick highest-priority state; among equal priorities prefer latest timestamp
+  let bestState = '';
+  let bestPriority = -1;
+  let bestMessage = '';
+  let bestTs = '';
+
+  for (const [, sess] of sessions) {
+    const p = STATE_PRIORITY[sess.state] ?? 0;
+    if (p > bestPriority || (p === bestPriority && toEpoch(sess.ts) > toEpoch(bestTs))) {
+      bestPriority = p;
+      bestState = sess.state;
+      bestMessage = sess.message;
+      bestTs = sess.ts;
+    }
+  }
+
+  if (!bestTs) bestTs = lastTs;
+  if (!bestState) bestState = 'idle';
+
+  return { project: events[0].project, state: bestState, message: bestMessage, timestamp: bestTs };
+}
+
+/** Fetch all events and aggregate per-project state (replaces naive MAX(id) query) */
+async function aggregateProjectStates(db: D1Database, tokenHash: string): Promise<ProjectRow[]> {
+  const result = await db.prepare(
+    'SELECT project, session_id, state, message, timestamp FROM events WHERE token_hash = ? ORDER BY project, id ASC'
+  ).bind(tokenHash).all<EventRow>();
+
+  // Group by project
+  const byProject = new Map<string, EventRow[]>();
+  for (const row of result.results) {
+    const arr = byProject.get(row.project) || [];
+    arr.push(row);
+    byProject.set(row.project, arr);
+  }
+
+  // Aggregate each project
+  const rows: ProjectRow[] = [];
+  for (const [, events] of byProject) {
+    const aggregated = aggregateProjectEvents(events);
+    if (aggregated) rows.push(aggregated);
+  }
+
+  return rows;
+}
+
 interface TodoRow {
   id: number;
   project: string;
@@ -486,30 +637,7 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
     return htmlResponse(buildNotFoundHtml(), 404);
   }
 
-  // Prefer synced project_states (pushed from CLI with full git context)
-  // Fall back to raw events query if no synced state exists
-  const synced = await db.prepare(
-    'SELECT project, state, message, timestamp FROM project_states WHERE token_hash = ? ORDER BY project'
-  ).bind(tokenHash).all<ProjectRow>();
-
-  let rows: ProjectRow[];
-  if (synced.results.length > 0) {
-    rows = synced.results;
-  } else {
-    const result = await db.prepare(`
-      SELECT e.project, e.state, e.message, e.timestamp
-      FROM events e
-      INNER JOIN (
-        SELECT project, MAX(id) AS max_id
-        FROM events
-        WHERE token_hash = ?
-        GROUP BY project
-      ) latest ON e.project = latest.project AND e.id = latest.max_id
-      WHERE e.token_hash = ?
-      ORDER BY e.project
-    `).bind(tokenHash, tokenHash).all<ProjectRow>();
-    rows = result.results;
-  }
+  const rows = await aggregateProjectStates(db, tokenHash);
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -592,29 +720,7 @@ async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string)
     return textResponse('# Tend Board\n\nToken not found.\n', 404);
   }
 
-  // Prefer synced project_states, fall back to raw events
-  const synced = await db.prepare(
-    'SELECT project, state, message, timestamp FROM project_states WHERE token_hash = ? ORDER BY project'
-  ).bind(tokenHash).all<ProjectRow>();
-
-  let rows: ProjectRow[];
-  if (synced.results.length > 0) {
-    rows = synced.results;
-  } else {
-    const result = await db.prepare(`
-      SELECT e.project, e.state, e.message, e.timestamp
-      FROM events e
-      INNER JOIN (
-        SELECT project, MAX(id) AS max_id
-        FROM events
-        WHERE token_hash = ?
-        GROUP BY project
-      ) latest ON e.project = latest.project AND e.id = latest.max_id
-      WHERE e.token_hash = ?
-      ORDER BY e.project
-    `).bind(tokenHash, tokenHash).all<ProjectRow>();
-    rows = result.results;
-  }
+  const rows = await aggregateProjectStates(db, tokenHash);
 
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -879,59 +985,6 @@ async function fetchTodos(db: D1Database, tokenHash: string): Promise<TodoRow[]>
   return result.results;
 }
 
-// ── State Sync Handler ──
-
-async function handleSyncState(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
-  if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
-
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json() as Record<string, unknown>;
-  } catch {
-    return errorResponse('Invalid JSON body', 400);
-  }
-
-  const { projects } = body as { projects?: Array<{ project: string; state: string; message?: string; timestamp: string }> };
-
-  if (!Array.isArray(projects)) {
-    return errorResponse('Missing or invalid "projects" array', 400);
-  }
-
-  if (projects.length > 100) {
-    return errorResponse('Too many projects (max 100)', 400);
-  }
-
-  const now = new Date().toISOString().slice(0, 19);
-
-  // Upsert each project state
-  for (const p of projects) {
-    if (!p.project || typeof p.project !== 'string') continue;
-    if (!p.state || typeof p.state !== 'string' || !isValidState(p.state)) continue;
-    if (!p.timestamp || typeof p.timestamp !== 'string') continue;
-
-    await db.prepare(`
-      INSERT INTO project_states (token_hash, project, state, message, timestamp, synced_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(token_hash, project) DO UPDATE SET
-        state = excluded.state,
-        message = excluded.message,
-        timestamp = excluded.timestamp,
-        synced_at = excluded.synced_at
-    `).bind(tokenHash, p.project, p.state, p.message ?? '', p.timestamp, now).run();
-  }
-
-  // Remove stale projects that are no longer in the sync payload
-  const syncedNames = projects.filter(p => p.project && p.state).map(p => p.project);
-  if (syncedNames.length > 0) {
-    const placeholders = syncedNames.map(() => '?').join(',');
-    await db.prepare(
-      `DELETE FROM project_states WHERE token_hash = ? AND project NOT IN (${placeholders})`
-    ).bind(tokenHash, ...syncedNames).run();
-  }
-
-  return jsonResponse({ ok: true, synced: syncedNames.length });
-}
-
 export default {
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -1023,10 +1076,6 @@ export default {
     else if (/^\/v1\/todos\/\d+$/.test(path) && request.method === 'DELETE') {
       const todoId = path.slice('/v1/todos/'.length);
       response = await handleDeleteTodo(request, env.DB, tokenHash, todoId);
-    }
-    // Route: POST /v1/sync
-    else if (path === '/v1/sync' && request.method === 'POST') {
-      response = await handleSyncState(request, env.DB, tokenHash);
     }
     else {
       response = errorResponse('Not found', 404);

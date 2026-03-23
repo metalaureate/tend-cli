@@ -22,9 +22,6 @@ async function applySchema(db: D1Database) {
     "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL DEFAULT '_global', message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dispatched', 'done')), issue_url TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
   );
   await db.exec("CREATE INDEX IF NOT EXISTS idx_todos_token_status ON todos (token_hash, status)");
-  await db.exec(
-    "CREATE TABLE IF NOT EXISTS project_states (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, state TEXT NOT NULL CHECK (state IN ('working', 'done', 'stuck', 'waiting', 'idle')), message TEXT DEFAULT '', timestamp TEXT NOT NULL, synced_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(token_hash, project))"
-  );
 }
 
 async function makeRequest(method: string, path: string, body?: unknown, token?: string): Promise<Response> {
@@ -51,7 +48,7 @@ describe('Tend Relay', () => {
   beforeEach(async () => {
     await applySchema(env.DB);
     // Clean tables between tests
-    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM project_states; DELETE FROM tokens;');
+    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM tokens;');
   });
 
   describe('POST /v1/register', () => {
@@ -722,108 +719,110 @@ describe('Tend Relay', () => {
     });
   });
 
-  describe('POST /v1/sync (state sync)', () => {
-    it('syncs project states and board uses them', async () => {
+  describe('State aggregation on board', () => {
+    it('infers waiting from working→idle within 10 minutes', async () => {
       const token = await registerToken();
 
-      // Emit an event (raw) — this is what the board would normally use
       await makeRequest('POST', '/v1/events', {
-        project: 'my-app', state: 'idle', message: 'old raw event', timestamp: '2026-01-01T00:00:00'
+        project: 'my-app', state: 'working', message: 'building feature',
+        session_id: 'a1', timestamp: new Date(Date.now() - 120_000).toISOString()
       }, token);
 
-      // Sync computed state (CLI pushes this with full git context)
-      const syncRes = await makeRequest('POST', '/v1/sync', {
-        projects: [
-          { project: 'my-app', state: 'waiting', message: 'uncommitted work in src/auth', timestamp: '2026-03-22T10:00:00' },
-          { project: 'other-app', state: 'done', message: 'PR #42 merged', timestamp: '2026-03-22T09:30:00' },
-        ]
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle', message: '',
+        session_id: 'a1', timestamp: new Date(Date.now() - 60_000).toISOString()
       }, token);
-      expect(syncRes.status).toBe(200);
-      const syncData = await syncRes.json() as { ok: boolean; synced: number };
-      expect(syncData.ok).toBe(true);
-      expect(syncData.synced).toBe(2);
 
-      // Board should show synced state (waiting), not raw event (idle)
-      const boardRes = await makeRequest('GET', `/${token}`);
-      const html = await boardRes.text();
-      expect(html).toContain('waiting');
-      expect(html).toContain('my-app');
-      expect(html).toContain('other-app');
-
-      // llms.txt should also use synced state
       const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
       const llms = await llmsRes.text();
       expect(llms).toContain('waiting');
-      expect(llms).toContain('PR #42 merged');
     });
 
-    it('upserts on repeated sync', async () => {
+    it('does not infer waiting if idle came much later', async () => {
       const token = await registerToken();
 
-      await makeRequest('POST', '/v1/sync', {
-        projects: [{ project: 'app', state: 'working', message: 'building', timestamp: '2026-03-22T10:00:00' }]
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working', message: 'building',
+        session_id: 'a1', timestamp: new Date(Date.now() - 900_000).toISOString()
       }, token);
 
-      await makeRequest('POST', '/v1/sync', {
-        projects: [{ project: 'app', state: 'done', message: 'finished', timestamp: '2026-03-22T11:00:00' }]
-      }, token);
-
-      const boardRes = await makeRequest('GET', `/${token}/llms.txt`);
-      const llms = await boardRes.text();
-      expect(llms).toContain('done');
-      expect(llms).toContain('finished');
-      expect(llms).not.toContain('building');
-    });
-
-    it('removes stale projects not in sync payload', async () => {
-      const token = await registerToken();
-
-      // Sync with 2 projects
-      await makeRequest('POST', '/v1/sync', {
-        projects: [
-          { project: 'app-a', state: 'working', message: '', timestamp: '2026-03-22T10:00:00' },
-          { project: 'app-b', state: 'idle', message: '', timestamp: '2026-03-22T10:00:00' },
-        ]
-      }, token);
-
-      // Sync with only 1 project — app-b should be removed
-      await makeRequest('POST', '/v1/sync', {
-        projects: [
-          { project: 'app-a', state: 'done', message: 'finished', timestamp: '2026-03-22T11:00:00' },
-        ]
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle', message: '',
+        session_id: 'a1', timestamp: new Date(Date.now() - 60_000).toISOString()
       }, token);
 
       const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
       const llms = await llmsRes.text();
-      expect(llms).toContain('app-a');
-      expect(llms).not.toContain('app-b');
+      expect(llms).not.toContain('waiting');
+      expect(llms).toContain('idle');
     });
 
-    it('rejects invalid payload', async () => {
+    it('picks highest priority state across sessions', async () => {
+      const token = await registerToken();
+      const now = Date.now();
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle', message: '',
+        session_id: 'session1', timestamp: new Date(now - 60_000).toISOString()
+      }, token);
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'stuck', message: 'need creds',
+        session_id: 'session2', timestamp: new Date(now - 30_000).toISOString()
+      }, token);
+
+      const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
+      const llms = await llmsRes.text();
+      expect(llms).toContain('stuck');
+      expect(llms).toContain('need creds');
+    });
+
+    it('demotes stale working to idle', async () => {
       const token = await registerToken();
 
-      const res = await makeRequest('POST', '/v1/sync', { wrong: 'data' }, token);
-      expect(res.status).toBe(400);
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working', message: 'running tests',
+        session_id: 'a1', timestamp: new Date(Date.now() - 3600_000).toISOString()
+      }, token);
+
+      const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
+      const llms = await llmsRes.text();
+      expect(llms).toContain('idle');
+      expect(llms).not.toContain('working');
     });
 
-    it('cross-token isolation for synced state', async () => {
+    it('handles reset markers (* clears all sessions)', async () => {
+      const token = await registerToken();
+      const now = Date.now();
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'stuck', message: 'blocked',
+        session_id: 's1', timestamp: new Date(now - 120_000).toISOString()
+      }, token);
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'idle', message: 'reset',
+        session_id: '*', timestamp: new Date(now - 60_000).toISOString()
+      }, token);
+
+      const llmsRes = await makeRequest('GET', `/${token}/llms.txt`);
+      const llms = await llmsRes.text();
+      expect(llms).toContain('idle');
+      expect(llms).not.toContain('stuck');
+    });
+
+    it('cross-token isolation in aggregation', async () => {
       const token1 = await registerToken();
       const token2 = await registerToken();
 
-      await makeRequest('POST', '/v1/sync', {
-        projects: [{ project: 'secret-app', state: 'working', message: 'classified', timestamp: '2026-03-22T10:00:00' }]
+      await makeRequest('POST', '/v1/events', {
+        project: 'secret-app', state: 'working', message: 'classified',
+        session_id: 'a1', timestamp: new Date().toISOString()
       }, token1);
 
-      const boardRes = await makeRequest('GET', `/${token2}/llms.txt`);
-      const llms = await boardRes.text();
+      const llmsRes = await makeRequest('GET', `/${token2}/llms.txt`);
+      const llms = await llmsRes.text();
       expect(llms).not.toContain('secret-app');
-    });
-
-    it('requires authentication', async () => {
-      const res = await makeRequest('POST', '/v1/sync', {
-        projects: [{ project: 'app', state: 'idle', message: '', timestamp: '2026-03-22T10:00:00' }]
-      });
-      expect(res.status).toBe(401);
     });
   });
 });

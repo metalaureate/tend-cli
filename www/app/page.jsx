@@ -376,6 +376,162 @@ export default function Page() {
         </ScrollReveal>
       </section>
 
+      {/* RELAY API */}
+      <section id="api" className="bg-anvil py-20 md:py-28 px-6 border-t border-white/5">
+        <ScrollReveal triggerClassName="api-el">
+          <div className="max-w-3xl mx-auto">
+            <p className="api-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Relay API</p>
+
+            <h2 className="api-el font-heading font-bold text-2xl md:text-4xl text-parchment leading-tight">
+              HTTP API for agents and integrations.
+            </h2>
+
+            <p className="api-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
+              Base URL: <span className="font-mono text-parchment">https://relay.tend.cx</span>. All <span className="font-mono text-parchment/60">/v1/*</span> routes require a <span className="font-mono text-parchment/60">Bearer tnd_...</span> token (except register). Responses are JSON.
+            </p>
+
+            {/* API Table */}
+            <div className="api-el mt-8 bg-black/40 border border-white/10 rounded-[1.25rem] overflow-hidden">
+              <div className="divide-y divide-white/5">
+                {/* Register */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-patina/20 text-patina px-2 py-0.5 rounded">POST</span>
+                    <span className="font-mono text-sm text-parchment">/v1/register</span>
+                    <span className="text-smoke/40 text-xs ml-auto">no auth</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">Create a new relay token. Returns <span className="font-mono text-parchment/50">{`{ token: "tnd_..." }`}</span></p>
+                </div>
+
+                {/* Emit */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-patina/20 text-patina px-2 py-0.5 rounded">POST</span>
+                    <span className="font-mono text-sm text-parchment">/v1/events</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    Emit a state event. Body: <span className="font-mono text-parchment/50">{`{ project, state, message?, session_id?, timestamp? }`}</span>
+                  </p>
+                  <p className="font-body text-smoke/40 text-xs mt-1">
+                    States: <span className="font-mono">working</span> · <span className="font-mono">done</span> · <span className="font-mono">stuck</span> · <span className="font-mono">waiting</span> · <span className="font-mono">idle</span>
+                  </p>
+                </div>
+
+                {/* Get Events */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/v1/events/:project</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    Fetch event history. Query params: <span className="font-mono text-parchment/50">since</span>, <span className="font-mono text-parchment/50">limit</span>
+                  </p>
+                </div>
+
+                {/* Projects */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/v1/projects</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">List all projects with events for this token.</p>
+                </div>
+
+                {/* Todos */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-patina/20 text-patina px-2 py-0.5 rounded">POST</span>
+                    <span className="font-mono text-sm text-parchment">/v1/todos</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    Create a TODO. Body: <span className="font-mono text-parchment/50">{`{ message, project? }`}</span>
+                  </p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/v1/todos</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    List TODOs. Query params: <span className="font-mono text-parchment/50">status</span>, <span className="font-mono text-parchment/50">project</span>
+                  </p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">PATCH</span>
+                    <span className="font-mono text-sm text-parchment">/v1/todos/:id</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    Update status. Body: <span className="font-mono text-parchment/50">{`{ status, issue_url? }`}</span>. Flow: pending → dispatched → done
+                  </p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-ember/20 text-ember px-2 py-0.5 rounded">DELETE</span>
+                    <span className="font-mono text-sm text-parchment">/v1/todos/:id</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">Delete a TODO.</p>
+                </div>
+
+                {/* Board Token */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-patina/20 text-patina px-2 py-0.5 rounded">POST</span>
+                    <span className="font-mono text-sm text-parchment">/v1/board-token</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    Create a read-only board token (<span className="font-mono text-parchment/50">tnb_...</span>) for sharing.
+                  </p>
+                </div>
+
+                {/* Board views */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/:token</span>
+                    <span className="text-smoke/40 text-xs ml-auto">no auth</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">HTML board view. Works with <span className="font-mono text-parchment/50">tnd_</span> or <span className="font-mono text-parchment/50">tnb_</span> tokens in the URL.</p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/:token/llms.txt</span>
+                    <span className="text-smoke/40 text-xs ml-auto">no auth</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">Structured Markdown for agents. Project states, messages, and backlog.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick example */}
+            <div className="api-el mt-8 bg-black/40 border border-white/10 rounded-[1.25rem] overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <span className="font-mono text-[11px] text-smoke/40 ml-2">quick start</span>
+              </div>
+              <div className="p-5 font-mono text-xs space-y-2">
+                <div className="text-smoke/50"># 1. Register</div>
+                <div><span className="text-smoke/50">$ </span><span className="text-parchment/80">curl -X POST https://relay.tend.cx/v1/register</span></div>
+                <div className="text-smoke/50 ml-2">{`→ { "token": "tnd_abc123..." }`}</div>
+                <div className="text-smoke/50 mt-3"># 2. Emit state</div>
+                <div><span className="text-smoke/50">$ </span><span className="text-parchment/80">{`curl -X POST https://relay.tend.cx/v1/events \\`}</span></div>
+                <div className="text-parchment/80 ml-4">{`-H "Authorization: Bearer tnd_abc123..." \\`}</div>
+                <div className="text-parchment/80 ml-4">{`-d '{"project":"my-app","state":"working","message":"building auth"}'`}</div>
+                <div className="text-smoke/50 mt-3"># 3. View your board</div>
+                <div><span className="text-smoke/50">$ </span><span className="text-parchment/80">open https://relay.tend.cx/tnd_abc123...</span></div>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+      </section>
+
       {/* FOOTER */}
       <footer className="pt-16 pb-8 px-6">
         <div className="max-w-3xl mx-auto">
@@ -400,6 +556,7 @@ export default function Page() {
               <span className="font-mono text-anvil text-sm">tend | td</span>
               <a href="https://github.com/metalaureate/tend-cli" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-anvil transition-colors link-lift">GitHub</a>
               <a href="https://github.com/metalaureate/tend-cli/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-anvil transition-colors link-lift">Docs</a>
+              <a href="#api" className="text-smoke hover:text-anvil transition-colors link-lift">API</a>
             </div>
             <span className="font-mono text-[11px] text-smoke/50">MIT License</span>
           </div>

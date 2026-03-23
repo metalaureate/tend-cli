@@ -1,6 +1,6 @@
 import { discoverProjects, sortedProjects, detectProject } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { relaySync, relayOnlyProjects, relaySyncState } from '../core/relay.js';
+import { relaySync, relayOnlyProjects } from '../core/relay.js';
 import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit, dirtySummary, gitRepoName } from '../core/git.js';
 import { ago, dateHeader, toEpoch, isStale } from '../ui/format.js';
 import { config } from '../core/config.js';
@@ -52,7 +52,6 @@ export async function buildBoardOutput(): Promise<string> {
   let stuckCount = 0;
   let oldestWaitingAge = 0;
   let projectNum = 0;
-  const syncPayload: Array<{ project: string; state: string; message: string; timestamp: string }> = [];
 
   for (const project of projects) {
     const projectName = gitRepoName(project);
@@ -137,11 +136,6 @@ export async function buildBoardOutput(): Promise<string> {
           }
         }
       }
-    }
-
-    // Collect for relay sync
-    if (state) {
-      syncPayload.push({ project: projectName, state, message: msg, timestamp: ts || '' });
     }
 
     // Count states
@@ -255,11 +249,6 @@ export async function buildBoardOutput(): Promise<string> {
   // Gamification footer
   if (gamificationEnabled()) {
     output += renderFooter() + '\n\n';
-  }
-
-  // Push computed states to relay (best-effort, fire-and-forget)
-  if (syncPayload.length > 0) {
-    relaySyncState(syncPayload).catch(() => {});
   }
 
   return output;

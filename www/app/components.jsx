@@ -48,6 +48,7 @@ export function NavbarClient() {
       <div className="hidden sm:flex items-center gap-5 text-sm">
         <a href="#problem" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Why</a>
         <a href="#relay" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Relay</a>
+        <a href="#api" className="link-lift opacity-70 hover:opacity-100 transition-opacity">API</a>
         <a href="#get-started" className="link-lift opacity-70 hover:opacity-100 transition-opacity">Install</a>
       </div>
       <a
