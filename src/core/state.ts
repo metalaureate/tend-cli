@@ -93,6 +93,10 @@ export function aggregateState(
     if (sess.state === 'working' && commitEpoch && toEpoch(sess.ts) < commitEpoch) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
+    // A commit after a waiting state means the user attended to it
+    if (sess.state === 'waiting' && commitEpoch && toEpoch(sess.ts) < commitEpoch) {
+      sessions.set(id, { ...sess, state: 'done' });
+    }
   }
 
   // Aggregate: pick highest-priority state

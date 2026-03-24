@@ -128,15 +128,15 @@ describe('board', () => {
     expect(projectLine).not.toContain('idle');
   });
 
-  it('demotes stale waiting to idle', () => {
+  it('demotes stale waiting to done when commit exists', () => {
     const dir = ctx.makeProject('wait-stale');
     ctx.tend(['init'], { cwd: dir });
-    // Write events 2 hours ago → waiting should expire to idle
+    // Write events 2 hours ago → waiting inferred, but commit is newer → done
     const staleTs = localTs(new Date(Date.now() - 2 * 3600 * 1000));
     writeFileSync(join(dir, '.tend', 'events'),
       `${staleTs} sess1 working building feature\n${staleTs} sess1 idle session ended\n`);
     const r = ctx.tend([]);
-    expect(r.stdout).toContain('idle');
+    expect(r.stdout).toContain('done');
   });
 
   it('stays idle when done precedes idle', () => {
