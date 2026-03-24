@@ -103,6 +103,17 @@ export function aggregateState(
     }
   }
 
+  // If any session is actively working, inferred waiting on other sessions
+  // is noise — the user is clearly engaged with the project.
+  const hasActiveWorking = [...sessions.values()].some(s => s.state === 'working');
+  if (hasActiveWorking) {
+    for (const [id, sess] of sessions) {
+      if (sess.state === 'waiting') {
+        sessions.set(id, { ...sess, state: 'idle' });
+      }
+    }
+  }
+
   // Aggregate: pick highest-priority state
   let bestState: State = 'idle';
   let bestPriority = 0;

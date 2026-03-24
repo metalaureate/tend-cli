@@ -179,6 +179,17 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
     }
   }
 
+  // If any session is actively working, inferred waiting on other sessions
+  // is noise — the user is clearly engaged with the project.
+  const hasActiveWorking = [...sessions.values()].some(s => s.state === 'working');
+  if (hasActiveWorking) {
+    for (const [id, sess] of sessions) {
+      if (sess.state === 'waiting') {
+        sessions.set(id, { ...sess, state: 'idle' });
+      }
+    }
+  }
+
   // Pick highest-priority state; among equal priorities prefer latest timestamp
   let bestState = '';
   let bestPriority = -1;
