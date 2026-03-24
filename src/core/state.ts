@@ -93,9 +93,13 @@ export function aggregateState(
     if (sess.state === 'working' && commitEpoch && toEpoch(sess.ts) < commitEpoch) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
-    // A commit after a waiting state means the user attended to it
-    if (sess.state === 'waiting' && commitEpoch && toEpoch(sess.ts) < commitEpoch) {
-      sessions.set(id, { ...sess, state: 'done' });
+    // A commit near or after the session started working means the user attended to it.
+    // Grace window accounts for hook events firing slightly after the actual commit.
+    if (sess.state === 'waiting' && commitEpoch) {
+      const workTs = sessionLastWorkingTs.get(id);
+      if (workTs && toEpoch(workTs) <= commitEpoch + 120) {
+        sessions.set(id, { ...sess, state: 'done' });
+      }
     }
   }
 

@@ -2,6 +2,7 @@ import { readFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from
 import { join, basename } from 'path';
 import { config } from './config.js';
 import { discoverProjects, detectProject } from './projects.js';
+import { formatTs } from '../ui/format.js';
 import { gitRepoName } from './git.js';
 
 /** Get the path to the project-level relay token file in the current git root */
@@ -107,7 +108,11 @@ async function relayFetchProject(project: string, token: string): Promise<void> 
       const lastLine = lines[lines.length - 1];
       if (lastLine) {
         const lastTs = lastLine.split(' ')[0];
-        if (lastTs) sinceParam = `?since=${lastTs}`;
+        if (lastTs) {
+          // Cache timestamps are local; convert to UTC for relay API query
+          const utcTs = new Date(lastTs).toISOString().slice(0, 19);
+          sinceParam = `?since=${utcTs}`;
+        }
       }
     } catch {
       // ignore
@@ -126,7 +131,9 @@ async function relayFetchProject(project: string, token: string): Promise<void> 
 
     const lines: string[] = [];
     for (const e of data.events || []) {
-      const parts = [e.timestamp];
+      // Relay timestamps are UTC; convert to local time to match local event format
+      const localTs = formatTs(new Date(e.timestamp + 'Z'));
+      const parts = [localTs];
       if (e.session_id) parts.push(e.session_id);
       parts.push(e.state);
       if (e.message) parts.push(e.message);
