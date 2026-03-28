@@ -120,7 +120,8 @@ async function relayFetchProject(project: string, token: string): Promise<void> 
   }
 
   try {
-    const response = await fetch(`${config.relayUrl}/v1/events/${project}${sinceParam}`, {
+    const limitParam = sinceParam ? `${sinceParam}&limit=1000` : '?limit=1000';
+    const response = await fetch(`${config.relayUrl}/v1/events/${project}${limitParam}`, {
       headers: { 'Authorization': `Bearer ${token}` },
       signal: AbortSignal.timeout(10000),
     });
