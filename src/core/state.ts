@@ -95,9 +95,10 @@ export function aggregateState(
     }
     // A commit near or after the session started working means the user attended to it.
     // Grace window accounts for hook events firing slightly after the actual commit.
+    // Only promote if the working event was within 1 hour of the commit (not ancient sessions).
     if (sess.state === 'waiting' && commitEpoch) {
       const workTs = sessionLastWorkingTs.get(id);
-      if (workTs && toEpoch(workTs) <= commitEpoch + 120) {
+      if (workTs && toEpoch(workTs) <= commitEpoch + 120 && commitEpoch - toEpoch(workTs) < 3600) {
         sessions.set(id, { ...sess, state: 'done' });
       }
     }
@@ -127,7 +128,7 @@ export function aggregateState(
     stateCounts.set(sess.state, (stateCounts.get(sess.state) || 0) + 1);
     if (sess.state === 'working') workingTimestamps.push(sess.ts);
 
-    if (p > bestPriority) {
+    if (p > bestPriority || (p === bestPriority && toEpoch(sess.ts) > toEpoch(bestTs))) {
       bestPriority = p;
       bestState = sess.state;
       bestMessage = sess.message;
