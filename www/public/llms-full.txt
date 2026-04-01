@@ -206,7 +206,9 @@ The agent picks up the issue, reads AGENTS.md, emits events back to the relay, a
 
 ### Performance
 
-- `td status` (shell prompt) reads from local cache only. Never hits the network, stays under 100ms
+- `td status` (shell prompt) reads from local cache only. Never hits the network. ~26ms mean (statistically equivalent to `git branch`)
+- Cache-first: prompt reads a local file, background process refreshes for next prompt
+- 200ms timeout guard: if binary hangs, shell kills it. After 3 failures, auto-disables
 - `td` (board) refreshes the relay cache on each invocation, then renders from cache
 - No daemon. No background sync.
 

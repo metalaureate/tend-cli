@@ -532,6 +532,81 @@ export default function Page() {
         </ScrollReveal>
       </section>
 
+      {/* PERFORMANCE */}
+      <section className="py-20 md:py-28 px-6">
+        <ScrollReveal triggerClassName="perf-el">
+          <div className="max-w-3xl mx-auto">
+            <p className="perf-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Performance</p>
+
+            <h2 className="perf-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
+              26ms per keystroke.<br />
+              <span className="text-smoke">Same as git.</span>
+            </h2>
+
+            <p className="perf-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
+              The shell prompt indicator reads from a local cache file and returns immediately. Background refresh happens in a detached process — you never wait for it.
+            </p>
+
+            {/* Benchmark terminal */}
+            <div className="perf-el mt-10 bg-anvil rounded-[1.25rem] overflow-hidden shadow-xl">
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b border-white/5">
+                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+                <span className="font-mono text-[11px] text-smoke/40 ml-2">$ hyperfine — 200 runs, Apple Silicon</span>
+              </div>
+              <div className="p-5 font-mono text-xs space-y-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-parchment w-48 shrink-0">tend status</span>
+                  <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-patina/60 rounded-full" style={{ width: '52%' }} />
+                  </div>
+                  <span className="text-patina w-16 text-right">26ms</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-parchment w-48 shrink-0">git branch --show-current</span>
+                  <div className="flex-1 h-3 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-patina/60 rounded-full" style={{ width: '50%' }} />
+                  </div>
+                  <span className="text-patina w-16 text-right">25ms</span>
+                </div>
+                <div className="mt-2 pt-3 border-t border-white/5 text-smoke/40">
+                  Statistically equivalent. No perceptible difference.
+                </div>
+              </div>
+            </div>
+
+            {/* Safeguards */}
+            <div className="perf-el mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">Cache-first</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Prompt reads a local file. Computation happens in a detached background process for the next prompt.
+                </p>
+              </div>
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">200ms timeout</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  If the binary ever hangs, the shell kills it. After 3 failures, the hook auto-disables for the session.
+                </p>
+              </div>
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">No network</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  <span className="font-mono text-anvil">td status</span> never contacts the relay. Network calls only on explicit board or relay commands.
+                </p>
+              </div>
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">No daemon</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  No background process, no watcher, no polling. The binary runs, prints, and exits.
+                </p>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+      </section>
+
       {/* FOOTER */}
       <footer className="pt-16 pb-8 px-6">
         <div className="max-w-3xl mx-auto">

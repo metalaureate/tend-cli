@@ -221,6 +221,27 @@ Remote projects show a `↗` indicator. `td <project>` shows per-session breakdo
 - `td` (board) refreshes the relay cache on each invocation, then renders from cache
 - No daemon. No background sync.
 
+---
+
+## Performance
+
+Tend adds no perceptible latency to your terminal. The shell prompt indicator (`td status`) uses a cache-and-background-refresh pattern: it prints a cached result immediately and spawns a background process to recompute for the next prompt.
+
+**Benchmarks** (hyperfine, 200 runs, Apple Silicon):
+
+| Command | Mean | Min | Max |
+|---|---|---|---|
+| `tend status` | 26ms | 21ms | 79ms |
+| `git branch --show-current` | 25ms | 14ms | 114ms |
+
+`tend status` is statistically equivalent to `git branch` — a command already present in most developer prompts.
+
+**Safeguards:**
+- **Cache-first:** The prompt always reads from a local file. Computation happens in a detached background process
+- **200ms timeout:** If the binary ever hangs, the shell kills it after 200ms
+- **Auto-disable:** After 3 consecutive failures, the prompt hook disables itself for the session
+- **No network:** `td status` never contacts the relay. Network calls only happen on explicit board or relay commands
+
 ### Board Sharing
 
 Relay tokens (`tnd_`) grant write access — don't share them. Use `td relay share` to generate a read-only board link:
