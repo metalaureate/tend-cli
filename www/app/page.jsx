@@ -539,7 +539,7 @@ export default function Page() {
             <p className="perf-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">Performance</p>
 
             <h2 className="perf-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
-              26ms per keystroke.<br />
+              26ms per Enter.<br />
               <span className="text-smoke">Same as git.</span>
             </h2>
 
