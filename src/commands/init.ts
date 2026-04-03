@@ -4,13 +4,23 @@ import { resolveProjectPath, registerProject } from '../core/projects.js';
 import { hasGit, gitRepoName } from '../core/git.js';
 import { homedir } from 'os';
 
-const HOOKS_JSON = JSON.stringify({
-  hooks: {
-    SessionStart: [{ type: 'command', command: 'tend hook session-start' }],
-    UserPromptSubmit: [{ type: 'command', command: 'tend hook user-prompt' }],
-    Stop: [{ type: 'command', command: 'tend hook stop' }],
-  },
-}, null, 2);
+type HookEventName = 'SessionStart' | 'UserPromptSubmit' | 'Stop';
+
+type HookEntry = {
+  type: 'command';
+  command: string;
+  env?: Record<string, string>;
+};
+
+type HookConfig = {
+  hooks: Record<HookEventName, HookEntry[]>;
+};
+
+const HOOK_SUBCOMMANDS: Record<HookEventName, string> = {
+  SessionStart: 'session-start',
+  UserPromptSubmit: 'user-prompt',
+  Stop: 'stop',
+};
 
 const AGENTS_TEMPLATE = `## Tend Integration
 
@@ -18,7 +28,9 @@ This project uses [Tend](https://github.com/metalaureate/tend-cli) for workflow 
 
 ### Setup
 
-If \`tend\` is not on PATH, install it:
+Prefer the generated hook command from \.github/hooks/tend.json for automated lifecycle events. Do not assume \`tend\` is on PATH in non-interactive shells.
+
+If you need to run Tend manually and \`tend\` is not on PATH, install it:
 
 \`\`\`bash
 curl -sSL https://raw.githubusercontent.com/metalaureate/tend-cli/main/bin/tend -o /usr/local/bin/tend && chmod +x /usr/local/bin/tend
@@ -77,6 +89,102 @@ Example:
 const TEND_MARKER = '## Tend Integration';
 
 const GITIGNORE_ENTRIES = ['.tend/events', '.tend/hook_debug.log', '.scratch/'];
+
+function shellQuote(value: string): string {
+  if (/^[A-Za-z0-9_./:-]+$/.test(value)) return value;
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+function resolveHookCommandPrefix(): string {
+  const execPath = process.execPath;
+  const argv0 = process.argv[0];
+  const argv1 = process.argv[1];
+  const bunLike = /(^|\/)(bun|bunx)$/.test(execPath);
+
+  if (argv1?.startsWith('/$bunfs/root/')) {
+    return shellQuote(execPath);
+  }
+
+  if (bunLike && argv1) {
+    return `${shellQuote(execPath)} ${shellQuote(argv1)}`;
+  }
+
+  return shellQuote(execPath || argv0);
+}
+
+function buildHookConfig(): HookConfig {
+  const selfCommand = resolveHookCommandPrefix();
+  return {
+    hooks: {
+      SessionStart: [{ type: 'command', command: `${selfCommand} hook session-start` }],
+      UserPromptSubmit: [{ type: 'command', command: `${selfCommand} hook user-prompt` }],
+      Stop: [{ type: 'command', command: `${selfCommand} hook stop` }],
+    },
+  };
+}
+
+function syncHookEntries(existing: unknown, desired: HookEntry, subcommand: string): HookEntry[] {
+  const entries = Array.isArray(existing) ? [...existing] : [];
+  const matchIndex = entries.findIndex((entry): boolean => {
+    if (!entry || typeof entry !== 'object') return false;
+    const candidate = entry as Partial<HookEntry>;
+    return candidate.type === 'command'
+      && typeof candidate.command === 'string'
+      && candidate.command.endsWith(`hook ${subcommand}`);
+  });
+
+  if (matchIndex >= 0) {
+    const current = entries[matchIndex] as Partial<HookEntry>;
+    entries[matchIndex] = { ...current, ...desired };
+  } else {
+    entries.push(desired);
+  }
+
+  return entries as HookEntry[];
+}
+
+function syncHooks(existing: unknown, desired: HookConfig): HookConfig['hooks'] {
+  const current = existing && typeof existing === 'object' ? existing as Record<string, unknown> : {};
+  const hooks = { ...current } as Record<HookEventName, HookEntry[]>;
+
+  for (const [eventName, subcommand] of Object.entries(HOOK_SUBCOMMANDS) as Array<[HookEventName, string]>) {
+    hooks[eventName] = syncHookEntries(current[eventName], desired.hooks[eventName][0], subcommand);
+  }
+
+  return hooks;
+}
+
+function syncCopilotHooks(filePath: string): void {
+  const desired = buildHookConfig();
+  let config: { hooks?: unknown } = {};
+
+  if (existsSync(filePath)) {
+    try {
+      config = JSON.parse(readFileSync(filePath, 'utf-8'));
+    } catch {
+      config = {};
+    }
+  }
+
+  config.hooks = syncHooks(config.hooks, desired);
+  writeFileSync(filePath, JSON.stringify({ hooks: config.hooks }, null, 2) + '\n');
+}
+
+function syncClaudeHooks(filePath: string): void {
+  const desired = buildHookConfig();
+  let config: Record<string, unknown> = {};
+
+  if (existsSync(filePath)) {
+    try {
+      config = JSON.parse(readFileSync(filePath, 'utf-8'));
+    } catch {
+      config = {};
+    }
+  }
+
+  config.hooks = syncHooks(config.hooks, desired);
+  writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n');
+}
 
 export function cmdInit(args: string[]): void {
   let projectPath: string;
@@ -165,24 +273,14 @@ export function cmdInit(args: string[]): void {
   // Create VS Code hooks config
   const hooksDir = join(projectPath, '.github', 'hooks');
   const hooksFile = join(hooksDir, 'tend.json');
-  if (!existsSync(hooksFile)) {
-    mkdirSync(hooksDir, { recursive: true });
-    writeFileSync(hooksFile, HOOKS_JSON + '\n');
-  }
+  mkdirSync(hooksDir, { recursive: true });
+  syncCopilotHooks(hooksFile);
 
   // Create Claude Code hooks config
   const claudeDir = join(projectPath, '.claude');
   const claudeFile = join(claudeDir, 'settings.local.json');
-  if (!existsSync(claudeFile)) {
-    mkdirSync(claudeDir, { recursive: true });
-    writeFileSync(claudeFile, HOOKS_JSON + '\n');
-  } else {
-    const existing = JSON.parse(readFileSync(claudeFile, 'utf-8'));
-    if (!existing.hooks) {
-      existing.hooks = JSON.parse(HOOKS_JSON).hooks;
-      writeFileSync(claudeFile, JSON.stringify(existing, null, 2) + '\n');
-    }
-  }
+  mkdirSync(claudeDir, { recursive: true });
+  syncClaudeHooks(claudeFile);
 
   process.stdout.write('✓ Installed agent hooks (Copilot + Claude Code)\n');
   process.stdout.write(`✓ Initialized .tend/ in ${projectName}\n`);

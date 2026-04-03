@@ -2,6 +2,12 @@
 
 This project uses Tend for workflow coordination.
 
+### Command Resolution
+
+- For automated lifecycle hooks, use the executable path written into `.github/hooks/tend.json` or `.claude/settings.local.json`.
+- Do not assume `tend` is on PATH inside non-interactive shells spawned by editors or agents.
+- If you need to emit manually and `tend` is unavailable, append directly to `.tend/events` as documented below.
+
 ### On Startup
 
 1. Read `.tend/TODO` to understand the current backlog.

@@ -2,8 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createTestContext, type TestContext } from './helpers.js';
 import { readFileSync, existsSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
 let ctx: TestContext;
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const TEND_BIN = join(ROOT, 'bin', 'tend');
 
 beforeEach(() => { ctx = createTestContext(); });
 afterEach(() => { ctx.cleanup(); });
@@ -128,6 +132,27 @@ describe('init', () => {
     expect(content).toContain('SessionStart');
     expect(content).toContain('UserPromptSubmit');
     expect(content).toContain('Stop');
+    expect(content).toContain(`${TEND_BIN} hook session-start`);
+    expect(content).not.toContain('"command": "tend hook session-start"');
+  });
+
+  it('updates stale .github/hooks/tend.json commands on rerun', () => {
+    const dir = ctx.makeProject('charlie3');
+    const hooksDir = join(dir, '.github', 'hooks');
+    require('fs').mkdirSync(hooksDir, { recursive: true });
+    writeFileSync(join(hooksDir, 'tend.json'), JSON.stringify({
+      hooks: {
+        SessionStart: [{ type: 'command', command: 'tend hook session-start' }],
+        UserPromptSubmit: [{ type: 'command', command: 'tend hook user-prompt' }],
+        Stop: [{ type: 'command', command: 'tend hook stop' }],
+      },
+    }, null, 2));
+
+    ctx.tend(['init'], { cwd: dir });
+
+    const content = readFileSync(join(hooksDir, 'tend.json'), 'utf-8');
+    expect(content).toContain(`${TEND_BIN} hook session-start`);
+    expect(content).not.toContain('"command": "tend hook session-start"');
   });
 
   it('creates .claude/settings.local.json with hooks', () => {
@@ -137,7 +162,7 @@ describe('init', () => {
     expect(existsSync(claudeFile)).toBe(true);
     const content = readFileSync(claudeFile, 'utf-8');
     expect(content).toContain('SessionStart');
-    expect(content).toContain('tend hook');
+    expect(content).toContain(`${TEND_BIN} hook`);
   });
 
   it('merges hooks into existing .claude/settings.local.json', () => {
@@ -150,6 +175,27 @@ describe('init', () => {
     expect(content.hooks).toBeDefined();
     expect(content.hooks.SessionStart).toBeDefined();
     expect(content.permissions.allow).toContain('Read');
+    expect(content.hooks.SessionStart[0].command).toContain(`${TEND_BIN} hook session-start`);
+  });
+
+  it('updates stale Claude hook commands while preserving other settings', () => {
+    const dir = ctx.makeProject('claude3');
+    const claudeDir = join(dir, '.claude');
+    require('fs').mkdirSync(claudeDir, { recursive: true });
+    require('fs').writeFileSync(join(claudeDir, 'settings.local.json'), JSON.stringify({
+      permissions: { allow: ['Read'] },
+      hooks: {
+        SessionStart: [{ type: 'command', command: 'tend hook session-start' }],
+      },
+    }, null, 2));
+
+    ctx.tend(['init'], { cwd: dir });
+
+    const content = JSON.parse(readFileSync(join(claudeDir, 'settings.local.json'), 'utf-8'));
+    expect(content.permissions.allow).toContain('Read');
+    expect(content.hooks.SessionStart[0].command).toContain(`${TEND_BIN} hook session-start`);
+    expect(content.hooks.UserPromptSubmit[0].command).toContain(`${TEND_BIN} hook user-prompt`);
+    expect(content.hooks.Stop[0].command).toContain(`${TEND_BIN} hook stop`);
   });
 
   it('fails without git repo', () => {
