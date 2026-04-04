@@ -5,7 +5,7 @@ import { tsLocal } from '../ui/format.js';
 import { C } from '../ui/colors.js';
 import { gitRepoName } from '../core/git.js';
 import { createInterface } from 'readline';
-import { relayAddTodo } from '../core/relay.js';
+import { relayAddTodo, relayListTodos, relayDeleteTodo } from '../core/relay.js';
 
 interface TodoEntry {
   projectPath: string;
@@ -71,6 +71,8 @@ export async function cmdAdd(args: string[]): Promise<void> {
     if (indices.length === 0) return;
 
     removeTodos(todos, indices);
+    // Best-effort relay sync — delete matching TODOs from relay
+    syncRelayRemovals(todos, indices).catch(() => {});
     const label = indices.length === 1 ? 'todo' : 'todos';
     process.stdout.write(`✓ Removed ${indices.length} ${label}\n`);
     return;
@@ -150,6 +152,22 @@ function removeTodos(todos: TodoEntry[], indices: number[]): void {
     const content = readFileSync(file, 'utf-8');
     const kept = content.split('\n').filter(line => !linesToRemove.has(line));
     writeFileSync(file, kept.join('\n'));
+  }
+}
+
+/** Sync TODO removals to relay by matching project + message */
+async function syncRelayRemovals(todos: TodoEntry[], indices: number[]): Promise<void> {
+  const relayTodos = await relayListTodos();
+  if (relayTodos.length === 0) return;
+
+  for (const idx of indices) {
+    const todo = todos[idx - 1]; // 1-based to 0-based
+    if (!todo) continue;
+    const project = gitRepoName(todo.projectPath);
+    const match = relayTodos.find(rt => rt.project === project && rt.message === todo.display);
+    if (match) {
+      await relayDeleteTodo(match.id);
+    }
   }
 }
 
