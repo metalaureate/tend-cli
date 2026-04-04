@@ -396,7 +396,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       display: flex;
       align-items: baseline;
       margin-bottom: 5px;
-      font-size: 12px;
+      font-size: 11px;
     }
     .icon { width: 14px; flex-shrink: 0; }
     .name {
@@ -408,7 +408,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       color: rgba(245,242,235,0.85);
       margin-left: 4px;
     }
-    .state { width: 72px; flex-shrink: 0; font-size: 11px; }
+    .state { width: 72px; flex-shrink: 0; }
     .msg {
       flex: 1;
       overflow: hidden;
@@ -416,7 +416,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       white-space: nowrap;
       color: rgba(168,168,168,0.85);
     }
-    .time { flex-shrink: 0; margin-left: 8px; font-size: 11px; color: rgba(168,168,168,0.6); }
+    .time { flex-shrink: 0; margin-left: 8px; color: rgba(168,168,168,0.6); }
     .msg-insight {
       color: rgba(217,158,78,0.9);
     }
