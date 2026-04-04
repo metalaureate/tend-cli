@@ -501,7 +501,9 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     // Time-ago for each row
     function timeAgo(isoStr) {
       if (!isoStr) return '';
-      var d = new Date(isoStr.replace(' ', 'T'));
+      var s = isoStr.replace(' ', 'T');
+      if (!/[Z+\-]\d{0,4}$/.test(s)) s += 'Z';
+      var d = new Date(s);
       var secs = Math.floor((Date.now() - d.getTime()) / 1000);
       if (secs < 0) secs = 0;
       if (secs < 60) return secs + 's';
