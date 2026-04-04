@@ -154,13 +154,20 @@ async function relayFetchProject(project: string, token: string): Promise<void> 
 export function relayOnlyProjects(): string[] {
   if (!existsSync(config.relayCacheDir)) return [];
 
-  const localProjects = new Set(
-    discoverProjects().map(p => gitRepoName(p)),
-  );
+  // Build a set of all names a local project might be known by:
+  // git remote name AND directory basename
+  const localNames = new Set<string>();
+  for (const p of discoverProjects()) {
+    localNames.add(gitRepoName(p));
+    const dirName = p.split('/').pop();
+    if (dirName) localNames.add(dirName);
+  }
 
   try {
     const cacheEntries = readdirSync(config.relayCacheDir);
-    return cacheEntries.filter((name: string) => !localProjects.has(name));
+    return cacheEntries.filter((name: string) =>
+      !name.includes('.') && !localNames.has(name),
+    );
   } catch {
     return [];
   }

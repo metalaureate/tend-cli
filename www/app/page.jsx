@@ -1,11 +1,11 @@
 import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, GithubIconExport, ArrowRightIconExport } from './components'
 
 const board = [
-  { icon: '?', name: 'payments-api', state: 'stuck', msg: 'needs database credentials for staging', time: '', color: 'text-ember', env: '', insight: 'blocked on creds, 2nd attempt → ask devops for staging keys' },
-  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '', insight: 'auth refactor landed → review PR, merge if green' },
+  { icon: '?', name: 'payments-api', state: 'stuck', msg: 'needs database credentials for staging', time: '', color: 'text-ember', env: '', insight: 'blocked on creds, 2nd try → ask devops for keys' },
+  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '', insight: 'auth refactor landed → review PR, merge' },
   { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '', insight: '' },
-  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗', insight: '' },
-  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'changes in src/auth', time: '45m ago', color: 'text-ember', env: '↗', insight: 'dirty worktree after fix → commit WIP or stash' },
+  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗', insight: 'ETL schema pass 2 → test w/ prod data' },
+  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'changes in src/auth', time: '45m ago', color: 'text-ember', env: '↗', insight: 'dirty worktree post-fix → commit or stash' },
   { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '3h ago', color: 'text-smoke/50', env: '', insight: '' },
 ]
 
@@ -45,7 +45,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              A pull-based status board for developers running multiple AI agents. Glance when you&apos;re ready. Route yourself to what needs you. Get back to work.
+              A pull-based status board for developers running multiple AI agents. See what each agent is doing, what it&apos;ll do next, and what needs you. Glance when you&apos;re ready. Get back to work.
             </p>
 
             {/* The Board */}
@@ -63,16 +63,13 @@ export default function Page() {
                 </div>
                 <div className="space-y-0">
                   {board.map((row, i) => (
-                    <div key={i}>
-                      <div className="flex">
-                        <span className={`${row.color} w-4 shrink-0`}>{row.icon}</span>
-                        <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">{row.name}</span>
-                        <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
-                        <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
-                        {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
-                        {row.env && <span className="text-parchment/30 ml-auto pl-2 shrink-0">{row.env}</span>}
-                      </div>
-                      {row.insight && <div className="text-smoke/30 text-[10px] ml-5 mb-1">⤷ {row.insight}</div>}
+                    <div key={i} className="flex">
+                      <span className={`${row.color} w-4 shrink-0`}>{row.icon}</span>
+                      <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">{row.name}</span>
+                      <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
+                      <span className={`truncate hidden sm:block ${row.insight ? 'text-amber-500/80' : 'text-smoke/50'}`}>{row.insight || row.msg}</span>
+                      {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
+                      {row.env && <span className="text-parchment/30 ml-auto pl-2 shrink-0">{row.env}</span>}
                     </div>
                   ))}
                 </div>
@@ -94,9 +91,9 @@ export default function Page() {
               <span className="text-smoke/20">·</span>
               <span className="font-mono text-xs text-smoke/40">Local or remote</span>
               <span className="text-smoke/20">·</span>
-              <span className="font-mono text-xs text-smoke/40">No daemon</span>
+              <span className="font-mono text-xs text-amber-500/60">AI insights</span>
               <span className="text-smoke/20">·</span>
-              <span className="font-mono text-xs text-smoke/40">No database</span>
+              <span className="font-mono text-xs text-smoke/40">No daemon</span>
             </div>
 
             {/* CTA */}
@@ -258,6 +255,68 @@ export default function Page() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+          </div>
+        </ScrollReveal>
+      </section>
+
+      {/* AI INSIGHTS */}
+      <section id="insights" className="py-20 md:py-28 px-6 bg-parchment">
+        <ScrollReveal triggerClassName="ai-el">
+          <div className="max-w-3xl mx-auto">
+            <p className="ai-el font-mono text-xs text-smoke/50 uppercase tracking-widest mb-6">AI insights</p>
+
+            <h2 className="ai-el font-heading font-bold text-2xl md:text-4xl text-anvil leading-tight">
+              Know what each agent is really doing.<br />
+              <span className="text-smoke">And what comes next.</span>
+            </h2>
+
+            <p className="ai-el font-body text-smoke text-base md:text-lg mt-6 leading-relaxed max-w-2xl">
+              Every time an agent reports state, Tend reads its recent event trail, project README, and TODO backlog — then generates two lines: what&apos;s happening and what&apos;s likely next. No dashboards to configure. No prompts to write. It just shows up on your board.
+            </p>
+
+            {/* Before/after demo */}
+            <div className="ai-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-anvil rounded-2xl p-5">
+                <p className="font-mono text-[10px] text-smoke/40 uppercase tracking-widest mb-3">Without insights</p>
+                <div className="font-mono text-xs space-y-1.5">
+                  <div className="flex gap-2"><span className="text-ember">◐</span><span className="text-parchment/70 w-24 shrink-0">payments-api</span><span className="text-smoke/50 truncate">building auth scaffold</span></div>
+                  <div className="flex gap-2"><span className="text-patina">◉</span><span className="text-parchment/70 w-24 shrink-0">mobile-app</span><span className="text-smoke/50 truncate">PR #847 ready for review</span></div>
+                  <div className="flex gap-2"><span className="text-ember">?</span><span className="text-parchment/70 w-24 shrink-0">auth-service</span><span className="text-smoke/50 truncate">changes in src/auth</span></div>
+                </div>
+                <p className="text-smoke/40 text-[10px] mt-3 italic">Raw event messages. You parse the meaning.</p>
+              </div>
+              <div className="bg-anvil rounded-2xl p-5 ring-1 ring-amber-500/30">
+                <p className="font-mono text-[10px] text-amber-500/70 uppercase tracking-widest mb-3">With insights</p>
+                <div className="font-mono text-xs space-y-1.5">
+                  <div className="flex gap-2"><span className="text-ember">◐</span><span className="text-parchment/70 w-24 shrink-0">payments-api</span><span className="text-amber-500/80 truncate">3rd auth pass → run tests, PR</span></div>
+                  <div className="flex gap-2"><span className="text-patina">◉</span><span className="text-parchment/70 w-24 shrink-0">mobile-app</span><span className="text-amber-500/80 truncate">refactor landed → merge if green</span></div>
+                  <div className="flex gap-2"><span className="text-ember">?</span><span className="text-parchment/70 w-24 shrink-0">auth-service</span><span className="text-amber-500/80 truncate">dirty worktree → commit or stash</span></div>
+                </div>
+                <p className="text-amber-500/50 text-[10px] mt-3 italic">Context + trajectory. You route yourself instantly.</p>
+              </div>
+            </div>
+
+            {/* How it works */}
+            <div className="ai-el mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">Reads the trail</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Last 25 events, project README, and pending TODOs. The model understands what your project is and what the agent has been doing.
+                </p>
+              </div>
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">Predicts next</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Infers the likely action from work trajectory — not the TODO list. If the agent is debugging auth, it predicts &ldquo;run tests&rdquo; — not an unrelated backlog item.
+                </p>
+              </div>
+              <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
+                <p className="font-heading font-bold text-anvil text-sm">Costs nothing</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  ~$0.00005 per insight. Only fires on state changes, not on views. Content-hashed: if nothing changed, no call is made.
+                </p>
               </div>
             </div>
           </div>
