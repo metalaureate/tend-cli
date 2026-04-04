@@ -808,16 +808,21 @@ const INSIGHT_SYSTEM_PROMPT =
   'Line 3: The project state — EXACTLY one of: working, done, stuck, waiting, idle\n' +
   'IMPORTANT: "working" messages are raw user prompts captured by editor hooks — they are NOT task descriptions.' +
   ' Ignore their literal text. Focus on "done" messages and the overall pattern of work/idle cycles to understand what actually happened.\n' +
-  'Infer state from the event pattern:\n' +
-  '- working: agent actively producing output\n' +
-  '- done: task completed, committed, or PR opened\n' +
-  '- stuck: blocked on credentials, errors, or missing info\n' +
-  '- waiting: agent paused mid-task, needs human input\n' +
-  '- idle: natural end of session, nothing pending\n' +
-  'Short interactive bursts (working→idle→working→idle) where the human is driving = idle, not waiting.\n' +
+  'CLOSURE DETECTION — this is the key concept for state inference:\n' +
+  '- "done" is an explicit CLOSURE signal. It means the task was completed.\n' +
+  '- "working → idle" WITHOUT a "done" = NO CLOSURE. Work was interrupted or abandoned. This is WAITING.\n' +
+  '- "working → done → quiet" = closure happened. State is done.\n' +
+  'State definitions:\n' +
+  '- working: agent actively producing output RIGHT NOW (last working event < 5 min ago)\n' +
+  '- done: most recent session ended with an explicit "done" event. Task completed, committed, shipped.\n' +
+  '- stuck: explicit "stuck" event, or evidence of repeated failures/blocks\n' +
+  '- waiting: agent was working but stopped WITHOUT "done" — no closure. Unfinished work exists. Last activity < 24h ago.\n' +
+  '- idle: fallback — either waiting decayed (> 24h without activity), or genuinely nothing pending, or state is unclear.\n' +
+  'Time matters: check the "(Xm ago)" annotations. A "waiting" project that has been quiet for days should be idle, not waiting.\n' +
   'No labels, prefixes, bullets. Examples:\n' +
   '3rd pass at auth, was stuck\nrun tests, open PR\nworking\n\n' +
-  'tz fix landed, testing now\ndeploy to staging\ndone\n\n' +
+  'auth module shipped, tests pass\npick next backlog item\ndone\n\n' +
+  'started refactor, no commit yet\nresume refactor, commit\nwaiting\n\n' +
   'idle 2d, dirty worktree\ncommit WIP or stash\nidle';
 
 const MAX_INSIGHT_EVENTS = 25;
