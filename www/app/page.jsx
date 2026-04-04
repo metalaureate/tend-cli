@@ -315,7 +315,7 @@ export default function Page() {
               <div className="bg-anvil/5 border border-anvil/10 rounded-2xl p-5">
                 <p className="font-heading font-bold text-anvil text-sm">Costs nothing</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  ~$0.00005 per insight. Only fires on state changes, not on views. Content-hashed: if nothing changed, no call is made.
+                  ~$0.00005 per insight via <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-anvil underline hover:text-smoke">OpenRouter</a>. Only fires on state changes, not on views. Content-hashed: if nothing changed, no call is made. Enabled automatically on the hosted relay.
                 </p>
               </div>
             </div>
@@ -423,7 +423,7 @@ export default function Page() {
               <div className="bg-white/5 rounded-2xl p-5">
                 <p className="font-heading font-bold text-parchment text-sm">AI insights</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
-                  Each project gets a terse summary and next-action prediction, generated from the event trail and TODO list. Updated on every state change. Costs fractions of a cent.
+                  Each project gets a terse summary and next-action prediction, generated from the event trail, README, and TODO list. Powered by <a href="https://openrouter.ai" target="_blank" rel="noopener noreferrer" className="text-parchment/80 underline hover:text-parchment">OpenRouter</a>. Enabled automatically on the hosted relay. Self-hosted: add your API key as a Worker secret.
                 </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-5">

@@ -253,6 +253,41 @@ td relay share
 
 The `tnb_` link lets anyone view your board but not write events or modify TODOs. You can revoke it and generate a new one at any time.
 
+### AI Insights
+
+When the relay has an OpenRouter API key, it generates two terse lines per project on every state change:
+
+- **Summary** — what's happening right now (≤30 chars)
+- **Prediction** — likely next step, inferred from work trajectory (≤30 chars)
+
+Insights appear inline on your board in amber, replacing the raw event message. If no insight exists, the board falls back to the event message as before.
+
+**Setup:**
+
+```bash
+# Self-hosted relay: add your OpenRouter key as a Cloudflare Worker secret
+wrangler secret put OPENROUTER_API_KEY
+# → paste your key from https://openrouter.ai/keys
+
+# Optional: override the default model (Gemini 2.0 Flash)
+wrangler secret put TEND_AI_MODEL
+# → e.g. anthropic/claude-3.5-haiku
+```
+
+For the hosted relay at `relay.tend.cx`, insights are enabled automatically — no setup needed.
+
+**How it works:**
+
+1. Agent emits `tend emit working "..."` → event lands on relay
+2. Relay reads last 25 events, project README, and pending TODOs
+3. Content-hashes the input — skips the LLM if nothing changed
+4. Calls the LLM asynchronously (doesn't delay the event response)
+5. Caches the result in D1
+
+The CLI pushes your project's README to the relay once per hour (content-hashed, skipped if unchanged). This gives the model context about what the project actually is.
+
+Cost: ~$0.00005 per insight. Only fires on state changes, not board views.
+
 ### The Relay is Optional
 
 Local agents still just write to a file. If you never set up a relay token, everything works exactly the same. The relay is what makes one board possible when your agents are spread across environments.
