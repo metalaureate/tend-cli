@@ -889,11 +889,27 @@ async function recomputeInsight(
 
   // Build prompt
   const last = events[events.length - 1];
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString().slice(0, 19);
+
+  function relAge(ts: string): string {
+    const diff = nowMs - new Date(ts + 'Z').getTime();
+    if (diff < 0) return '';
+    const secs = Math.floor(diff / 1000);
+    if (secs < 60) return `${secs}s ago`;
+    const mins = Math.floor(secs / 60);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  }
+
   const eventsBlock = events
-    .map(e => `${e.timestamp} [${e.session_id || '_'}] ${e.state}${e.message ? ' ' + e.message : ''}`)
+    .map(e => `${e.timestamp} (${relAge(e.timestamp)}) [${e.session_id || '_'}] ${e.state}${e.message ? ' ' + e.message : ''}`)
     .join('\n');
 
-  let userPrompt = `Project: ${project}\nCurrent state: ${last.state}`;
+  let userPrompt = `Project: ${project}\nCurrent time: ${nowIso}\nCurrent state: ${last.state} (${relAge(last.timestamp)})`;
   if (last.message) userPrompt += `\nLatest message: ${last.message}`;
   if (contextBlock) userPrompt += `\n\nProject README (truncated):\n${contextBlock}`;
   userPrompt += `\n\nRecent events (oldest → newest):\n${eventsBlock}`;
