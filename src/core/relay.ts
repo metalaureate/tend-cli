@@ -179,6 +179,7 @@ export interface RelayInsight {
   project: string;
   summary: string;
   prediction: string;
+  inferred_state: string;
 }
 
 /** Fetch cached LLM insights from the relay (non-blocking, returns empty on failure) */

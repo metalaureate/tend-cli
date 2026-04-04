@@ -167,7 +167,15 @@ export function clearEvents(filePath: string): void {
 export function mergeEvents(a: TendEvent[], b: TendEvent[]): TendEvent[] {
   const all = [...a, ...b];
   all.sort((x, y) => x.ts.localeCompare(y.ts));
-  return all;
+
+  // Deduplicate: same timestamp + sessionId + state = same event
+  const seen = new Set<string>();
+  return all.filter(e => {
+    const key = `${e.ts}|${e.sessionId}|${e.state}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /** Read events from a project's .tend/events file */

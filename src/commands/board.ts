@@ -145,6 +145,12 @@ export async function buildBoardOutput(): Promise<string> {
       }
     }
 
+    // Override state with LLM-inferred state when available
+    const insight = insightMap.get(projectName);
+    if (insight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(insight.inferred_state)) {
+      state = insight.inferred_state;
+    }
+
     // Count states
     switch (state) {
       case 'done': ready++; break;
@@ -177,7 +183,6 @@ export async function buildBoardOutput(): Promise<string> {
     if (maxDetail < 10) maxDetail = 10;
 
     // Prefer insight over message when available
-    const insight = insightMap.get(projectName);
     let detail: string;
     let detailColor = '';
     if (insight) {
@@ -217,6 +222,12 @@ export async function buildBoardOutput(): Promise<string> {
       }
     }
 
+    // Override state with LLM-inferred state when available
+    const relayInsight = insightMap.get(relayProject);
+    if (relayInsight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(relayInsight.inferred_state)) {
+      state = relayInsight.inferred_state;
+    }
+
     switch (state) {
       case 'done': ready++; break;
       case 'stuck': stuckCount++; needs++; break;
@@ -243,7 +254,6 @@ export async function buildBoardOutput(): Promise<string> {
     if (maxDetail < 10) maxDetail = 10;
 
     // Prefer insight over message when available
-    const relayInsight = insightMap.get(relayProject);
     let detail: string;
     let detailColor = '';
     if (relayInsight) {

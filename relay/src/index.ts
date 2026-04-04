@@ -235,6 +235,16 @@ async function aggregateProjectStates(db: D1Database, tokenHash: string): Promis
     if (aggregated) rows.push(aggregated);
   }
 
+  // Sort: needs-attention first, then by most recent event (newest first)
+  const statePriority: Record<string, number> = { stuck: 0, waiting: 0, working: 1, done: 2, idle: 3 };
+  rows.sort((a, b) => {
+    const pa = statePriority[a.state] ?? 4;
+    const pb = statePriority[b.state] ?? 4;
+    if (pa !== pb) return pa - pb;
+    // Within same priority, sort by timestamp descending
+    return (b.timestamp || '').localeCompare(a.timestamp || '');
+  });
+
   return rows;
 }
 
@@ -280,8 +290,10 @@ function stateClass(state: string): string {
 function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const rowsHtml = rows.map(r => {
-    const icon = stateIcon(r.state);
-    const cls = stateClass(r.state);
+    const insight = insightsByProject.get(r.project);
+    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state)) ? insight.inferred_state : r.state;
+    const icon = stateIcon(effectiveState);
+    const cls = stateClass(effectiveState);
     const name = r.project.length > 19 ? r.project.slice(0, 18) + '…' : r.project;
     const fullName = r.project.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const msg = (r.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -290,23 +302,27 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     const timeEl = isoTs
       ? `<time class="time ${cls}" datetime="${isoTs}" ${tsAttr}></time>`
       : `<span class="time ${cls}"></span>`;
-    const insight = insightsByProject.get(r.project);
     const displayMsg = insight
       ? `<span class="msg msg-insight">${(insight.summary + ' → ' + insight.prediction).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`
       : `<span class="msg">${msg}</span>`;
-    return `<article class="row" data-project="${fullName}" data-state="${r.state}">
+    return `<article class="row" data-project="${fullName}" data-state="${effectiveState}">
       <span class="icon ${cls}" aria-hidden="true">${icon}</span>
       <span class="name" title="${fullName}">${name}</span>
-      <span class="state ${cls}">${r.state}</span>
+      <span class="state ${cls}">${effectiveState}</span>
       ${displayMsg}
       ${timeEl}
     </article>`;
   }).join('\n');
 
-  const stuckCount = rows.filter(r => r.state === 'stuck' || r.state === 'waiting').length;
-  const doneCount = rows.filter(r => r.state === 'done').length;
-  const workingCount = rows.filter(r => r.state === 'working').length;
-  const idleCount = rows.filter(r => r.state === 'idle').length;
+  // Compute effective states (insight-overridden) for footer counts
+  const effectiveStates = rows.map(r => {
+    const insight = insightsByProject.get(r.project);
+    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state)) ? insight.inferred_state : r.state;
+  });
+  const stuckCount = effectiveStates.filter(s => s === 'stuck' || s === 'waiting').length;
+  const doneCount = effectiveStates.filter(s => s === 'done').length;
+  const workingCount = effectiveStates.filter(s => s === 'working').length;
+  const idleCount = effectiveStates.filter(s => s === 'idle').length;
 
   const footerParts: string[] = [];
   if (stuckCount > 0) footerParts.push(`<span class="ember">${stuckCount} needs attention</span>`);
@@ -672,16 +688,20 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
 
 function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
+  const effectiveState = (r: ProjectRow) => {
+    const ins = insightsByProject.get(r.project);
+    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state)) ? ins.inferred_state : r.state;
+  };
   const now = new Date();
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const pad = (n: number) => String(n).padStart(2, '0');
   const datestamp = `${days[now.getDay()]} ${months[now.getMonth()]} ${now.getDate()}, ${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-  const stuckCount = rows.filter(r => r.state === 'stuck' || r.state === 'waiting').length;
-  const doneCount = rows.filter(r => r.state === 'done').length;
-  const workingCount = rows.filter(r => r.state === 'working').length;
-  const idleCount = rows.filter(r => r.state === 'idle').length;
+  const stuckCount = rows.filter(r => { const s = effectiveState(r); return s === 'stuck' || s === 'waiting'; }).length;
+  const doneCount = rows.filter(r => effectiveState(r) === 'done').length;
+  const workingCount = rows.filter(r => effectiveState(r) === 'working').length;
+  const idleCount = rows.filter(r => effectiveState(r) === 'idle').length;
 
   let out = `# Tend Board\n`;
   out += `> Last updated: ${updatedAt} | ${datestamp}\n\n`;
@@ -698,7 +718,7 @@ function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = 
   } else {
     for (const r of rows) {
       out += `### ${r.project}\n`;
-      out += `- State: ${r.state}\n`;
+      out += `- State: ${effectiveState(r)}\n`;
       if (r.message) out += `- Message: ${r.message}\n`;
       if (r.timestamp) out += `- Last event: ${r.timestamp}\n`;
       const ins = insightsByProject.get(r.project);
@@ -770,20 +790,29 @@ interface InsightRow {
   project: string;
   summary: string;
   prediction: string;
+  inferred_state: string;
   input_hash: string;
   updated_at: string;
 }
 
 const INSIGHT_SYSTEM_PROMPT =
   'You write ultra-short status lines for a developer dashboard.' +
-  ' Given a project\'s event log and TODOs, output EXACTLY two lines:\n' +
+  ' Given a project\'s event log and TODOs, output EXACTLY three lines:\n' +
   'Line 1: What\'s happening RIGHT NOW based on recent events. ≤30 chars. Telegram style.\n' +
   'Line 2: Predicted next step — infer from the TRAJECTORY of recent work, not the TODO list.' +
   ' TODOs are a backlog, not a plan. ≤30 chars. Start with verb. Telegram style.\n' +
+  'Line 3: The project state — EXACTLY one of: working, done, stuck, waiting, idle\n' +
+  'Infer state from the event pattern:\n' +
+  '- working: agent actively producing output\n' +
+  '- done: task completed, committed, or PR opened\n' +
+  '- stuck: blocked on credentials, errors, or missing info\n' +
+  '- waiting: agent paused mid-task, needs human input\n' +
+  '- idle: natural end of session, nothing pending\n' +
+  'Short interactive bursts (working→idle→working→idle) where the human is driving = idle, not waiting.\n' +
   'No labels, prefixes, bullets. Examples:\n' +
-  '3rd pass at auth, was stuck\nrun tests, open PR\n\n' +
-  'tz fix landed, testing now\ndeploy to staging\n\n' +
-  'idle 2d, dirty worktree\ncommit WIP or stash';
+  '3rd pass at auth, was stuck\nrun tests, open PR\nworking\n\n' +
+  'tz fix landed, testing now\ndeploy to staging\ndone\n\n' +
+  'idle 2d, dirty worktree\ncommit WIP or stash\nidle';
 
 const MAX_INSIGHT_EVENTS = 25;
 
@@ -796,15 +825,21 @@ async function computeInputHash(input: string): Promise<string> {
     .slice(0, 16);
 }
 
-function parseInsightResponse(text: string): { summary: string; prediction: string } | null {
+const VALID_INSIGHT_STATES = new Set(['working', 'done', 'stuck', 'waiting', 'idle']);
+
+function parseInsightResponse(text: string): { summary: string; prediction: string; inferred_state: string } | null {
   const lines = text
     .split('\n')
     .map(l => l.replace(/^\d+[.:)\-]\s*/, '').trim())
     .filter(Boolean);
   if (lines.length < 2) return null;
+  // Line 3 is the state — validate it, default to empty if invalid
+  const rawState = (lines[2] || '').toLowerCase().trim();
+  const inferred_state = VALID_INSIGHT_STATES.has(rawState) ? rawState : '';
   return {
     summary: lines[0].slice(0, 36),
     prediction: lines[1].slice(0, 36),
+    inferred_state,
   };
 }
 
@@ -876,7 +911,7 @@ async function recomputeInsight(
           { role: 'system', content: INSIGHT_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt },
         ],
-        max_tokens: 80,
+        max_tokens: 100,
         temperature: 0.3,
       }),
       signal: AbortSignal.timeout(8000),
@@ -893,14 +928,15 @@ async function recomputeInsight(
 
     const now = new Date().toISOString().slice(0, 19);
     await db.prepare(
-      `INSERT INTO insights (token_hash, project, summary, prediction, input_hash, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)
+      `INSERT INTO insights (token_hash, project, summary, prediction, inferred_state, input_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(token_hash, project) DO UPDATE SET
          summary = excluded.summary,
          prediction = excluded.prediction,
+         inferred_state = excluded.inferred_state,
          input_hash = excluded.input_hash,
          updated_at = excluded.updated_at`
-    ).bind(tokenHash, project, parsed.summary, parsed.prediction, hash, now).run();
+    ).bind(tokenHash, project, parsed.summary, parsed.prediction, parsed.inferred_state, hash, now).run();
   } catch {
     // Timeout or network error — silently skip
   }
@@ -909,7 +945,7 @@ async function recomputeInsight(
 /** Fetch cached insights for all projects under a token */
 async function fetchInsights(db: D1Database, tokenHash: string): Promise<InsightRow[]> {
   const result = await db.prepare(
-    'SELECT project, summary, prediction, input_hash, updated_at FROM insights WHERE token_hash = ?'
+    'SELECT project, summary, prediction, inferred_state, input_hash, updated_at FROM insights WHERE token_hash = ?'
   ).bind(tokenHash).all<InsightRow>();
   return result.results || [];
 }
@@ -917,7 +953,7 @@ async function fetchInsights(db: D1Database, tokenHash: string): Promise<Insight
 /** Fetch cached insight for a single project */
 async function fetchProjectInsight(db: D1Database, tokenHash: string, project: string): Promise<InsightRow | null> {
   return db.prepare(
-    'SELECT project, summary, prediction, input_hash, updated_at FROM insights WHERE token_hash = ? AND project = ?'
+    'SELECT project, summary, prediction, inferred_state, input_hash, updated_at FROM insights WHERE token_hash = ? AND project = ?'
   ).bind(tokenHash, project).first<InsightRow>();
 }
 
