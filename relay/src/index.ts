@@ -348,9 +348,9 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       background: #111111;
       color: #F5F2EB;
       font-family: 'IBM Plex Mono', 'Courier New', monospace;
-      font-size: 13px;
+      font-size: 18px;
       line-height: 1.6;
-      padding: 32px 20px;
+      padding: 32px 24px;
       min-height: 100vh;
       -webkit-font-smoothing: antialiased;
     }
@@ -373,16 +373,16 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     .dot-red   { background: rgba(232,85,61,0.4); }
     .dot-yel   { background: rgba(234,179,8,0.4); }
     .dot-grn   { background: rgba(46,158,110,0.4); }
-    .titlebar-label { font-size: 11px; color: rgba(138,138,138,0.65); margin-left: 6px; }
+    .titlebar-label { font-size: 14px; color: rgba(138,138,138,0.65); margin-left: 6px; }
     .statusbar {
       display: flex;
       justify-content: space-between;
-      padding: 6px 14px;
+      padding: 10px 20px;
       border-bottom: 1px solid rgba(255,255,255,0.05);
-      font-size: 11px;
+      font-size: 14px;
       color: rgba(168,168,168,0.8);
     }
-    .board { padding: 16px 14px 12px; }
+    .board { padding: 20px 20px 16px; }
     .board-header {
       display: flex;
       justify-content: space-between;
@@ -390,17 +390,17 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       color: rgba(245,242,235,0.75);
       font-weight: 600;
       letter-spacing: 0.08em;
-      font-size: 11px;
+      font-size: 14px;
     }
     .row {
       display: flex;
       align-items: baseline;
-      margin-bottom: 5px;
-      font-size: 11px;
+      margin-bottom: 8px;
+      font-size: 16px;
     }
-    .icon { width: 14px; flex-shrink: 0; }
+    .icon { width: 20px; flex-shrink: 0; }
     .name {
-      width: 148px;
+      width: 220px;
       flex-shrink: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -408,7 +408,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       color: rgba(245,242,235,0.85);
       margin-left: 4px;
     }
-    .state { width: 72px; flex-shrink: 0; }
+    .state { width: 90px; flex-shrink: 0; }
     .msg {
       flex: 1;
       overflow: hidden;
@@ -424,7 +424,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       margin-top: 14px;
       padding-top: 10px;
       border-top: 1px solid rgba(255,255,255,0.05);
-      font-size: 11px;
+      font-size: 14px;
       color: rgba(168,168,168,0.7);
     }
     .empty {
