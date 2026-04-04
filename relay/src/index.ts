@@ -1112,8 +1112,11 @@ async function handleEmitEvent(request: Request, db: D1Database, tokenHash: stri
     .run();
 
   // Asynchronously recompute LLM insight after responding
+  // Skip 'working' events — they're raw user prompts that arrive in rapid bursts
+  // and cause race conditions with the subsequent idle/done recompute.
+  // Recompute on idle, done, stuck, waiting — the meaningful state transitions.
   const apiKey = env.OPENROUTER_API_KEY;
-  if (apiKey) {
+  if (apiKey && state !== 'working') {
     const model = env.TEND_AI_MODEL || 'google/gemini-2.0-flash-001';
     ctx.waitUntil(recomputeInsight(db, tokenHash, project, apiKey, model));
   }
