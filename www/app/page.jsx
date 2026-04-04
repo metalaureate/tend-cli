@@ -45,7 +45,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              A pull-based status board for developers running multiple AI agents. See what each agent is doing, what it&apos;ll do next, and what needs you. Glance when you&apos;re ready. Get back to work.
+              A pull-based status board for developers running multiple AI agents. Remind yourself of what each agent is doing, and what it should probably do next. Glance when you&apos;re ready. Get back to work.
             </p>
 
             {/* The Board */}
