@@ -964,6 +964,11 @@ async function recomputeInsight(
          input_hash = excluded.input_hash,
          updated_at = excluded.updated_at`
     ).bind(tokenHash, project, parsed.summary, parsed.prediction, parsed.inferred_state, hash, now).run();
+
+    // Append to insight log (activity history)
+    await db.prepare(
+      'INSERT INTO insight_log (token_hash, project, summary, prediction, inferred_state, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(tokenHash, project, parsed.summary, parsed.prediction, parsed.inferred_state, now).run();
   } catch {
     // Timeout or network error — silently skip
   }
@@ -988,6 +993,21 @@ async function handleGetInsights(request: Request, db: D1Database, tokenHash: st
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
   const insights = await fetchInsights(db, tokenHash);
   return jsonResponse({ insights });
+}
+
+const MAX_INSIGHT_HISTORY = 100;
+
+async function handleGetInsightHistory(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+
+  const url = new URL(request.url);
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10) || 50, MAX_INSIGHT_HISTORY);
+
+  const result = await db.prepare(
+    'SELECT project, summary, prediction, inferred_state, created_at FROM insight_log WHERE token_hash = ? AND project = ? ORDER BY id DESC LIMIT ?'
+  ).bind(tokenHash, project, limit).all<{ project: string; summary: string; prediction: string; inferred_state: string; created_at: string }>();
+
+  return jsonResponse({ project, history: result.results || [] });
 }
 
 const MAX_CONTEXT_LENGTH = 8000;
@@ -1404,6 +1424,13 @@ export default {
     // Route: GET /v1/insights
     else if (path === '/v1/insights' && request.method === 'GET') {
       response = await handleGetInsights(request, env.DB, tokenHash);
+    }
+    // Route: GET /v1/insights/:project/history
+    else if (path.match(/^\/v1\/insights\/(.+)\/history$/) && request.method === 'GET') {
+      const project = decodeURIComponent(path.slice('/v1/insights/'.length, path.length - '/history'.length));
+      response = project
+        ? await handleGetInsightHistory(request, env.DB, tokenHash, project)
+        : errorResponse('Missing project name', 400);
     }
     // Route: GET /v1/insights/:project
     else if (path.startsWith('/v1/insights/') && request.method === 'GET') {

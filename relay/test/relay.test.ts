@@ -28,6 +28,10 @@ async function applySchema(db: D1Database) {
   await db.exec(
     "CREATE TABLE IF NOT EXISTS project_context (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', content_hash TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(token_hash, project))"
   );
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS insight_log (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', prediction TEXT NOT NULL DEFAULT '', inferred_state TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))"
+  );
+  await db.exec("CREATE INDEX IF NOT EXISTS idx_insight_log_token_project ON insight_log (token_hash, project, created_at)");
 }
 
 async function makeRequest(method: string, path: string, body?: unknown, token?: string): Promise<Response> {
@@ -948,6 +952,72 @@ describe('Tend Relay', () => {
 
     it('GET /v1/insights requires auth', async () => {
       const response = await makeRequest('GET', '/v1/insights');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('GET /v1/insights/:project/history', () => {
+    it('returns empty history for project with no logs', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('GET', '/v1/insights/my-app/history', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { project: string; history: unknown[] };
+      expect(data.project).toBe('my-app');
+      expect(data.history).toHaveLength(0);
+    });
+
+    it('returns insight history in reverse chronological order', async () => {
+      const token = await registerToken();
+      const tokenHash = await hashTokenForTest(token);
+
+      await env.DB.prepare(
+        "INSERT INTO insight_log (token_hash, project, summary, prediction, inferred_state, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).bind(tokenHash, 'my-app', 'First summary', 'First pred', 'working', '2026-01-01T10:00:00').run();
+      await env.DB.prepare(
+        "INSERT INTO insight_log (token_hash, project, summary, prediction, inferred_state, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).bind(tokenHash, 'my-app', 'Second summary', 'Second pred', 'done', '2026-01-01T11:00:00').run();
+
+      const response = await makeRequest('GET', '/v1/insights/my-app/history', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { project: string; history: Array<{ summary: string; inferred_state: string; created_at: string }> };
+      expect(data.history).toHaveLength(2);
+      expect(data.history[0].summary).toBe('Second summary');
+      expect(data.history[1].summary).toBe('First summary');
+      expect(data.history[0].inferred_state).toBe('done');
+    });
+
+    it('respects limit parameter', async () => {
+      const token = await registerToken();
+      const tokenHash = await hashTokenForTest(token);
+
+      for (let i = 0; i < 5; i++) {
+        await env.DB.prepare(
+          "INSERT INTO insight_log (token_hash, project, summary, prediction, inferred_state, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(tokenHash, 'my-app', `Summary ${i}`, `Pred ${i}`, 'working', `2026-01-01T1${i}:00:00`).run();
+      }
+
+      const response = await makeRequest('GET', '/v1/insights/my-app/history?limit=2', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { history: unknown[] };
+      expect(data.history).toHaveLength(2);
+    });
+
+    it('isolates history across tokens', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+      const tokenHash1 = await hashTokenForTest(token1);
+
+      await env.DB.prepare(
+        "INSERT INTO insight_log (token_hash, project, summary, prediction, inferred_state, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).bind(tokenHash1, 'my-app', 'Secret summary', 'Secret pred', 'working', '2026-01-01T10:00:00').run();
+
+      const response = await makeRequest('GET', '/v1/insights/my-app/history', undefined, token2);
+      const data = await response.json() as { history: unknown[] };
+      expect(data.history).toHaveLength(0);
+    });
+
+    it('requires auth', async () => {
+      const response = await makeRequest('GET', '/v1/insights/my-app/history');
       expect(response.status).toBe(401);
     });
   });
