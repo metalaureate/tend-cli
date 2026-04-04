@@ -804,6 +804,8 @@ const INSIGHT_SYSTEM_PROMPT =
   ' If latest event is "done", the described work (including commit/push) is ALREADY COMPLETE — predict what comes AFTER.' +
   ' ≤30 chars. Start with verb. Telegram style.\n' +
   'Line 3: The project state — EXACTLY one of: working, done, stuck, waiting, idle\n' +
+  'IMPORTANT: "working" messages are raw user prompts captured by editor hooks — they are NOT task descriptions.' +
+  ' Ignore their literal text. Focus on "done" messages and the overall pattern of work/idle cycles to understand what actually happened.\n' +
   'Infer state from the event pattern:\n' +
   '- working: agent actively producing output\n' +
   '- done: task completed, committed, or PR opened\n' +
