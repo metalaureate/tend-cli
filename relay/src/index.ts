@@ -355,7 +355,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       -webkit-font-smoothing: antialiased;
     }
     .terminal {
-      max-width: 720px;
+      max-width: 100%;
       margin: 0 auto;
       background: #1a1a1a;
       border: 1px solid rgba(255,255,255,0.08);
