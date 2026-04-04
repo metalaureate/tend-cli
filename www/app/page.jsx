@@ -1,12 +1,12 @@
 import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, GithubIconExport, ArrowRightIconExport } from './components'
 
 const board = [
-  { icon: '?', name: 'payments-api', state: 'stuck', msg: 'needs database credentials for staging', time: '', color: 'text-ember', env: '' },
-  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '' },
-  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '' },
-  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗' },
-  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'changes in src/auth', time: '45m ago', color: 'text-ember', env: '↗' },
-  { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '3h ago', color: 'text-smoke/50', env: '' },
+  { icon: '?', name: 'payments-api', state: 'stuck', msg: 'needs database credentials for staging', time: '', color: 'text-ember', env: '', insight: 'blocked on creds, 2nd attempt → ask devops for staging keys' },
+  { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '', insight: 'auth refactor landed → review PR, merge if green' },
+  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '', insight: '' },
+  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗', insight: '' },
+  { icon: '?', name: 'auth-service', state: 'waiting', msg: 'changes in src/auth', time: '45m ago', color: 'text-ember', env: '↗', insight: 'dirty worktree after fix → commit WIP or stash' },
+  { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '3h ago', color: 'text-smoke/50', env: '', insight: '' },
 ]
 
 const helpCommands = [
@@ -61,15 +61,18 @@ export default function Page() {
                   <span className="tracking-widest text-parchment/60 font-medium">TEND</span>
                   <span>Fri Mar 14, 14:32</span>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0">
                   {board.map((row, i) => (
-                    <div key={i} className="flex">
-                      <span className={`${row.color} w-4 shrink-0`}>{row.icon}</span>
-                      <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">{row.name}</span>
-                      <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
-                      <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
-                      {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
-                      {row.env && <span className="text-parchment/30 ml-auto pl-2 shrink-0">{row.env}</span>}
+                    <div key={i}>
+                      <div className="flex">
+                        <span className={`${row.color} w-4 shrink-0`}>{row.icon}</span>
+                        <span className="text-parchment/70 w-30 md:w-36 shrink-0 truncate ml-1">{row.name}</span>
+                        <span className={`${row.color} w-16 shrink-0`}>{row.state}</span>
+                        <span className="text-smoke/50 truncate hidden sm:block">{row.msg}</span>
+                        {row.time && <span className="text-smoke/30 ml-auto pl-2 shrink-0">({row.time})</span>}
+                        {row.env && <span className="text-parchment/30 ml-auto pl-2 shrink-0">{row.env}</span>}
+                      </div>
+                      {row.insight && <div className="text-smoke/30 text-[10px] ml-5 mb-1">⤷ {row.insight}</div>}
                     </div>
                   ))}
                 </div>
@@ -350,12 +353,18 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Three cards */}
-            <div className="relay-el mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Four cards */}
+            <div className="relay-el mt-10 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white/5 rounded-2xl p-5">
                 <p className="font-heading font-bold text-parchment text-sm">Live web board</p>
                 <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
                   See all your agents from any browser. Auto-refreshes every 60 seconds. No login, no app — just your token in the URL.
+                </p>
+              </div>
+              <div className="bg-white/5 rounded-2xl p-5">
+                <p className="font-heading font-bold text-parchment text-sm">AI insights</p>
+                <p className="font-body text-smoke text-sm mt-2 leading-relaxed">
+                  Each project gets a terse summary and next-action prediction, generated from the event trail and TODO list. Updated on every state change. Costs fractions of a cent.
                 </p>
               </div>
               <div className="bg-white/5 rounded-2xl p-5">
@@ -503,7 +512,24 @@ export default function Page() {
                     <span className="font-mono text-sm text-parchment">/:token/llms.txt</span>
                     <span className="text-smoke/40 text-xs ml-auto">no auth</span>
                   </div>
-                  <p className="font-body text-smoke/60 text-xs mt-2">Structured Markdown for agents. Project states, messages, and backlog.</p>
+                  <p className="font-body text-smoke/60 text-xs mt-2">Structured Markdown for agents. Project states, messages, insights, and backlog.</p>
+                </div>
+
+                {/* Insights */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/v1/insights</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">LLM-generated summaries and next-action predictions for all projects.</p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/v1/insights/:project</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">Insight for a single project. Returns summary, prediction, and cache timestamp.</p>
                 </div>
               </div>
             </div>

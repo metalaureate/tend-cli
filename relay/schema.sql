@@ -46,3 +46,26 @@ CREATE TABLE IF NOT EXISTS todos (
 
 CREATE INDEX IF NOT EXISTS idx_todos_token_status
   ON todos (token_hash, status);
+
+-- LLM-generated insights cached per project
+CREATE TABLE IF NOT EXISTS insights (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL,
+  project TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  prediction TEXT NOT NULL DEFAULT '',
+  input_hash TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(token_hash, project)
+);
+
+-- Per-project context (README, description) for LLM insight grounding
+CREATE TABLE IF NOT EXISTS project_context (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  token_hash TEXT NOT NULL,
+  project TEXT NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  content_hash TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(token_hash, project)
+);

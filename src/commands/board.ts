@@ -1,6 +1,6 @@
 import { discoverProjects, sortedProjects, detectProject } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { relaySync, relayOnlyProjects } from '../core/relay.js';
+import { relaySync, relayOnlyProjects, relayFetchInsights, type RelayInsight } from '../core/relay.js';
 import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit, dirtySummary, gitRepoName } from '../core/git.js';
 import { ago, dateHeader, toEpoch, isStale } from '../ui/format.js';
 import { config } from '../core/config.js';
@@ -26,8 +26,15 @@ export async function buildBoardOutput(): Promise<string> {
   // Invalidate status cache so prompt picks up fresh data after board/dashboard runs
   invalidateStatusCache();
 
-  // Relay sync (swallow errors)
-  try { await relaySync(); } catch { /* ignore */ }
+  // Relay sync + fetch insights in parallel (swallow errors)
+  let insightMap = new Map<string, RelayInsight>();
+  try {
+    const [, insights] = await Promise.all([
+      relaySync().catch(() => {}),
+      relayFetchInsights().catch(() => new Map<string, RelayInsight>()),
+    ]);
+    insightMap = insights;
+  } catch { /* ignore */ }
 
   const allProjects = discoverProjects();
   const relayOnly = relayOnlyProjects();
@@ -169,13 +176,22 @@ export async function buildBoardOutput(): Promise<string> {
     let maxDetail = termWidth - prefixWidth - timeColWidth;
     if (maxDetail < 10) maxDetail = 10;
 
-    let detail = msg;
+    // Prefer insight over message when available
+    const insight = insightMap.get(projectName);
+    let detail: string;
+    let detailColor = '';
+    if (insight) {
+      detail = `${insight.summary} → ${insight.prediction}`;
+      detailColor = C.amber;
+    } else {
+      detail = msg;
+    }
     if (detail && detail.length > maxDetail) {
       detail = detail.slice(0, maxDetail - 3) + '...';
     }
 
     let line = `  ${numPrefix} ${displayName} ${color}${icon} ${label.padEnd(15)}${reset}`;
-    if (detail) line += detail;
+    if (detail) line += `${detailColor}${detail}${detailColor ? reset : ''}`;
     if (durationStr) line += `  ${C.grey}(${durationStr})${reset}`;
     output += line + '\n';
   }
@@ -226,13 +242,22 @@ export async function buildBoardOutput(): Promise<string> {
     let maxDetail = termWidth - 47 - timeColWidth;
     if (maxDetail < 10) maxDetail = 10;
 
-    let detail = msg;
+    // Prefer insight over message when available
+    const relayInsight = insightMap.get(relayProject);
+    let detail: string;
+    let detailColor = '';
+    if (relayInsight) {
+      detail = `${relayInsight.summary} → ${relayInsight.prediction}`;
+      detailColor = C.amber;
+    } else {
+      detail = msg;
+    }
     if (detail && detail.length > maxDetail) {
       detail = detail.slice(0, maxDetail - 3) + '...';
     }
 
     let line = `     ${displayName} ${color}${icon} ${label.padEnd(15)}${reset}`;
-    if (detail) line += detail;
+    if (detail) line += `${detailColor}${detail}${detailColor ? reset : ''}`;
     if (durationStr) line += `  ${C.grey}(${durationStr})${reset}`;
     output += line + '\n';
   }

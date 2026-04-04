@@ -22,6 +22,12 @@ async function applySchema(db: D1Database) {
     "CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL DEFAULT '_global', message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dispatched', 'done')), issue_url TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')))"
   );
   await db.exec("CREATE INDEX IF NOT EXISTS idx_todos_token_status ON todos (token_hash, status)");
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS insights (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', prediction TEXT NOT NULL DEFAULT '', input_hash TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(token_hash, project))"
+  );
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS project_context (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, content TEXT NOT NULL DEFAULT '', content_hash TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(token_hash, project))"
+  );
 }
 
 async function makeRequest(method: string, path: string, body?: unknown, token?: string): Promise<Response> {
@@ -44,11 +50,19 @@ async function registerToken(): Promise<string> {
   return data.token;
 }
 
+async function hashTokenForTest(token: string): Promise<string> {
+  const data = new TextEncoder().encode(token);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 describe('Tend Relay', () => {
   beforeEach(async () => {
     await applySchema(env.DB);
     // Clean tables between tests
-    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM tokens;');
+    await env.DB.exec('DELETE FROM events; DELETE FROM board_tokens; DELETE FROM todos; DELETE FROM tokens; DELETE FROM insights; DELETE FROM project_context;');
   });
 
   describe('POST /v1/register', () => {
@@ -823,6 +837,197 @@ describe('Tend Relay', () => {
       const llmsRes = await makeRequest('GET', `/${token2}/llms.txt`);
       const llms = await llmsRes.text();
       expect(llms).not.toContain('secret-app');
+    });
+  });
+
+  describe('Insights API', () => {
+    it('GET /v1/insights returns empty when no insights exist', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('GET', '/v1/insights', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { insights: unknown[] };
+      expect(data.insights).toHaveLength(0);
+    });
+
+    it('GET /v1/insights returns cached insights', async () => {
+      const token = await registerToken();
+
+      // Manually insert an insight (simulating what recomputeInsight would do)
+      const tokenHash = await hashTokenForTest(token);
+      await env.DB.prepare(
+        "INSERT INTO insights (token_hash, project, summary, prediction, input_hash) VALUES (?, ?, ?, ?, ?)"
+      ).bind(tokenHash, 'my-app', 'Debugging auth flow after 3 failed attempts', 'Run tests then push fix', 'abc123').run();
+
+      const response = await makeRequest('GET', '/v1/insights', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { insights: Array<{ project: string; summary: string; prediction: string }> };
+      expect(data.insights).toHaveLength(1);
+      expect(data.insights[0].project).toBe('my-app');
+      expect(data.insights[0].summary).toBe('Debugging auth flow after 3 failed attempts');
+      expect(data.insights[0].prediction).toBe('Run tests then push fix');
+    });
+
+    it('GET /v1/insights/:project returns single insight', async () => {
+      const token = await registerToken();
+      const tokenHash = await hashTokenForTest(token);
+      await env.DB.prepare(
+        "INSERT INTO insights (token_hash, project, summary, prediction, input_hash) VALUES (?, ?, ?, ?, ?)"
+      ).bind(tokenHash, 'my-app', 'Working on auth', 'Commit and deploy', 'def456').run();
+
+      const response = await makeRequest('GET', '/v1/insights/my-app', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { insight: { project: string; summary: string } };
+      expect(data.insight.project).toBe('my-app');
+      expect(data.insight.summary).toBe('Working on auth');
+    });
+
+    it('GET /v1/insights/:project returns null for unknown project', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('GET', '/v1/insights/nonexistent', undefined, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { insight: null };
+      expect(data.insight).toBeNull();
+    });
+
+    it('cross-token isolation for insights', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+      const tokenHash1 = await hashTokenForTest(token1);
+
+      await env.DB.prepare(
+        "INSERT INTO insights (token_hash, project, summary, prediction, input_hash) VALUES (?, ?, ?, ?, ?)"
+      ).bind(tokenHash1, 'secret-app', 'Private summary', 'Private prediction', 'xyz').run();
+
+      const response = await makeRequest('GET', '/v1/insights', undefined, token2);
+      const data = await response.json() as { insights: unknown[] };
+      expect(data.insights).toHaveLength(0);
+    });
+
+    it('insights appear in board HTML', async () => {
+      const token = await registerToken();
+      const tokenHash = await hashTokenForTest(token);
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working', message: 'building auth',
+      }, token);
+
+      await env.DB.prepare(
+        "INSERT INTO insights (token_hash, project, summary, prediction, input_hash) VALUES (?, ?, ?, ?, ?)"
+      ).bind(tokenHash, 'my-app', 'Third session on auth module today', 'Run test suite then commit', 'abc').run();
+
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const html = await response.text();
+      expect(html).toContain('Third session on auth module today');
+      expect(html).toContain('Run test suite then commit');
+      expect(html).toContain('msg-insight');
+    });
+
+    it('insights appear in llms.txt', async () => {
+      const token = await registerToken();
+      const tokenHash = await hashTokenForTest(token);
+
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'stuck', message: 'need API key',
+      }, token);
+
+      await env.DB.prepare(
+        "INSERT INTO insights (token_hash, project, summary, prediction, input_hash) VALUES (?, ?, ?, ?, ?)"
+      ).bind(tokenHash, 'my-app', 'Blocked on missing API credentials', 'Ask team lead for staging keys', 'def').run();
+
+      const request = new Request(`http://localhost/${token}/llms.txt`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const text = await response.text();
+      expect(text).toContain('- Insight: Blocked on missing API credentials');
+      expect(text).toContain('- Next: Ask team lead for staging keys');
+    });
+
+    it('GET /v1/insights requires auth', async () => {
+      const response = await makeRequest('GET', '/v1/insights');
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('PUT /v1/projects/:project/context', () => {
+    it('stores project context', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('PUT', '/v1/projects/myapp/context', { content: '# My App\nA cool project' }, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { ok: boolean; changed: boolean };
+      expect(data.ok).toBe(true);
+      expect(data.changed).toBe(true);
+    });
+
+    it('skips update when content unchanged', async () => {
+      const token = await registerToken();
+      const content = '# My App\nA cool project';
+      await makeRequest('PUT', '/v1/projects/myapp/context', { content }, token);
+      const response = await makeRequest('PUT', '/v1/projects/myapp/context', { content }, token);
+      expect(response.status).toBe(200);
+      const data = await response.json() as { ok: boolean; changed: boolean };
+      expect(data.ok).toBe(true);
+      expect(data.changed).toBe(false);
+    });
+
+    it('rejects empty content', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('PUT', '/v1/projects/myapp/context', { content: '' }, token);
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects missing content field', async () => {
+      const token = await registerToken();
+      const response = await makeRequest('PUT', '/v1/projects/myapp/context', { foo: 'bar' }, token);
+      expect(response.status).toBe(400);
+    });
+
+    it('requires auth', async () => {
+      const response = await makeRequest('PUT', '/v1/projects/myapp/context', { content: 'hello' });
+      expect(response.status).toBe(401);
+    });
+
+    it('invalidates insight cache on context change', async () => {
+      const token = await registerToken();
+      const tokenHash = await hashTokenForTest(token);
+
+      // Seed an insight with a known hash
+      await env.DB.prepare(
+        "INSERT INTO insights (token_hash, project, summary, prediction, input_hash) VALUES (?, 'myapp', 'old summary', 'old pred', 'abc123')"
+      ).bind(tokenHash).run();
+
+      // Push context
+      await makeRequest('PUT', '/v1/projects/myapp/context', { content: '# My App' }, token);
+
+      // Insight input_hash should be invalidated
+      const row = await env.DB.prepare(
+        "SELECT input_hash FROM insights WHERE token_hash = ? AND project = 'myapp'"
+      ).bind(tokenHash).first<{ input_hash: string }>();
+      expect(row?.input_hash).toBe('');
+    });
+
+    it('isolates context across tokens', async () => {
+      const token1 = await registerToken();
+      const token2 = await registerToken();
+
+      await makeRequest('PUT', '/v1/projects/myapp/context', { content: '# Token1 App' }, token1);
+      await makeRequest('PUT', '/v1/projects/myapp/context', { content: '# Token2 App' }, token2);
+
+      const hash1 = await hashTokenForTest(token1);
+      const hash2 = await hashTokenForTest(token2);
+
+      const row1 = await env.DB.prepare(
+        "SELECT content FROM project_context WHERE token_hash = ? AND project = 'myapp'"
+      ).bind(hash1).first<{ content: string }>();
+      const row2 = await env.DB.prepare(
+        "SELECT content FROM project_context WHERE token_hash = ? AND project = 'myapp'"
+      ).bind(hash2).first<{ content: string }>();
+
+      expect(row1?.content).toBe('# Token1 App');
+      expect(row2?.content).toBe('# Token2 App');
     });
   });
 });

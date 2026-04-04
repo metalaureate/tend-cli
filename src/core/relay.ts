@@ -1,5 +1,6 @@
-import { readFileSync, appendFileSync, existsSync, mkdirSync, readdirSync } from 'fs';
+import { readFileSync, appendFileSync, existsSync, mkdirSync, readdirSync, writeFileSync, statSync } from 'fs';
 import { join, basename } from 'path';
+import { createHash } from 'crypto';
 import { config } from './config.js';
 import { discoverProjects, detectProject } from './projects.js';
 import { formatTs } from '../ui/format.js';
@@ -162,6 +163,108 @@ export function relayOnlyProjects(): string[] {
     return cacheEntries.filter((name: string) => !localProjects.has(name));
   } catch {
     return [];
+  }
+}
+
+// ── Insights API ──
+
+export interface RelayInsight {
+  project: string;
+  summary: string;
+  prediction: string;
+}
+
+/** Fetch cached LLM insights from the relay (non-blocking, returns empty on failure) */
+export async function relayFetchInsights(): Promise<Map<string, RelayInsight>> {
+  const token = relayToken();
+  if (!token) return new Map();
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/insights`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return new Map();
+    const data = await response.json() as { insights: RelayInsight[] };
+    const map = new Map<string, RelayInsight>();
+    for (const i of data.insights || []) {
+      map.set(i.project, i);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+// ── Project Context (README) ──
+
+const MAX_README_SIZE = 8000;
+const CONTEXT_RECHECK_MS = 60 * 60 * 1000; // 1 hour
+
+/** Push the project README to the relay for LLM context. Checks at most once per 24h. */
+export async function relayPushContext(projectPath: string, projectName: string): Promise<void> {
+  const token = relayToken();
+  if (!token) return;
+
+  mkdirSync(config.relayCacheDir, { recursive: true });
+  const hashFile = join(config.relayCacheDir, `${projectName}.ctx_hash`);
+
+  // Time gate: skip entirely if hash file was written in the last 24h
+  try {
+    if (existsSync(hashFile)) {
+      const mtime = statSync(hashFile).mtimeMs;
+      if (Date.now() - mtime < CONTEXT_RECHECK_MS) return;
+    }
+  } catch {
+    // ignore — proceed with check
+  }
+
+  // Try README.md, then README, then readme.md
+  let readmePath: string | null = null;
+  for (const name of ['README.md', 'README', 'readme.md']) {
+    const candidate = join(projectPath, name);
+    if (existsSync(candidate)) {
+      readmePath = candidate;
+      break;
+    }
+  }
+  if (!readmePath) return;
+
+  let content: string;
+  try {
+    content = readFileSync(readmePath, 'utf-8').slice(0, MAX_README_SIZE);
+  } catch {
+    return;
+  }
+  if (!content.trim()) return;
+
+  // Content hash check — avoid the PUT if nothing actually changed
+  const hash = createHash('sha256').update(content).digest('hex').slice(0, 16);
+  try {
+    if (existsSync(hashFile) && readFileSync(hashFile, 'utf-8').trim() === hash) {
+      // Content unchanged — touch the file to reset the 24h timer
+      writeFileSync(hashFile, hash);
+      return;
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/projects/${encodeURIComponent(projectName)}/context`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (response.ok) {
+      writeFileSync(hashFile, hash);
+    }
+  } catch {
+    // silently fail — context push is best-effort
   }
 }
 

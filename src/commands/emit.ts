@@ -1,6 +1,6 @@
 import { resolveProjectPath, resolveProjectName } from '../core/projects.js';
 import { appendEvent, sanitizeUserTag } from '../core/events.js';
-import { relayEmit, relayToken } from '../core/relay.js';
+import { relayEmit, relayToken, relayPushContext } from '../core/relay.js';
 import { tsLocal } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { isValidState, type State } from '../types.js';
@@ -60,6 +60,9 @@ export async function cmdEmit(args: string[]): Promise<void> {
     const rawEmailRelay = gitUserEmail(process.cwd());
     const rawSessionIdRelay = config.sessionId || '';
     const sessionIdRelay = rawEmailRelay ? `${rawSessionIdRelay}@${sanitizeUserTag(rawEmailRelay)}` : rawSessionIdRelay;
-    await relayEmit(projectName, state, message, sessionIdRelay);
+    await Promise.all([
+      relayEmit(projectName, state, message, sessionIdRelay),
+      relayPushContext(projectPath, projectName),
+    ]);
   }
 }

@@ -3,22 +3,28 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "tend hook session-start",
-        "env": { "TEND_HOOK_DEBUG": "1" }
+        "command": "/Users/possum/bin/tend hook session-start",
+        "env": {
+          "TEND_HOOK_DEBUG": "1"
+        }
       }
     ],
     "UserPromptSubmit": [
       {
         "type": "command",
-        "command": "tend hook user-prompt",
-        "env": { "TEND_HOOK_DEBUG": "1" }
+        "command": "/Users/possum/bin/tend hook user-prompt",
+        "env": {
+          "TEND_HOOK_DEBUG": "1"
+        }
       }
     ],
     "Stop": [
       {
         "type": "command",
-        "command": "tend hook stop",
-        "env": { "TEND_HOOK_DEBUG": "1" }
+        "command": "/Users/possum/bin/tend hook stop",
+        "env": {
+          "TEND_HOOK_DEBUG": "1"
+        }
       }
     ]
   }

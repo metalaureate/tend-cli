@@ -1,5 +1,7 @@
 export interface Env {
   DB: D1Database;
+  OPENROUTER_API_KEY?: string;
+  TEND_AI_MODEL?: string;
 }
 
 const VALID_STATES = ['working', 'done', 'stuck', 'waiting', 'idle'] as const;
@@ -275,7 +277,8 @@ function stateClass(state: string): string {
   }
 }
 
-function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = []): string {
+function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
+  const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const rowsHtml = rows.map(r => {
     const icon = stateIcon(r.state);
     const cls = stateClass(r.state);
@@ -287,11 +290,15 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     const timeEl = isoTs
       ? `<time class="time ${cls}" datetime="${isoTs}" ${tsAttr}></time>`
       : `<span class="time ${cls}"></span>`;
+    const insight = insightsByProject.get(r.project);
+    const displayMsg = insight
+      ? `<span class="msg msg-insight">${(insight.summary + ' → ' + insight.prediction).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`
+      : `<span class="msg">${msg}</span>`;
     return `<article class="row" data-project="${fullName}" data-state="${r.state}">
       <span class="icon ${cls}" aria-hidden="true">${icon}</span>
       <span class="name" title="${fullName}">${name}</span>
       <span class="state ${cls}">${r.state}</span>
-      <span class="msg">${msg}</span>
+      ${displayMsg}
       ${timeEl}
     </article>`;
   }).join('\n');
@@ -394,6 +401,9 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       color: rgba(168,168,168,0.85);
     }
     .time { flex-shrink: 0; margin-left: 8px; font-size: 11px; color: rgba(168,168,168,0.6); }
+    .msg-insight {
+      color: rgba(217,158,78,0.9);
+    }
     .footer {
       margin-top: 14px;
       padding-top: 10px;
@@ -655,11 +665,13 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
   const updatedAt = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
   const todos = await fetchTodos(db, tokenHash);
+  const insights = await fetchInsights(db, tokenHash);
 
-  return htmlResponse(buildBoardHtml(rows, updatedAt, todos));
+  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights));
 }
 
-function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = []): string {
+function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
+  const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const now = new Date();
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -689,6 +701,11 @@ function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = 
       out += `- State: ${r.state}\n`;
       if (r.message) out += `- Message: ${r.message}\n`;
       if (r.timestamp) out += `- Last event: ${r.timestamp}\n`;
+      const ins = insightsByProject.get(r.project);
+      if (ins) {
+        out += `- Insight: ${ins.summary}\n`;
+        out += `- Next: ${ins.prediction}\n`;
+      }
       out += `\n`;
     }
   }
@@ -738,12 +755,231 @@ async function handleLlmsTxt(request: Request, db: D1Database, rawToken: string)
   const updatedAt = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
   const todos = await fetchTodos(db, tokenHash);
+  const insights = await fetchInsights(db, tokenHash);
 
-  return textResponse(buildLlmsTxt(rows, updatedAt, todos));
+  return textResponse(buildLlmsTxt(rows, updatedAt, todos, insights));
 }
 
 async function handleLandingPage(_request: Request): Promise<Response> {
   return htmlResponse(buildLandingHtml());
+}
+
+// ── LLM Insights ──
+
+interface InsightRow {
+  project: string;
+  summary: string;
+  prediction: string;
+  input_hash: string;
+  updated_at: string;
+}
+
+const INSIGHT_SYSTEM_PROMPT =
+  'You write ultra-short status lines for a developer dashboard.' +
+  ' Given a project\'s event log and TODOs, output EXACTLY two lines:\n' +
+  'Line 1: What\'s happening RIGHT NOW based on recent events. ≤30 chars. Telegram style.\n' +
+  'Line 2: Predicted next step — infer from the TRAJECTORY of recent work, not the TODO list.' +
+  ' TODOs are a backlog, not a plan. ≤30 chars. Start with verb. Telegram style.\n' +
+  'No labels, prefixes, bullets. Examples:\n' +
+  '3rd pass at auth, was stuck\nrun tests, open PR\n\n' +
+  'tz fix landed, testing now\ndeploy to staging\n\n' +
+  'idle 2d, dirty worktree\ncommit WIP or stash';
+
+const MAX_INSIGHT_EVENTS = 25;
+
+async function computeInputHash(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16);
+}
+
+function parseInsightResponse(text: string): { summary: string; prediction: string } | null {
+  const lines = text
+    .split('\n')
+    .map(l => l.replace(/^\d+[.:)\-]\s*/, '').trim())
+    .filter(Boolean);
+  if (lines.length < 2) return null;
+  return {
+    summary: lines[0].slice(0, 36),
+    prediction: lines[1].slice(0, 36),
+  };
+}
+
+async function recomputeInsight(
+  db: D1Database,
+  tokenHash: string,
+  project: string,
+  apiKey: string,
+  model: string,
+): Promise<void> {
+  // Fetch last N events for this project
+  const eventsResult = await db.prepare(
+    'SELECT timestamp, session_id, state, message FROM events WHERE token_hash = ? AND project = ? ORDER BY id DESC LIMIT ?'
+  ).bind(tokenHash, project, MAX_INSIGHT_EVENTS).all<EventRow>();
+
+  if (!eventsResult.results || eventsResult.results.length === 0) return;
+
+  // Reverse to chronological order
+  const events = eventsResult.results.reverse();
+
+  // Fetch pending TODOs for this project
+  const todosResult = await db.prepare(
+    "SELECT message FROM todos WHERE token_hash = ? AND (project = ? OR project = '_global') AND status IN ('pending', 'dispatched') ORDER BY id ASC"
+  ).bind(tokenHash, project).all<{ message: string }>();
+  const todosBlock = (todosResult.results || []).map(t => `- ${t.message}`).join('\n');
+
+  // Fetch project context (README etc.) if available
+  const ctxRow = await db.prepare(
+    'SELECT content FROM project_context WHERE token_hash = ? AND project = ?'
+  ).bind(tokenHash, project).first<{ content: string }>();
+  const contextBlock = ctxRow?.content?.slice(0, 2000) || '';
+
+  // Build input for hash check
+  const inputKey = events.map(e => `${e.timestamp}${e.state}${e.message}`).join('') + todosBlock + contextBlock;
+  const hash = await computeInputHash(inputKey);
+
+  // Check if we already have a fresh insight with same hash
+  const existing = await db.prepare(
+    'SELECT input_hash FROM insights WHERE token_hash = ? AND project = ?'
+  ).bind(tokenHash, project).first<{ input_hash: string }>();
+
+  if (existing && existing.input_hash === hash) return; // No change
+
+  // Build prompt
+  const last = events[events.length - 1];
+  const eventsBlock = events
+    .map(e => `${e.timestamp} [${e.session_id || '_'}] ${e.state}${e.message ? ' ' + e.message : ''}`)
+    .join('\n');
+
+  let userPrompt = `Project: ${project}\nCurrent state: ${last.state}`;
+  if (last.message) userPrompt += `\nLatest message: ${last.message}`;
+  if (contextBlock) userPrompt += `\n\nProject README (truncated):\n${contextBlock}`;
+  userPrompt += `\n\nRecent events (oldest → newest):\n${eventsBlock}`;
+  if (todosBlock) userPrompt += `\n\nTODO list:\n${todosBlock}`;
+
+  // Call OpenRouter
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://tend.cx',
+        'X-Title': 'tend-relay',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: INSIGHT_SYSTEM_PROMPT },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 80,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (!response.ok) return;
+
+    const data = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return;
+
+    const parsed = parseInsightResponse(text);
+    if (!parsed) return;
+
+    const now = new Date().toISOString().slice(0, 19);
+    await db.prepare(
+      `INSERT INTO insights (token_hash, project, summary, prediction, input_hash, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(token_hash, project) DO UPDATE SET
+         summary = excluded.summary,
+         prediction = excluded.prediction,
+         input_hash = excluded.input_hash,
+         updated_at = excluded.updated_at`
+    ).bind(tokenHash, project, parsed.summary, parsed.prediction, hash, now).run();
+  } catch {
+    // Timeout or network error — silently skip
+  }
+}
+
+/** Fetch cached insights for all projects under a token */
+async function fetchInsights(db: D1Database, tokenHash: string): Promise<InsightRow[]> {
+  const result = await db.prepare(
+    'SELECT project, summary, prediction, input_hash, updated_at FROM insights WHERE token_hash = ?'
+  ).bind(tokenHash).all<InsightRow>();
+  return result.results || [];
+}
+
+/** Fetch cached insight for a single project */
+async function fetchProjectInsight(db: D1Database, tokenHash: string, project: string): Promise<InsightRow | null> {
+  return db.prepare(
+    'SELECT project, summary, prediction, input_hash, updated_at FROM insights WHERE token_hash = ? AND project = ?'
+  ).bind(tokenHash, project).first<InsightRow>();
+}
+
+async function handleGetInsights(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+  const insights = await fetchInsights(db, tokenHash);
+  return jsonResponse({ insights });
+}
+
+const MAX_CONTEXT_LENGTH = 8000;
+
+async function handlePutProjectContext(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
+  if (request.method !== 'PUT') return errorResponse('Method not allowed', 405);
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
+
+  const content = typeof body.content === 'string' ? body.content.slice(0, MAX_CONTEXT_LENGTH) : '';
+  if (!content) return errorResponse('Missing or empty "content"', 400);
+
+  const data = new TextEncoder().encode(content);
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, 16);
+
+  // Skip if content hasn't changed
+  const existing = await db.prepare(
+    'SELECT content_hash FROM project_context WHERE token_hash = ? AND project = ?'
+  ).bind(tokenHash, project).first<{ content_hash: string }>();
+
+  if (existing?.content_hash === hash) {
+    return jsonResponse({ ok: true, changed: false });
+  }
+
+  const now = new Date().toISOString().slice(0, 19);
+  await db.prepare(
+    `INSERT INTO project_context (token_hash, project, content, content_hash, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(token_hash, project) DO UPDATE SET
+       content = excluded.content,
+       content_hash = excluded.content_hash,
+       updated_at = excluded.updated_at`
+  ).bind(tokenHash, project, content, hash, now).run();
+
+  // Invalidate insight cache so next event triggers a re-compute with new context
+  await db.prepare(
+    "UPDATE insights SET input_hash = '' WHERE token_hash = ? AND project = ?"
+  ).bind(tokenHash, project).run();
+
+  return jsonResponse({ ok: true, changed: true });
+}
+
+async function handleGetProjectInsight(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+  const insight = await fetchProjectInsight(db, tokenHash, project);
+  if (!insight) return jsonResponse({ insight: null });
+  return jsonResponse({ insight });
 }
 
 async function handleRegister(request: Request, db: D1Database): Promise<Response> {
@@ -759,7 +995,7 @@ async function handleRegister(request: Request, db: D1Database): Promise<Respons
   return jsonResponse({ token }, 201);
 }
 
-async function handleEmitEvent(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+async function handleEmitEvent(request: Request, db: D1Database, tokenHash: string, ctx: ExecutionContext, env: Env): Promise<Response> {
   if (request.method !== 'POST') return errorResponse('Method not allowed', 405);
 
   let body: Record<string, unknown>;
@@ -791,6 +1027,13 @@ async function handleEmitEvent(request: Request, db: D1Database, tokenHash: stri
   )
     .bind(tokenHash, project, ts, session_id ?? null, state, message ?? '')
     .run();
+
+  // Asynchronously recompute LLM insight after responding
+  const apiKey = env.OPENROUTER_API_KEY;
+  if (apiKey) {
+    const model = env.TEND_AI_MODEL || 'google/gemini-2.0-flash-001';
+    ctx.waitUntil(recomputeInsight(db, tokenHash, project, apiKey, model));
+  }
 
   return jsonResponse({ ok: true }, 201);
 }
@@ -997,7 +1240,7 @@ async function fetchTodos(db: D1Database, tokenHash: string): Promise<TodoRow[]>
 }
 
 export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
@@ -1047,7 +1290,7 @@ export default {
 
     // Route: POST /v1/events
     if (path === '/v1/events') {
-      response = await handleEmitEvent(request, env.DB, tokenHash);
+      response = await handleEmitEvent(request, env.DB, tokenHash, ctx, env);
     }
     // Route: GET /v1/events/:project
     else if (path.startsWith('/v1/events/')) {
@@ -1087,6 +1330,24 @@ export default {
     else if (/^\/v1\/todos\/\d+$/.test(path) && request.method === 'DELETE') {
       const todoId = path.slice('/v1/todos/'.length);
       response = await handleDeleteTodo(request, env.DB, tokenHash, todoId);
+    }
+    // Route: PUT /v1/projects/:project/context
+    else if (path.startsWith('/v1/projects/') && path.endsWith('/context') && request.method === 'PUT') {
+      const project = decodeURIComponent(path.slice('/v1/projects/'.length, path.length - '/context'.length));
+      response = project
+        ? await handlePutProjectContext(request, env.DB, tokenHash, project)
+        : errorResponse('Missing project name', 400);
+    }
+    // Route: GET /v1/insights
+    else if (path === '/v1/insights' && request.method === 'GET') {
+      response = await handleGetInsights(request, env.DB, tokenHash);
+    }
+    // Route: GET /v1/insights/:project
+    else if (path.startsWith('/v1/insights/') && request.method === 'GET') {
+      const project = decodeURIComponent(path.slice('/v1/insights/'.length));
+      response = project
+        ? await handleGetProjectInsight(request, env.DB, tokenHash, project)
+        : errorResponse('Missing project name', 400);
     }
     else {
       response = errorResponse('Not found', 404);

@@ -184,6 +184,25 @@ No accounts. No passwords. No signup. Just a token.
 | `td relay share` | Generate a read-only board URL (safe to share) |
 | `td relay debug` | Show relay session diagnostics |
 
+### AI Insights
+
+The relay generates short AI-powered summaries for each project. When an event is emitted, the relay asynchronously:
+
+1. Reads the last 25 events and pending TODOs for that project
+2. Content-hashes the input — skips the LLM call if nothing changed
+3. Calls an LLM (Gemini 2.0 Flash via OpenRouter) to produce two terse lines:
+   - **Summary**: what's really happening (telegram-style, ≤30 chars)
+   - **Prediction**: likely next action (starts with a verb, ≤30 chars)
+4. Caches the result in D1
+
+Insights appear:
+- In the CLI board as `⤷ summary → prediction` under each project
+- In the web board HTML under each project row
+- In the `/llms.txt` endpoint as `- Insight:` and `- Next:` per project
+- Via `GET /v1/insights` and `GET /v1/insights/:project` API endpoints
+
+Cost: ~$0.00005 per call. Only fires on event ingestion, not on board views. Requires `OPENROUTER_API_KEY` set as a Cloudflare Worker secret. If absent, insights are silently skipped.
+
 ### Board Tokens
 
 The relay supports two token types:
