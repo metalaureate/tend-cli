@@ -800,7 +800,9 @@ const INSIGHT_SYSTEM_PROMPT =
   ' Given a project\'s event log and TODOs, output EXACTLY three lines:\n' +
   'Line 1: What\'s happening RIGHT NOW based on recent events. ≤30 chars. Telegram style.\n' +
   'Line 2: Predicted next step — infer from the TRAJECTORY of recent work, not the TODO list.' +
-  ' TODOs are a backlog, not a plan. ≤30 chars. Start with verb. Telegram style.\n' +
+  ' TODOs are a backlog, not a plan.' +
+  ' If latest event is "done", the described work (including commit/push) is ALREADY COMPLETE — predict what comes AFTER.' +
+  ' ≤30 chars. Start with verb. Telegram style.\n' +
   'Line 3: The project state — EXACTLY one of: working, done, stuck, waiting, idle\n' +
   'Infer state from the event pattern:\n' +
   '- working: agent actively producing output\n' +
