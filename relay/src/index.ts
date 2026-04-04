@@ -887,6 +887,12 @@ async function recomputeInsight(
   const inputKey = events.map(e => `${e.timestamp}${e.state}${e.message}`).join('') + todosBlock + contextBlock;
   const hash = await computeInputHash(inputKey);
 
+  // Remember the latest event ID at the time we started — used to detect stale results
+  const latestAtStart = await db.prepare(
+    'SELECT MAX(id) as max_id FROM events WHERE token_hash = ? AND project = ?'
+  ).bind(tokenHash, project).first<{ max_id: number }>();
+  const startMaxId = latestAtStart?.max_id || 0;
+
   // Check if we already have a fresh insight with same hash
   const existing = await db.prepare(
     'SELECT input_hash FROM insights WHERE token_hash = ? AND project = ?'
@@ -952,6 +958,13 @@ async function recomputeInsight(
 
     const parsed = parseInsightResponse(text);
     if (!parsed) return;
+
+    // Staleness check: if new events arrived while the LLM was thinking,
+    // this result is based on outdated data — the newer event's recompute will handle it.
+    const latestNow = await db.prepare(
+      'SELECT MAX(id) as max_id FROM events WHERE token_hash = ? AND project = ?'
+    ).bind(tokenHash, project).first<{ max_id: number }>();
+    if ((latestNow?.max_id || 0) > startMaxId) return;
 
     const now = new Date().toISOString().slice(0, 19);
     await db.prepare(
@@ -1112,11 +1125,8 @@ async function handleEmitEvent(request: Request, db: D1Database, tokenHash: stri
     .run();
 
   // Asynchronously recompute LLM insight after responding
-  // Skip 'working' events — they're raw user prompts that arrive in rapid bursts
-  // and cause race conditions with the subsequent idle/done recompute.
-  // Recompute on idle, done, stuck, waiting — the meaningful state transitions.
   const apiKey = env.OPENROUTER_API_KEY;
-  if (apiKey && state !== 'working') {
+  if (apiKey) {
     const model = env.TEND_AI_MODEL || 'google/gemini-2.0-flash-001';
     ctx.waitUntil(recomputeInsight(db, tokenHash, project, apiKey, model));
   }
