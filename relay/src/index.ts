@@ -181,6 +181,26 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
     }
   }
 
+  // Demote orphan working/waiting sessions: if a user's most recent session
+  // is idle or done, their older working/waiting sessions are orphans
+  // (e.g. user-prompt hook fired but stop hook never followed).
+  const latestByUser = new Map<string, { ts: string; state: string }>();
+  for (const [id, sess] of sessions) {
+    const userTag = userTagFromSessionId(id);
+    const existing = latestByUser.get(userTag);
+    if (!existing || toEpoch(sess.ts) > toEpoch(existing.ts)) {
+      latestByUser.set(userTag, { ts: sess.ts, state: sess.state });
+    }
+  }
+  for (const [id, sess] of sessions) {
+    if (sess.state !== 'working' && sess.state !== 'waiting') continue;
+    const userTag = userTagFromSessionId(id);
+    const latest = latestByUser.get(userTag);
+    if (latest && (latest.state === 'idle' || latest.state === 'done') && toEpoch(latest.ts) > toEpoch(sess.ts)) {
+      sessions.set(id, { ...sess, state: 'idle' });
+    }
+  }
+
   // If any session is actively working, inferred waiting on other sessions
   // is noise — the user is clearly engaged with the project.
   const hasActiveWorking = [...sessions.values()].some(s => s.state === 'working');
