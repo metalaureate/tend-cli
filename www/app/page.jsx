@@ -718,7 +718,7 @@ export default function Page() {
               <a href="https://github.com/metalaureate/tend-cli/blob/main/README.md" target="_blank" rel="noopener noreferrer" className="text-smoke hover:text-anvil transition-colors link-lift">Docs</a>
               <a href="#api" className="text-smoke hover:text-anvil transition-colors link-lift">API</a>
             </div>
-            <span className="font-mono text-[11px] text-smoke/50">MIT License</span>
+            <span className="font-mono text-[11px] text-smoke/50">© 2026 Wallet Labs LLC · MIT License</span>
           </div>
         </div>
       </footer>
