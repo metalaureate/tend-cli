@@ -311,8 +311,8 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const rowsHtml = rows.map(r => {
     const insight = insightsByProject.get(r.project);
-    // Never let stale LLM insight override an explicit idle event
-    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle') ? insight.inferred_state : r.state;
+    // Never let stale LLM insight override idle or waiting — these are definitive heuristic signals
+    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle' && r.state !== 'waiting') ? insight.inferred_state : r.state;
     const icon = stateIcon(effectiveState);
     const cls = stateClass(effectiveState);
     const name = r.project.length > 19 ? r.project.slice(0, 18) + '…' : r.project;
@@ -338,7 +338,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   // Compute effective states (insight-overridden) for footer counts
   const effectiveStates = rows.map(r => {
     const insight = insightsByProject.get(r.project);
-    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle') ? insight.inferred_state : r.state;
+    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle' && r.state !== 'waiting') ? insight.inferred_state : r.state;
   });
   const stuckCount = effectiveStates.filter(s => s === 'stuck' || s === 'waiting').length;
   const doneCount = effectiveStates.filter(s => s === 'done').length;
@@ -713,7 +713,7 @@ function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = 
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const effectiveState = (r: ProjectRow) => {
     const ins = insightsByProject.get(r.project);
-    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state) && r.state !== 'idle') ? ins.inferred_state : r.state;
+    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state) && r.state !== 'idle' && r.state !== 'waiting') ? ins.inferred_state : r.state;
   };
   const now = new Date();
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];

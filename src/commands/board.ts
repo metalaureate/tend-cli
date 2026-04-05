@@ -146,10 +146,10 @@ export async function buildBoardOutput(): Promise<string> {
     }
 
     // Override state with LLM-inferred state when available
-    // But never override an explicit idle event — idle is a definitive signal
+    // But never override idle or waiting — these are definitive heuristic signals
     const insight = insightMap.get(projectName);
     if (insight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(insight.inferred_state)) {
-      if (!(ps && ps.state === 'idle')) {
+      if (!(ps && (ps.state === 'idle' || ps.state === 'waiting'))) {
         state = insight.inferred_state;
       }
     }
@@ -226,10 +226,10 @@ export async function buildBoardOutput(): Promise<string> {
     }
 
     // Override state with LLM-inferred state when available
-    // But never override an explicit idle event — idle is a definitive signal
+    // But never override idle or waiting — these are definitive heuristic signals
     const relayInsight = insightMap.get(relayProject);
     if (relayInsight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(relayInsight.inferred_state)) {
-      if (!(ps && ps.state === 'idle')) {
+      if (!(ps && (ps.state === 'idle' || ps.state === 'waiting'))) {
         state = relayInsight.inferred_state;
       }
     }
