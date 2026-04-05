@@ -2,6 +2,7 @@ import { resolveProjectPath } from '../core/projects.js';
 import { appendReset, appendUserReset, sanitizeUserTag } from '../core/events.js';
 import { tsLocal } from '../ui/format.js';
 import { gitUserEmail, gitRepoName } from '../core/git.js';
+import { relayEmit } from '../core/relay.js';
 import { cmdBoard } from './board.js';
 import { existsSync } from 'fs';
 import { join, basename } from 'path';
@@ -28,6 +29,9 @@ export async function cmdAck(args: string[]): Promise<void> {
   } else {
     appendReset(join(projectPath, '.tend', 'events'), ts);
   }
+  // Also reset on the relay so the web board reflects the ack
+  await relayEmit(projectName, 'idle', 'acknowledged');
+
   process.stdout.write(`✓ Acknowledged ${projectName}\n\n`);
   await cmdBoard();
 }
