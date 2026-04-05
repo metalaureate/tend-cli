@@ -24,6 +24,7 @@ export function aggregateState(
   // end-of-session that went idle without an explicit done, rather than a
   // mid-task pause that needs attention.
   const WAITING_INFERENCE_WINDOW_SECONDS = 600; // 10 minutes
+  const MIN_WORKING_DURATION_SECONDS = 60; // must work ≥60s before idle→waiting
 
   for (const evt of events) {
     lastTs = evt.ts;
@@ -67,10 +68,10 @@ export function aggregateState(
     let effectiveState = evt.state;
     if (evt.state === 'idle' && sessionWorkPending.get(evt.sessionId)) {
       const lastWorkingTs = sessionLastWorkingTs.get(evt.sessionId);
-      const recentEnough = lastWorkingTs
-        ? (toEpoch(evt.ts) - toEpoch(lastWorkingTs)) <= WAITING_INFERENCE_WINDOW_SECONDS
-        : false;
-      if (recentEnough) {
+      const gap = lastWorkingTs ? (toEpoch(evt.ts) - toEpoch(lastWorkingTs)) : Infinity;
+      // Only infer waiting if:  worked long enough to be real work (≥60s)
+      // AND went idle within 10 minutes (not a stale session)
+      if (gap >= MIN_WORKING_DURATION_SECONDS && gap <= WAITING_INFERENCE_WINDOW_SECONDS) {
         effectiveState = 'waiting';
       }
     }

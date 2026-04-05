@@ -88,6 +88,7 @@ const STATE_PRIORITY: Record<string, number> = {
 
 const STALE_THRESHOLD_SECONDS = 1800; // 30 minutes
 const WAITING_INFERENCE_WINDOW_SECONDS = 600; // 10 minutes
+const MIN_WORKING_DURATION_SECONDS = 60; // must work ≥60s before idle→waiting
 
 interface EventRow {
   project: string;
@@ -161,10 +162,8 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
     let effectiveState = evt.state;
     if (evt.state === 'idle' && sessionWorkPending.get(sessionId)) {
       const lastWorkingTs = sessionLastWorkingTs.get(sessionId);
-      const recentEnough = lastWorkingTs
-        ? (toEpoch(evt.timestamp) - toEpoch(lastWorkingTs)) <= WAITING_INFERENCE_WINDOW_SECONDS
-        : false;
-      if (recentEnough) {
+      const gap = lastWorkingTs ? (toEpoch(evt.timestamp) - toEpoch(lastWorkingTs)) : Infinity;
+      if (gap >= MIN_WORKING_DURATION_SECONDS && gap <= WAITING_INFERENCE_WINDOW_SECONDS) {
         effectiveState = 'waiting';
       }
     }
