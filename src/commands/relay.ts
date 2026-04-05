@@ -251,8 +251,26 @@ async function relayDebug(): Promise<void> {
     process.stdout.write(`            ↳ run 'tend relay link' to commit the token to your project\n`);
     process.stdout.write(`               or: export TEND_RELAY_TOKEN="$(tend relay token | head -1)"\n`);
   }
-  process.stdout.write(`Emit mode:  ${token ? `relay → ${config.relayUrl}` : 'local'}\n`);
+  // Detect GitHub environment
+  const ghRepo = process.env.GITHUB_REPOSITORY;
+  const ghRunId = process.env.GITHUB_RUN_ID;
+  const isGitHub = !!(ghRepo || ghRunId);
+  const emitMode = token
+    ? `relay → ${config.relayUrl}`
+    : 'local only (no relay token)';
+
+  process.stdout.write(`Emit mode:  ${emitMode}\n`);
   process.stdout.write(`Session ID: ${config.sessionId || 'not set (events will use _cli)'}\n`);
+  if (isGitHub) {
+    process.stdout.write(`GitHub env: yes\n`);
+    process.stdout.write(`  GITHUB_REPOSITORY: ${ghRepo || '(not set)'}\n`);
+    process.stdout.write(`  GITHUB_RUN_ID:     ${ghRunId || '(not set)'}\n`);
+    if (!token) {
+      process.stdout.write(`\n⚠  No relay token found in this GitHub environment.\n`);
+      process.stdout.write(`   Cloud agent events will NOT reach the dashboard.\n`);
+      process.stdout.write(`   Fix: commit .tend/relay_token to your repo, or set TEND_RELAY_TOKEN secret.\n`);
+    }
+  }
   process.stdout.write(`Cache dir:  ${config.relayCacheDir}\n`);
 
   if (!existsSync(config.relayCacheDir)) {

@@ -25,44 +25,54 @@ export async function cmdEmit(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  // Always write locally first.
-  const projectPath = (() => {
-    try {
-      return resolveProjectPath();
-    } catch (e) {
-      process.stderr.write(`tend: ${(e as Error).message}\n`);
-      process.exit(1);
-    }
-  })();
-
-  const tendDir = join(projectPath, '.tend');
-  if (!existsSync(tendDir)) {
-    process.stderr.write("tend: .tend/ not initialized. Run 'tend init' first.\n");
-    process.exit(1);
+  // Try to resolve the local project path. In cloud/relay-only sessions (e.g. GitHub
+  // Actions or Copilot agents) the project may not have a local .tend/ directory — that
+  // is fine as long as a relay token is available for relay-only emit.
+  let projectPath: string | null = null;
+  try {
+    projectPath = resolveProjectPath();
+  } catch {
+    // Not inside a recognised project; relay-only emit may still succeed below.
   }
 
-  const ts = tsLocal();
-  const rawEmail = gitUserEmail(projectPath);
-  const rawSessionId = config.sessionId || '_cli';
-  const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
-  appendEvent(join(projectPath, '.tend', 'events'), ts, sessionId, state as State, message);
-  invalidateStatusCache();
+  const tendDir = projectPath ? join(projectPath, '.tend') : null;
+  const hasLocalTend = tendDir !== null && existsSync(tendDir);
 
-  // Also send to relay if a token is configured (best-effort, does not affect local write).
+  if (hasLocalTend && tendDir && projectPath) {
+    // Local write.
+    const ts = tsLocal();
+    const rawEmail = gitUserEmail(projectPath);
+    const rawSessionId = config.sessionId || '_cli';
+    const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
+    appendEvent(join(tendDir, 'events'), ts, sessionId, state as State, message);
+    invalidateStatusCache();
+  }
+
+  // Send to relay if a token is configured (best-effort, does not affect local write).
   const token = relayToken();
   if (token) {
     let projectName: string;
     try {
       projectName = resolveProjectName();
     } catch {
-      projectName = process.cwd().split('/').pop() || 'unknown';
+      // Prefer GITHUB_REPOSITORY (set in all GitHub Actions / Copilot agent environments)
+      // so the project name on the relay board matches the repo name.
+      const ghRepo = process.env.GITHUB_REPOSITORY;
+      projectName = ghRepo
+        ? ghRepo.split('/').pop() || 'unknown'
+        : process.cwd().split('/').pop() || 'unknown';
     }
-    const rawEmailRelay = gitUserEmail(process.cwd());
+    const relayProjectPath = projectPath ?? process.cwd();
+    const rawEmailRelay = gitUserEmail(relayProjectPath);
     const rawSessionIdRelay = config.sessionId || '_cli';
     const sessionIdRelay = rawEmailRelay ? `${rawSessionIdRelay}@${sanitizeUserTag(rawEmailRelay)}` : rawSessionIdRelay;
     await Promise.all([
       relayEmit(projectName, state, message, sessionIdRelay),
-      relayPushContext(projectPath, projectName),
+      relayPushContext(relayProjectPath, projectName),
     ]);
+  } else if (!hasLocalTend) {
+    // No local .tend/ and no relay token — cannot emit anywhere.
+    process.stderr.write("tend: .tend/ not initialized. Run 'tend init' first, or set TEND_RELAY_TOKEN for relay-only mode.\n");
+    process.exit(1);
   }
 }
