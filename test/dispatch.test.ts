@@ -18,7 +18,7 @@ describe('dispatch', () => {
   it('shows help for dispatch in help output', () => {
     const r = ctx.tend(['help']);
     expect(r.stdout).toContain('dispatch');
-    expect(r.stdout).toContain('Dispatch pending TODOs');
+    expect(r.stdout).toContain('Pick a TODO');
   });
 
   it('shows relay share in help output', () => {

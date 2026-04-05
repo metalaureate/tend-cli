@@ -1,5 +1,6 @@
 import { relayListTodos, relayUpdateTodo, relayToken, type RelayTodo } from '../core/relay.js';
 import { C } from '../ui/colors.js';
+import { createInterface } from 'readline';
 
 const BOARD_URL_BASE = 'https://relay.tend.cx';
 
@@ -17,10 +18,8 @@ function detectGitHubRepo(): string | null {
     const result = Bun.spawnSync(['git', 'remote', 'get-url', 'origin']);
     if (result.exitCode !== 0) return null;
     const url = result.stdout.toString().trim();
-    // Handle SSH: git@github.com:owner/repo.git
     const sshMatch = url.match(/github\.com[:/]([^/]+\/[^/.]+)/);
     if (sshMatch) return sshMatch[1];
-    // Handle HTTPS: https://github.com/owner/repo.git
     const httpsMatch = url.match(/github\.com\/([^/]+\/[^/.]+)/);
     if (httpsMatch) return httpsMatch[1];
     return null;
@@ -29,14 +28,14 @@ function detectGitHubRepo(): string | null {
   }
 }
 
-function buildIssueBody(todo: RelayTodo): string {
+function buildIssueBody(message: string, project: string): string {
   const token = relayToken();
   const boardUrl = token ? `${BOARD_URL_BASE}/${token}` : '';
 
-  let body = `## Task\n\n${todo.message}\n`;
+  let body = `## Task\n\n${message}\n`;
 
-  if (todo.project !== '_global') {
-    body += `\n**Project:** ${todo.project}\n`;
+  if (project !== '_global') {
+    body += `\n**Project:** ${project}\n`;
   }
 
   body += `\n---\n`;
@@ -49,8 +48,17 @@ function buildIssueBody(todo: RelayTodo): string {
   return body;
 }
 
+function prompt(msg: string): Promise<string> {
+  return new Promise(resolve => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    rl.question(msg, answer => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
 export async function cmdDispatch(args: string[]): Promise<void> {
-  const dryRun = args.includes('--dry-run');
   const projectIdx = args.indexOf('--project');
   const projectFilter = projectIdx !== -1 ? args[projectIdx + 1] : undefined;
 
@@ -61,18 +69,16 @@ export async function cmdDispatch(args: string[]): Promise<void> {
     process.exit(1);
   }
 
-  if (!dryRun && !ghAvailable()) {
+  if (!ghAvailable()) {
     process.stderr.write("tend: 'gh' (GitHub CLI) is required for dispatch.\n");
     process.stderr.write('Install it: https://cli.github.com\n');
     process.exit(1);
   }
 
-  if (!dryRun) {
-    const repo = detectGitHubRepo();
-    if (!repo) {
-      process.stderr.write('tend: could not detect GitHub repo from git remote\n');
-      process.exit(1);
-    }
+  const repo = detectGitHubRepo();
+  if (!repo) {
+    process.stderr.write('tend: could not detect GitHub repo from git remote\n');
+    process.exit(1);
   }
 
   // Fetch pending TODOs
@@ -84,46 +90,76 @@ export async function cmdDispatch(args: string[]): Promise<void> {
     return;
   }
 
-  if (dryRun) {
-    process.stdout.write(`\n${C.bold}Would dispatch ${todos.length} task${todos.length === 1 ? '' : 's'}:${C.reset}\n\n`);
-    for (const t of todos) {
+  // Non-interactive — just list and exit
+  if (!process.stdin.isTTY) {
+    process.stdout.write(`${todos.length} pending TODO${todos.length === 1 ? '' : 's'}:\n`);
+    for (let i = 0; i < todos.length; i++) {
+      const t = todos[i];
       const proj = t.project === '_global' ? '' : ` (${t.project})`;
-      process.stdout.write(`  #${t.id}  ${t.message}${proj}\n`);
+      process.stdout.write(`  ${i + 1}. ${t.message}${proj}\n`);
     }
-    process.stdout.write(`\nRun without --dry-run to create GitHub issues and assign Copilot.\n`);
+    process.stdout.write('\nRun interactively to dispatch.\n');
     return;
   }
 
-  let dispatched = 0;
+  // Step 1: Show TODOs and ask user to pick one
+  process.stdout.write(`\n${C.bold}Pending TODOs:${C.reset}\n\n`);
+  for (let i = 0; i < todos.length; i++) {
+    const t = todos[i];
+    const proj = t.project === '_global' ? '' : ` ${C.dim}(${t.project})${C.reset}`;
+    process.stdout.write(`  ${i + 1}. ${t.message}${proj}\n`);
+  }
+  process.stdout.write('\n');
 
-  for (const todo of todos) {
-    const body = buildIssueBody(todo);
-    const title = `tend: ${todo.message}`;
-
-    try {
-      const result = Bun.spawnSync([
-        'gh', 'issue', 'create',
-        '--title', title,
-        '--body', body,
-        '--assignee', '@me',
-        '--label', 'copilot',
-      ]);
-
-      if (result.exitCode !== 0) {
-        const stderr = result.stderr.toString().trim();
-        process.stderr.write(`  ✗ Failed: ${todo.message}\n`);
-        if (stderr) process.stderr.write(`    ${stderr}\n`);
-        continue;
-      }
-
-      const issueUrl = result.stdout.toString().trim();
-      await relayUpdateTodo(todo.id, 'dispatched', issueUrl);
-      dispatched++;
-      process.stdout.write(`  ✓ ${todo.message} → ${issueUrl}\n`);
-    } catch (e) {
-      process.stderr.write(`  ✗ Failed: ${todo.message} — ${(e as Error).message}\n`);
-    }
+  const pickAnswer = await prompt(`${C.dim}Which TODO to dispatch? (#, or Enter to cancel):${C.reset} `);
+  const pick = parseInt(pickAnswer.trim(), 10);
+  if (isNaN(pick) || pick < 1 || pick > todos.length) {
+    process.stdout.write('Cancelled.\n');
+    return;
   }
 
-  process.stdout.write(`\nDispatched ${dispatched}/${todos.length} task${todos.length === 1 ? '' : 's'}\n`);
+  const todo = todos[pick - 1];
+
+  // Step 2: Show the TODO and let user edit in-place
+  process.stdout.write(`\n${C.bold}Issue title:${C.reset}\n  tend: ${todo.message}\n\n`);
+  const editAnswer = await prompt(`${C.dim}Edit description (Enter to keep as-is):${C.reset}\n  `);
+  const finalMessage = editAnswer.trim() || todo.message;
+
+  if (finalMessage !== todo.message) {
+    process.stdout.write(`\n${C.bold}Updated:${C.reset} ${finalMessage}\n`);
+  }
+
+  // Step 3: Confirm
+  const confirmAnswer = await prompt(`\n${C.dim}Create GitHub issue in ${C.reset}${repo}${C.dim}? (y/N):${C.reset} `);
+  if (confirmAnswer.trim().toLowerCase() !== 'y') {
+    process.stdout.write('Cancelled.\n');
+    return;
+  }
+
+  // Dispatch
+  const body = buildIssueBody(finalMessage, todo.project);
+  const title = `tend: ${finalMessage}`;
+
+  try {
+    const result = Bun.spawnSync([
+      'gh', 'issue', 'create',
+      '--title', title,
+      '--body', body,
+      '--assignee', '@me',
+      '--label', 'copilot',
+    ]);
+
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr.toString().trim();
+      process.stderr.write(`✗ Failed: ${finalMessage}\n`);
+      if (stderr) process.stderr.write(`  ${stderr}\n`);
+      return;
+    }
+
+    const issueUrl = result.stdout.toString().trim();
+    await relayUpdateTodo(todo.id, 'dispatched', issueUrl);
+    process.stdout.write(`✓ ${finalMessage} → ${issueUrl}\n`);
+  } catch (e) {
+    process.stderr.write(`✗ Failed: ${finalMessage} — ${(e as Error).message}\n`);
+  }
 }
