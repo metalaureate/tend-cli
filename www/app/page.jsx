@@ -45,7 +45,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              A pull-based status board for developers running multiple AI agents. Remind yourself of what each agent is doing, and what it should probably do next. Glance when you&apos;re ready. Get back to work.
+              You want to run as many agents as possible across all your projects and environments. But you can&apos;t keep track of what they&apos;re all doing, when they need you, or what comes next. Tend fixes that.
             </p>
 
             {/* The Board */}
