@@ -146,9 +146,12 @@ export async function buildBoardOutput(): Promise<string> {
     }
 
     // Override state with LLM-inferred state when available
+    // But never override an explicit idle event — idle is a definitive signal
     const insight = insightMap.get(projectName);
     if (insight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(insight.inferred_state)) {
-      state = insight.inferred_state;
+      if (!(ps && ps.state === 'idle')) {
+        state = insight.inferred_state;
+      }
     }
 
     // Count states
@@ -223,9 +226,12 @@ export async function buildBoardOutput(): Promise<string> {
     }
 
     // Override state with LLM-inferred state when available
+    // But never override an explicit idle event — idle is a definitive signal
     const relayInsight = insightMap.get(relayProject);
     if (relayInsight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(relayInsight.inferred_state)) {
-      state = relayInsight.inferred_state;
+      if (!(ps && ps.state === 'idle')) {
+        state = relayInsight.inferred_state;
+      }
     }
 
     switch (state) {
