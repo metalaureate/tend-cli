@@ -45,7 +45,7 @@ export default function Page() {
             </h1>
 
             <p className="hero-el font-body text-smoke text-base md:text-lg mt-6 max-w-xl leading-relaxed">
-              You want to run as many agents as possible across all your projects and environments. But you can&apos;t keep track of what they&apos;re all doing, when they need you, or what comes next. Tend fixes that.
+              I built Tend so I could maximize the number of projects I work on simultaneously without burning out from context-switching between them, checking who needs me, and keeping them all stoked wherever they are. One board shows every agent across every project: who&apos;s working, who&apos;s done, who needs me.
             </p>
 
             {/* The Board */}
