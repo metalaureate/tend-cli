@@ -146,10 +146,10 @@ export async function buildBoardOutput(): Promise<string> {
     }
 
     // Override state with LLM-inferred state when available
-    // Skip when ps is null (all sessions acknowledged) or state is idle/waiting
+    // Skip when ps is null (all sessions acknowledged) or state is idle/waiting/done
     const insight = insightMap.get(projectName);
     if (ps && insight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(insight.inferred_state)) {
-      if (ps.state !== 'idle' && ps.state !== 'waiting') {
+      if (ps.state !== 'idle' && ps.state !== 'waiting' && ps.state !== 'done') {
         state = insight.inferred_state;
       }
     }
@@ -226,10 +226,10 @@ export async function buildBoardOutput(): Promise<string> {
     }
 
     // Override state with LLM-inferred state when available
-    // Skip when ps is null (all sessions acknowledged) or state is idle/waiting
+    // Skip when ps is null (all sessions acknowledged) or state is idle/waiting/done
     const relayInsight = insightMap.get(relayProject);
     if (ps && relayInsight?.inferred_state && ['working', 'done', 'stuck', 'waiting', 'idle'].includes(relayInsight.inferred_state)) {
-      if (ps.state !== 'idle' && ps.state !== 'waiting') {
+      if (ps.state !== 'idle' && ps.state !== 'waiting' && ps.state !== 'done') {
         state = relayInsight.inferred_state;
       }
     }

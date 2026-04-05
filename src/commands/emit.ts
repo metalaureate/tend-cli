@@ -58,7 +58,7 @@ export async function cmdEmit(args: string[]): Promise<void> {
       projectName = process.cwd().split('/').pop() || 'unknown';
     }
     const rawEmailRelay = gitUserEmail(process.cwd());
-    const rawSessionIdRelay = config.sessionId || '';
+    const rawSessionIdRelay = config.sessionId || '_cli';
     const sessionIdRelay = rawEmailRelay ? `${rawSessionIdRelay}@${sanitizeUserTag(rawEmailRelay)}` : rawSessionIdRelay;
     await Promise.all([
       relayEmit(projectName, state, message, sessionIdRelay),

@@ -117,10 +117,11 @@ describe('board', () => {
   it('infers waiting when idle after working without done', () => {
     const dir = ctx.makeProject('wait-infer');
     ctx.tend(['init'], { cwd: dir });
-    const ts = localTs(new Date());
-    // working → idle with no done in between → should infer waiting
+    const workTs = localTs(new Date(Date.now() - 90 * 1000)); // 90s ago
+    const idleTs = localTs(new Date()); // now
+    // working → idle with no done in between, gap ≥ 60s → should infer waiting
     writeFileSync(join(dir, '.tend', 'events'),
-      `${ts} sess1 working building feature\n${ts} sess1 idle session ended\n`);
+      `${workTs} sess1 working building feature\n${idleTs} sess1 idle session ended\n`);
     const r = ctx.tend([]);
     // The project line should show waiting, not idle
     const projectLine = r.stdout.split('\n').find(l => l.includes('wait-infer'));
