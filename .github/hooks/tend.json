@@ -3,7 +3,7 @@
     "SessionStart": [
       {
         "type": "command",
-        "command": "tend hook session-start",
+        "command": "/usr/local/bin/tend hook session-start",
         "env": {
           "TEND_HOOK_DEBUG": "1"
         }
@@ -12,7 +12,7 @@
     "UserPromptSubmit": [
       {
         "type": "command",
-        "command": "tend hook user-prompt",
+        "command": "/usr/local/bin/tend hook user-prompt",
         "env": {
           "TEND_HOOK_DEBUG": "1"
         }
@@ -21,7 +21,7 @@
     "Stop": [
       {
         "type": "command",
-        "command": "tend hook stop",
+        "command": "/usr/local/bin/tend hook stop",
         "env": {
           "TEND_HOOK_DEBUG": "1"
         }
