@@ -979,15 +979,20 @@ interface InsightRow {
   updated_at: string;
 }
 
+const INSIGHT_CONFIDENCE_THRESHOLD = 40;
+
 const INSIGHT_SYSTEM_PROMPT =
   'You write ultra-short status lines for a developer dashboard.' +
-  ' Given a project\'s event log and TODOs, output EXACTLY three lines:\n' +
+  ' Given a project\'s event log and TODOs, output EXACTLY four lines:\n' +
   'Line 1: What\'s happening RIGHT NOW based on recent events. ≤30 chars. Telegram style.\n' +
   'Line 2: Predicted next step — infer from the TRAJECTORY of recent work, not the TODO list.' +
   ' TODOs are a backlog, not a plan.' +
   ' If latest event is "done", the described work (including commit/push) is ALREADY COMPLETE — predict what comes AFTER.' +
   ' ≤30 chars. Start with verb. Telegram style.\n' +
   'Line 3: The project state — EXACTLY one of: working, done, stuck, waiting, idle\n' +
+  'Line 4: Confidence (0–100) that Line 2 is a meaningful, non-obvious inference.' +
+  ' Score LOW (<40) if Line 2 simply restates a recent "working" message, echoes a TODO verbatim, or is generic.' +
+  ' Score HIGH (>70) only when the trajectory makes the next step clearly predictable.\n' +
   'IMPORTANT: "working" messages are raw user prompts captured by editor hooks — they are NOT task descriptions.' +
   ' Ignore their literal text. Focus on "done" messages and the overall pattern of work/idle cycles to understand what actually happened.\n' +
   'CLOSURE DETECTION — this is the key concept for state inference:\n' +
@@ -1002,10 +1007,10 @@ const INSIGHT_SYSTEM_PROMPT =
   '- idle: fallback — either waiting decayed (> 24h without activity), or genuinely nothing pending, or state is unclear.\n' +
   'Time matters: check the "(Xm ago)" annotations. A "waiting" project that has been quiet for days should be idle, not waiting.\n' +
   'No labels, prefixes, bullets. Examples:\n' +
-  '3rd pass at auth, was stuck\nrun tests, open PR\nworking\n\n' +
-  'auth module shipped, tests pass\npick next backlog item\ndone\n\n' +
-  'started refactor, no commit yet\nresume refactor, commit\nwaiting\n\n' +
-  'idle 2d, dirty worktree\ncommit WIP or stash\nidle';
+  '3rd pass at auth, was stuck\nrun tests, open PR\nworking\n85\n\n' +
+  'auth module shipped, tests pass\npick next backlog item\ndone\n75\n\n' +
+  'started refactor, no commit yet\nresume refactor, commit\nwaiting\n60\n\n' +
+  'idle 2d, dirty worktree\ncommit WIP or stash\nidle\n50';
 
 const MAX_INSIGHT_EVENTS = 25;
 
@@ -1020,7 +1025,7 @@ async function computeInputHash(input: string): Promise<string> {
 
 const VALID_INSIGHT_STATES = new Set(['working', 'done', 'stuck', 'waiting', 'idle']);
 
-function parseInsightResponse(text: string): { summary: string; prediction: string; inferred_state: string } | null {
+export function parseInsightResponse(text: string): { summary: string; prediction: string; inferred_state: string } | null {
   const lines = text
     .split('\n')
     .map(l => l.replace(/^\d+[.:)\-]\s*/, '').trim())
@@ -1029,9 +1034,15 @@ function parseInsightResponse(text: string): { summary: string; prediction: stri
   // Line 3 is the state — validate it, default to empty if invalid
   const rawState = (lines[2] || '').toLowerCase().trim();
   const inferred_state = VALID_INSIGHT_STATES.has(rawState) ? rawState : '';
+  // Line 4 is confidence (0-100). Gate low-confidence predictions.
+  const rawConfidence = parseInt(lines[3] || '', 10);
+  const confidence = Number.isFinite(rawConfidence) ? rawConfidence : 0;
+  const prediction = confidence >= INSIGHT_CONFIDENCE_THRESHOLD
+    ? lines[1].slice(0, 36)
+    : "what's next?";
   return {
     summary: lines[0].slice(0, 36),
-    prediction: lines[1].slice(0, 36),
+    prediction,
     inferred_state,
   };
 }

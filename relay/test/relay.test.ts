@@ -1,6 +1,6 @@
 import { env, createExecutionContext, waitOnExecutionContext } from 'cloudflare:test';
 import { describe, it, expect, beforeEach } from 'vitest';
-import worker, { Env } from '../src/index';
+import worker, { Env, parseInsightResponse } from '../src/index';
 
 declare module 'cloudflare:test' {
   interface ProvidedEnv extends Env {}
@@ -1099,5 +1099,68 @@ describe('Tend Relay', () => {
       expect(row1?.content).toBe('# Token1 App');
       expect(row2?.content).toBe('# Token2 App');
     });
+  });
+});
+
+describe('parseInsightResponse', () => {
+  it('passes through prediction when confidence is high', () => {
+    const result = parseInsightResponse('auth refactor in progress\nrun tests, open PR\nworking\n85');
+    expect(result).not.toBeNull();
+    expect(result!.summary).toBe('auth refactor in progress');
+    expect(result!.prediction).toBe('run tests, open PR');
+    expect(result!.inferred_state).toBe('working');
+  });
+
+  it('gates prediction to "what\'s next?" when confidence is low', () => {
+    const result = parseInsightResponse('reading mission code\nRead code, return verbatim\nworking\n15');
+    expect(result).not.toBeNull();
+    expect(result!.summary).toBe('reading mission code');
+    expect(result!.prediction).toBe("what's next?");
+    expect(result!.inferred_state).toBe('working');
+  });
+
+  it('gates prediction when confidence line is missing', () => {
+    const result = parseInsightResponse('some summary\nsome prediction\nworking');
+    expect(result).not.toBeNull();
+    expect(result!.prediction).toBe("what's next?");
+  });
+
+  it('gates prediction when confidence is exactly at threshold', () => {
+    const result = parseInsightResponse('summary line\nreal prediction\nworking\n40');
+    expect(result).not.toBeNull();
+    expect(result!.prediction).toBe('real prediction');
+  });
+
+  it('gates prediction when confidence is just below threshold', () => {
+    const result = parseInsightResponse('summary line\nreal prediction\nworking\n39');
+    expect(result).not.toBeNull();
+    expect(result!.prediction).toBe("what's next?");
+  });
+
+  it('handles numbered line prefixes', () => {
+    const result = parseInsightResponse('1. auth shipped\n2. deploy to prod\n3. done\n4. 90');
+    expect(result).not.toBeNull();
+    expect(result!.summary).toBe('auth shipped');
+    expect(result!.prediction).toBe('deploy to prod');
+    expect(result!.inferred_state).toBe('done');
+  });
+
+  it('returns null for insufficient lines', () => {
+    expect(parseInsightResponse('only one line')).toBeNull();
+    expect(parseInsightResponse('')).toBeNull();
+  });
+
+  it('truncates summary and prediction to 36 chars', () => {
+    const long = 'a'.repeat(50);
+    const result = parseInsightResponse(`${long}\n${long}\nworking\n80`);
+    expect(result).not.toBeNull();
+    expect(result!.summary.length).toBe(36);
+    expect(result!.prediction.length).toBe(36);
+  });
+
+  it('treats non-numeric confidence as zero', () => {
+    const result = parseInsightResponse('summary\nprediction\nworking\nhigh');
+    expect(result).not.toBeNull();
+    expect(result!.prediction).toBe("what's next?");
   });
 });
