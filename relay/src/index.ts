@@ -334,6 +334,8 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     </article>`;
   }).join('\n');
 
+  const projectNames = rows.map(r => r.project);
+
   // Compute effective states (insight-overridden) for footer counts
   const effectiveStates = rows.map(r => {
     const insight = insightsByProject.get(r.project);
@@ -472,8 +474,22 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     .todo-btn:hover { border-color: rgba(255,255,255,0.35); color: #F5F2EB; }
     .todo-btn.del:hover { border-color: #E8553D; color: #E8553D; }
     .todo-add-form {
-      display: flex; gap: 8px; margin-top: 8px; align-items: center;
+      display: none; gap: 8px; margin-top: 8px; align-items: center;
     }
+    .todo-add-form.visible { display: flex; }
+    .todo-add-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.12); color: rgba(168,168,168,0.5);
+      font-family: inherit; font-size: 12px; padding: 2px 8px; border-radius: 4px;
+      cursor: pointer; margin-top: 8px;
+    }
+    .todo-add-btn:hover { border-color: rgba(255,255,255,0.3); color: #F5F2EB; }
+    .todo-select {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(168,168,168,0.8); font-family: inherit; font-size: 13px;
+      padding: 4px 6px; border-radius: 4px; outline: none; max-width: 160px;
+    }
+    .todo-select:focus { border-color: rgba(255,255,255,0.3); }
+    .todo-select option { background: #1a1a1a; color: #F5F2EB; }
     .todo-input {
       background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
       color: #F5F2EB; font-family: inherit; font-size: 14px; padding: 4px 8px;
@@ -533,8 +549,13 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
             ${actions}
           </article>`;
         }).join('\n')}
-        ${isWritable ? `<form class="todo-add-form" onsubmit="addTodo(event)">
-          <input class="todo-input" type="text" name="message" placeholder="add todo..." autocomplete="off" />
+        ${isWritable ? `<button class="todo-add-btn" onclick="toggleAddForm()" id="todo-add-toggle">+ add</button>
+        <form class="todo-add-form" id="todo-add-form" onsubmit="addTodo(event)">
+          <select class="todo-select" name="project">
+            <option value="_global">(global)</option>
+            ${projectNames.map(p => `<option value="${p.replace(/"/g, '&quot;')}">${p.replace(/</g, '&lt;')}</option>`).join('')}
+          </select>
+          <input class="todo-input" type="text" name="message" placeholder="todo..." autocomplete="off" />
           <button class="todo-btn" type="submit">+</button>
         </form>` : ''}
       </section>` : ''}
@@ -600,14 +621,31 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       return fetch(API_BASE + path, opts);
     }
 
+    function toggleAddForm() {
+      var form = document.getElementById('todo-add-form');
+      var btn = document.getElementById('todo-add-toggle');
+      if (form.classList.contains('visible')) {
+        form.classList.remove('visible');
+        btn.style.display = '';
+      } else {
+        form.classList.add('visible');
+        btn.style.display = 'none';
+        form.querySelector('input[name="message"]').focus();
+      }
+    }
+
     function addTodo(e) {
       e.preventDefault();
       if (!IS_WRITABLE) return;
       var input = e.target.querySelector('input[name="message"]');
+      var select = e.target.querySelector('select[name="project"]');
       var msg = input.value.trim();
       if (!msg) return;
+      var proj = select.value;
       input.disabled = true;
-      todoApi('POST', '/v1/todos', { message: msg }).then(function(r) {
+      var body = { message: msg };
+      if (proj && proj !== '_global') body.project = proj;
+      todoApi('POST', '/v1/todos', body).then(function(r) {
         if (r.ok) location.reload();
         else { input.disabled = false; input.focus(); }
       }).catch(function() { input.disabled = false; });
