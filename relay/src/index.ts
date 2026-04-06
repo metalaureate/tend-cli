@@ -306,7 +306,7 @@ function stateClass(state: string): string {
   }
 }
 
-function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
+function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const rowsHtml = rows.map(r => {
     const insight = insightsByProject.get(r.project);
@@ -361,6 +361,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   <meta charset="utf-8">
   <title>Tend Board</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23111' stroke='%23F5F2EB' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%2320A890'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { background: #111111; min-height: 100vh; }
@@ -461,6 +462,31 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     /* Countdown */
     .countdown { color: rgba(168,168,168,0.8); }
     .countdown.warn { color: #E8553D; }
+    /* TODO CRUD */
+    .todo-actions { display: inline-flex; gap: 4px; margin-left: 8px; opacity: 0; transition: opacity 0.15s; }
+    .row:hover .todo-actions, .row:focus-within .todo-actions { opacity: 1; }
+    .todo-btn {
+      background: none; border: 1px solid rgba(255,255,255,0.15); color: rgba(168,168,168,0.8);
+      font-family: inherit; font-size: 11px; padding: 1px 6px; border-radius: 4px; cursor: pointer;
+    }
+    .todo-btn:hover { border-color: rgba(255,255,255,0.35); color: #F5F2EB; }
+    .todo-btn.del:hover { border-color: #E8553D; color: #E8553D; }
+    .todo-add-form {
+      display: flex; gap: 8px; margin-top: 8px; align-items: center;
+    }
+    .todo-input {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+      color: #F5F2EB; font-family: inherit; font-size: 14px; padding: 4px 8px;
+      border-radius: 4px; flex: 1; outline: none;
+    }
+    .todo-input:focus { border-color: rgba(255,255,255,0.3); }
+    .todo-input::placeholder { color: rgba(168,168,168,0.4); }
+    .todo-edit-input {
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2);
+      color: #F5F2EB; font-family: inherit; font-size: 14px; padding: 2px 6px;
+      border-radius: 4px; flex: 1; outline: none;
+    }
+    .todo-edit-input:focus { border-color: #20A890; }
   </style>
 </head>
 <body>
@@ -484,24 +510,33 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       ${emptyMsg}
       ${rowsHtml}
       </section>
-      ${todos.length > 0 ? `
-      <section class="backlog" aria-label="Backlog">
+      ${todos.length > 0 || isWritable ? `
+      <section class="backlog" aria-label="Backlog" id="backlog-section">
         <header class="board-header" style="margin-top:14px;margin-bottom:8px;">
           <span>BACKLOG</span>
-          <span>${todos.length} item${todos.length === 1 ? '' : 's'}</span>
+          <span id="todo-count">${todos.length} item${todos.length === 1 ? '' : 's'}</span>
         </header>
         ${todos.map(t => {
           const statusCls = t.status === 'dispatched' ? 'working' : 'idle';
           const statusIcon = t.status === 'dispatched' ? '◐' : '○';
           const msg = (t.message || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
           const proj = t.project === '_global' ? '' : t.project;
-          return `<article class="row">
+          const actions = isWritable ? `<span class="todo-actions">
+            <button class="todo-btn" onclick="editTodo(${t.id}, this)" title="Edit">✎</button>
+            <button class="todo-btn del" onclick="deleteTodo(${t.id})" title="Delete">✕</button>
+          </span>` : '';
+          return `<article class="row" data-todo-id="${t.id}">
             <span class="icon ${statusCls}" aria-hidden="true">${statusIcon}</span>
             <span class="name" title="${proj}">${proj}</span>
             <span class="state ${statusCls}">${t.status}</span>
             <span class="msg">${msg}</span>
+            ${actions}
           </article>`;
         }).join('\n')}
+        ${isWritable ? `<form class="todo-add-form" onsubmit="addTodo(event)">
+          <input class="todo-input" type="text" name="message" placeholder="add todo..." autocomplete="off" />
+          <button class="todo-btn" type="submit">+</button>
+        </form>` : ''}
       </section>` : ''}
       <footer class="footer">${footerHtml}</footer>
     </main>
@@ -550,6 +585,93 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
         cdEl.className = 'countdown' + (secs <= 10 ? ' warn' : '');
       }
     }, 1000);
+
+    // TODO CRUD (only active when token is writable)
+    var TOKEN = '${rawToken}';
+    var IS_WRITABLE = ${isWritable ? 'true' : 'false'};
+    var API_BASE = location.origin;
+
+    function todoApi(method, path, body) {
+      var opts = {
+        method: method,
+        headers: { 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json' }
+      };
+      if (body) opts.body = JSON.stringify(body);
+      return fetch(API_BASE + path, opts);
+    }
+
+    function addTodo(e) {
+      e.preventDefault();
+      if (!IS_WRITABLE) return;
+      var input = e.target.querySelector('input[name="message"]');
+      var msg = input.value.trim();
+      if (!msg) return;
+      input.disabled = true;
+      todoApi('POST', '/v1/todos', { message: msg }).then(function(r) {
+        if (r.ok) location.reload();
+        else { input.disabled = false; input.focus(); }
+      }).catch(function() { input.disabled = false; });
+    }
+
+    function deleteTodo(id) {
+      if (!IS_WRITABLE) return;
+      todoApi('DELETE', '/v1/todos/' + id).then(function(r) {
+        if (r.ok) {
+          var el = document.querySelector('[data-todo-id="' + id + '"]');
+          if (el) el.remove();
+          updateTodoCount();
+        }
+      });
+    }
+
+    function editTodo(id, btn) {
+      if (!IS_WRITABLE) return;
+      var row = btn.closest('.row');
+      var msgEl = row.querySelector('.msg');
+      var oldText = msgEl.textContent;
+      var input = document.createElement('input');
+      input.type = 'text';
+      input.value = oldText;
+      input.className = 'todo-edit-input';
+      msgEl.replaceWith(input);
+      input.focus();
+      input.select();
+
+      function save() {
+        var newText = input.value.trim();
+        if (!newText || newText === oldText) {
+          var span = document.createElement('span');
+          span.className = 'msg';
+          span.textContent = oldText;
+          input.replaceWith(span);
+          return;
+        }
+        // Delete old + create new (no PATCH message endpoint)
+        todoApi('DELETE', '/v1/todos/' + id).then(function(r) {
+          if (r.ok) return todoApi('POST', '/v1/todos', { message: newText });
+        }).then(function(r) {
+          if (r && r.ok) location.reload();
+        });
+      }
+
+      input.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+        if (ev.key === 'Escape') {
+          var span = document.createElement('span');
+          span.className = 'msg';
+          span.textContent = oldText;
+          input.replaceWith(span);
+        }
+      });
+      input.addEventListener('blur', save);
+    }
+
+    function updateTodoCount() {
+      var countEl = document.getElementById('todo-count');
+      if (!countEl) return;
+      var rows = document.querySelectorAll('[data-todo-id]');
+      countEl.textContent = rows.length + ' item' + (rows.length === 1 ? '' : 's');
+    }
   </script>
 </body>
 </html>`;
@@ -562,6 +684,7 @@ function buildLandingHtml(): string {
   <meta charset="utf-8">
   <title>Tend Board</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23111' stroke='%23F5F2EB' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%2320A890'/%3E%3C/svg%3E">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { background: #111111; min-height: 100vh; }
@@ -705,7 +828,8 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
   const todos = await fetchTodos(db, tokenHash);
   const insights = await fetchInsights(db, tokenHash);
 
-  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights));
+    const isWritable = rawToken.startsWith('tnd_');
+  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable));
 }
 
 function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
