@@ -516,7 +516,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       <span class="titlebar-label">$ tend</span>
     </div>
     <nav class="statusbar" aria-label="Board status">
-      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at">${updatedAt}</time> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
+      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
       <span>tend.cx</span>
     </nav>
     <main class="board" role="main">
@@ -565,7 +565,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     </main>
   </div>
   <script>
-    // Datestamp
+    // Datestamp + updated-at (local time)
     (function() {
       var now = new Date();
       var days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -574,6 +574,8 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       document.getElementById('datestamp').textContent =
         days[now.getDay()] + ' ' + months[now.getMonth()] + ' ' + now.getDate() +
         ', ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+      document.getElementById('updated-at').textContent =
+        pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
     })();
 
     // Time-ago for each row
