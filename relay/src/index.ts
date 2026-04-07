@@ -227,10 +227,12 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
     }
   }
 
-  if (!bestTs) bestTs = lastTs;
   if (!bestState) bestState = 'idle';
 
-  return { project: events[0].project, state: bestState, message: bestMessage, timestamp: bestTs };
+  // Use lastTs (most recent event) for the display timestamp so the board always
+  // shows when the project was last active, even if the winning state (e.g. "done")
+  // came from an older session that beat a stale working session in priority.
+  return { project: events[0].project, state: bestState, message: bestMessage, timestamp: lastTs };
 }
 
 /** Fetch all events and aggregate per-project state (replaces naive MAX(id) query) */

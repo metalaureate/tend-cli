@@ -431,6 +431,37 @@ describe('Tend Relay', () => {
       expect(html).toContain('task complete');
     });
 
+    it('board shows most-recent event timestamp even when stale session is demoted', async () => {
+      // Regression test: when a recent working session goes stale (demoted to idle) and
+      // an older done session wins on priority, the board should display the timestamp of
+      // the most recent event — not the old done session's timestamp.
+      const token = await registerToken();
+      const oldTs = '2026-03-10T10:00:00';  // 4 days ago
+      const recentTs = new Date(Date.now() - 6 * 3600_000).toISOString().slice(0, 19); // 6 hours ago
+
+      // Old session: done 4 days ago
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'done', message: 'old task',
+        session_id: 'sess-old', timestamp: oldTs,
+      }, token);
+
+      // Recent session: working 6 hours ago (will be stale — > 30 min)
+      await makeRequest('POST', '/v1/events', {
+        project: 'my-app', state: 'working', message: 'new work',
+        session_id: 'sess-new', timestamp: recentTs,
+      }, token);
+
+      const request = new Request(`http://localhost/${token}`, { method: 'GET' });
+      const ctx = createExecutionContext();
+      const response = await worker.fetch(request, env, ctx);
+      await waitOnExecutionContext(ctx);
+      const html = await response.text();
+
+      // The board should show the recent timestamp (6h ago), not the old one (4d ago)
+      expect(html).toContain(`data-ts="${recentTs}"`);
+      expect(html).not.toContain(`data-ts="${oldTs}"`);
+    });
+
     it('auto-refresh countdown script is present', async () => {
       const token = await registerToken();
       const request = new Request(`http://localhost/${token}`, { method: 'GET' });
