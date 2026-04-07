@@ -462,7 +462,7 @@ describe('Tend Relay', () => {
       expect(html).not.toContain(`data-ts="${oldTs}"`);
     });
 
-    it('auto-refresh countdown script is present', async () => {
+    it('auto-refresh script is present', async () => {
       const token = await registerToken();
       const request = new Request(`http://localhost/${token}`, { method: 'GET' });
       const ctx = createExecutionContext();
@@ -470,7 +470,6 @@ describe('Tend Relay', () => {
       await waitOnExecutionContext(ctx);
       const html = await response.text();
       expect(html).toContain('location.reload');
-      expect(html).toContain('countdown');
     });
 
     it('isolates boards between tokens', async () => {

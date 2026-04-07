@@ -144,16 +144,10 @@ export function ArrowRightIconExport() {
 
 export function DashboardLive() {
   const [tick, setTick] = useState(0)
-  const REFRESH_SECS = 60
-  const REFRESH_WARNING_THRESHOLD = 10
-
   useEffect(() => {
     const interval = setInterval(() => setTick(t => t + 1), 1000)
     return () => clearInterval(interval)
   }, [])
-
-  const secsLeft = Math.max(0, REFRESH_SECS - (tick % REFRESH_SECS))
-  const countdown = secsLeft < REFRESH_SECS ? `${secsLeft}s` : '1m 0s'
 
   const rows = [
     { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'needs database credentials for staging', right: '', stateColor: 'text-ember' },
@@ -181,8 +175,7 @@ export function DashboardLive() {
       <div className="px-4 py-2 border-b border-white/5 font-mono text-[11px] flex justify-between text-smoke/40">
         <span>
           <span className="text-parchment/60 font-medium">tend</span>
-          {' '}dashboard  \u00b7  updated {timeStr}  \u00b7  next refresh in{' '}
-          <span className={secsLeft <= REFRESH_WARNING_THRESHOLD ? 'text-ember' : 'text-smoke/40'}>{countdown}</span>
+          {' '}dashboard  \u00b7  updated {timeStr}
         </span>
         <span>q to quit</span>
       </div>
