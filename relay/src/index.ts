@@ -597,11 +597,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     });
 
     // Auto-refresh
-    var secs = 60;
-    setInterval(function() {
-      secs--;
-      if (secs <= 0) { location.reload(); return; }
-    }, 1000);
+    setInterval(function() { location.reload(); }, 60000);
 
     // TODO CRUD (only active when token is writable)
     var TOKEN = '${rawToken}';

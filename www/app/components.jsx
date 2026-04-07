@@ -143,12 +143,6 @@ export function ArrowRightIconExport() {
 }
 
 export function DashboardLive() {
-  const [tick, setTick] = useState(0)
-  useEffect(() => {
-    const interval = setInterval(() => setTick(t => t + 1), 1000)
-    return () => clearInterval(interval)
-  }, [])
-
   const rows = [
     { icon: '?', name: 'atlas-api', state: 'stuck', msg: 'needs database credentials for staging', right: '', stateColor: 'text-ember' },
     { icon: '\u25d0', name: 'northstar', state: 'working', msg: 'refactoring auth middleware', right: '(8m)', stateColor: 'text-patina' },
