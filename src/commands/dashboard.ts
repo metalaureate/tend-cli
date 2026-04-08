@@ -9,20 +9,14 @@ function formatTime(d: Date): string {
   return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
-function countdown(secs: number): string {
-  if (secs <= 0) return 'refreshing…';
-  if (secs < 60) return `${secs}s`;
-  return `${Math.floor(secs / 60)}m ${secs % 60}s`;
-}
-
 /** Strip ANSI escape codes to measure visible width. */
 function visibleLen(s: string): number {
   return s.replace(/\x1b\[[^m]*m/g, '').length;
 }
 
-function renderHeaderLines(lastUpdated: string, secsLeft: number): string {
+function renderHeaderLines(lastUpdated: string): string {
   const w = process.stdout.columns || 80;
-  const left = `  ${C.bold}tend${C.reset} dashboard  ·  updated ${lastUpdated}  ·  next refresh in ${countdown(secsLeft)}`;
+  const left = `  ${C.bold}tend${C.reset} dashboard  ·  updated ${lastUpdated}`;
   const right = `  q to quit  `;
   const pad = Math.max(0, w - visibleLen(left) - right.length);
   const line1 = left + ' '.repeat(pad) + right;
@@ -70,7 +64,7 @@ export async function cmdDashboard(): Promise<void> {
   /** Overwrite just the top two header lines without touching the board body. */
   function updateHeader(): void {
     const w = process.stdout.columns || 80;
-    const statusLine = renderHeaderLines(lastUpdated, secsLeft).split('\n')[0];
+    const statusLine = renderHeaderLines(lastUpdated).split('\n')[0];
     const divider = '─'.repeat(w);
     // Move to row 1, clear it, write status; move to row 2, clear it, write divider
     process.stdout.write(`${ESC}[1;1H${ESC}[2K${statusLine}\n${ESC}[2K${divider}`);
@@ -79,7 +73,7 @@ export async function cmdDashboard(): Promise<void> {
   /** Full screen redraw: clear, write header, then board content. */
   function fullDraw(): void {
     process.stdout.write(`${ESC}[2J${ESC}[H`);
-    process.stdout.write(renderHeaderLines(lastUpdated, secsLeft) + '\n');
+    process.stdout.write(renderHeaderLines(lastUpdated) + '\n');
     process.stdout.write(boardContent);
   }
 

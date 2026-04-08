@@ -463,9 +463,6 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     .patina  { color: #2E9E6E; }
     .working { color: #20A890; }
     .idle    { color: rgba(168,168,168,0.65); }
-    /* Countdown */
-    .countdown { color: rgba(168,168,168,0.8); }
-    .countdown.warn { color: #E8553D; }
     /* TODO CRUD */
     .todo-actions { display: inline-flex; gap: 4px; margin-left: 8px; opacity: 0; transition: opacity 0.15s; }
     .row:hover .todo-actions, .row:focus-within .todo-actions { opacity: 1; }
@@ -516,7 +513,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       <span class="titlebar-label">$ tend</span>
     </div>
     <nav class="statusbar" aria-label="Board status">
-      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
+      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time></span>
       <span>tend.cx</span>
     </nav>
     <main class="board" role="main">
@@ -599,17 +596,8 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       el.textContent = ts ? '(' + timeAgo(ts) + ')' : '';
     });
 
-    // Countdown + auto-refresh
-    var secs = 60;
-    var cdEl = document.getElementById('countdown');
-    setInterval(function() {
-      secs--;
-      if (secs <= 0) { location.reload(); return; }
-      if (cdEl) {
-        cdEl.textContent = secs + 's';
-        cdEl.className = 'countdown' + (secs <= 10 ? ' warn' : '');
-      }
-    }, 1000);
+    // Auto-refresh
+    setInterval(function() { location.reload(); }, 60000);
 
     // TODO CRUD (only active when token is writable)
     var TOKEN = '${rawToken}';
