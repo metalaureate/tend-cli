@@ -649,7 +649,6 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
         </form>` : ''}
       </section>` : ''}
       <footer class="footer">${footerHtml}</footer>
-      ${stats ? `<div class="gamification">${stats.activeHours}/24h active  &middot;  ${stats.donesToday} done today${stats.donesWeek > stats.donesToday ? `  &middot;  ${stats.donesWeek} this week` : ''}${stats.todosOpen > 0 ? `  &middot;  ${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''}` : ''}</div>` : ''}
     </main>
   </div>
   <script>
