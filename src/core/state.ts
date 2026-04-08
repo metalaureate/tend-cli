@@ -15,16 +15,7 @@ export function aggregateState(
   if (events.length === 0) return null;
 
   const sessions = new Map<string, SessionState>();
-  const sessionWorkPending = new Map<string, boolean>();
-  const sessionLastWorkingTs = new Map<string, string>();
   let lastTs = '';
-
-  // Maximum gap (seconds) between a working event and a subsequent idle event
-  // for the idle to be inferred as 'waiting'. Longer gaps indicate a natural
-  // end-of-session that went idle without an explicit done, rather than a
-  // mid-task pause that needs attention.
-  const WAITING_INFERENCE_WINDOW_SECONDS = 600; // 10 minutes
-  const MIN_WORKING_DURATION_SECONDS = 60; // must work ≥60s before idle→waiting
 
   for (const evt of events) {
     lastTs = evt.ts;
@@ -32,8 +23,6 @@ export function aggregateState(
     if (evt.sessionId === '*') {
       // Global reset marker — clear all sessions (backward compat)
       sessions.clear();
-      sessionWorkPending.clear();
-      sessionLastWorkingTs.clear();
       sessions.set('_', { state: evt.state, ts: evt.ts, message: '' });
       continue;
     }
@@ -45,39 +34,13 @@ export function aggregateState(
       for (const [sid] of sessions) {
         if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
           sessions.delete(sid);
-          sessionWorkPending.delete(sid);
-          sessionLastWorkingTs.delete(sid);
         }
       }
       continue;
     }
 
-    // Track working-without-done per session
-    if (evt.state === 'working') {
-      sessionWorkPending.set(evt.sessionId, true);
-      sessionLastWorkingTs.set(evt.sessionId, evt.ts);
-    } else if (evt.state === 'done') {
-      sessionWorkPending.set(evt.sessionId, false);
-      sessionLastWorkingTs.delete(evt.sessionId);
-    }
-
-    // Infer waiting: idle after working without done, but only if the session
-    // went idle within WAITING_INFERENCE_WINDOW seconds of the last working
-    // event. Long-running sessions that end naturally (idle after hours of
-    // work) should not be shown as waiting.
-    let effectiveState = evt.state;
-    if (evt.state === 'idle' && sessionWorkPending.get(evt.sessionId)) {
-      const lastWorkingTs = sessionLastWorkingTs.get(evt.sessionId);
-      const gap = lastWorkingTs ? (toEpoch(evt.ts) - toEpoch(lastWorkingTs)) : Infinity;
-      // Only infer waiting if:  worked long enough to be real work (≥60s)
-      // AND went idle within 10 minutes (not a stale session)
-      if (gap >= MIN_WORKING_DURATION_SECONDS && gap <= WAITING_INFERENCE_WINDOW_SECONDS) {
-        effectiveState = 'waiting';
-      }
-    }
-
     sessions.set(evt.sessionId, {
-      state: effectiveState,
+      state: evt.state,
       ts: evt.ts,
       message: evt.message,
     });
@@ -85,28 +48,19 @@ export function aggregateState(
 
   if (sessions.size === 0) return null;
 
-  // Demote stale working/waiting sessions to idle
+  // Demote stale working sessions to idle
   for (const [id, sess] of sessions) {
-    if ((sess.state === 'working' || sess.state === 'waiting') && isStale(sess.ts, staleThreshold)) {
+    if (sess.state === 'working' && isStale(sess.ts, staleThreshold)) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
     // Demote working sessions when a newer commit exists
     if (sess.state === 'working' && commitEpoch && toEpoch(sess.ts) < commitEpoch) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
-    // A commit near or after the session started working means the user attended to it.
-    // Grace window accounts for hook events firing slightly after the actual commit.
-    // Only promote if the working event was within 1 hour of the commit (not ancient sessions).
-    if (sess.state === 'waiting' && commitEpoch) {
-      const workTs = sessionLastWorkingTs.get(id);
-      if (workTs && toEpoch(workTs) <= commitEpoch + 120 && commitEpoch - toEpoch(workTs) < 3600) {
-        sessions.set(id, { ...sess, state: 'done' });
-      }
-    }
   }
 
-  // Demote orphan working/waiting sessions: if a user has a newer session
-  // (any state), older working/waiting sessions are orphans.
+  // Demote orphan working sessions: if a user has a newer session
+  // (any state), older working sessions are orphans.
   // A user can only actively work in one session at a time.
   const latestByUser = new Map<string, { ts: string; state: string }>();
   for (const [id, sess] of sessions) {
@@ -117,22 +71,11 @@ export function aggregateState(
     }
   }
   for (const [id, sess] of sessions) {
-    if (sess.state !== 'working' && sess.state !== 'waiting') continue;
+    if (sess.state !== 'working') continue;
     const userTag = userTagFromSessionId(id);
     const latest = latestByUser.get(userTag);
     if (latest && toEpoch(latest.ts) > toEpoch(sess.ts)) {
       sessions.set(id, { ...sess, state: 'idle' });
-    }
-  }
-
-  // If any session is actively working, inferred waiting on other sessions
-  // is noise — the user is clearly engaged with the project.
-  const hasActiveWorking = [...sessions.values()].some(s => s.state === 'working');
-  if (hasActiveWorking) {
-    for (const [id, sess] of sessions) {
-      if (sess.state === 'waiting') {
-        sessions.set(id, { ...sess, state: 'idle' });
-      }
     }
   }
 
