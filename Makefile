@@ -15,13 +15,13 @@ bump:
 
 build:
 	@$(BUN) build src/cli.ts --compile --outfile bin/tend
-	@codesign --force --sign - bin/tend 2>/dev/null || true
 	@echo "✓ Built bin/tend"
 
 dev:
 	@$(BUN) run src/cli.ts $(ARGS)
 
 install: build
+	@rm -f $(PREFIX)/tend
 	@cp bin/tend $(PREFIX)/tend
 	@chmod +x $(PREFIX)/tend
 	@ln -sf $(PREFIX)/tend $(PREFIX)/td 2>/dev/null || true

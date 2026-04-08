@@ -278,6 +278,23 @@ export async function relayPushContext(projectPath: string, projectName: string)
 
 // ── TODO API ──
 
+/** Remove a project and all its data from the relay */
+export async function relayRemoveProject(project: string): Promise<boolean> {
+  const token = relayToken();
+  if (!token) return false;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/projects/${encodeURIComponent(project)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 export interface RelayTodo {
   id: number;
   project: string;

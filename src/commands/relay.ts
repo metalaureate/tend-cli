@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, chmodSync } from 'fs';
 import { dirname, join } from 'path';
 import { config } from '../core/config.js';
-import { relayToken, relaySync, projectRelayTokenFile, relayCreateBoardToken } from '../core/relay.js';
+import { relayToken, relaySync, projectRelayTokenFile, relayCreateBoardToken, relayRemoveProject } from '../core/relay.js';
 import { readEvents } from '../core/events.js';
 
 const BOARD_URL_BASE = 'https://relay.tend.cx';
@@ -31,22 +31,26 @@ export async function cmdRelay(args: string[]): Promise<void> {
     case 'share':
       await relayShare();
       break;
+    case 'remove':
+      await relayRemove(args.slice(1));
+      break;
     case undefined:
     case '':
-      process.stdout.write(`Usage: tend relay <setup|status|pull|token|link|share|debug>
+      process.stdout.write(`Usage: tend relay <setup|status|pull|token|link|share|remove|debug>
 
-  setup    Register with relay, get a token
-  status   Show relay configuration
-  pull     Force-refresh event cache from relay
-  token    Print raw token (for copying to remote envs)
-  link     Write relay token to this project's .tend/relay_token
-  share    Generate a read-only board URL (safe to share)
-  debug    Show relay session diagnostics
+  setup          Register with relay, get a token
+  status         Show relay configuration
+  pull           Force-refresh event cache from relay
+  token          Print raw token (for copying to remote envs)
+  link           Write relay token to this project's .tend/relay_token
+  share          Generate a read-only board URL (safe to share)
+  remove <name>  Remove a project from the relay board
+  debug          Show relay session diagnostics
 `);
       break;
     default:
       process.stderr.write(`tend: unknown relay command '${subcmd}'\n`);
-      process.stderr.write('Usage: tend relay <setup|status|pull|token|link|share|debug>\n');
+      process.stderr.write('Usage: tend relay <setup|status|pull|token|link|share|remove|debug>\n');
       process.exit(1);
   }
 }
@@ -341,5 +345,27 @@ async function relayDebug(): Promise<void> {
     } else {
       process.stdout.write(`Relay:      ✗ could not connect to ${config.relayUrl}\n`);
     }
+  }
+}
+
+async function relayRemove(args: string[]): Promise<void> {
+  const project = args[0];
+  if (!project) {
+    process.stderr.write('Usage: tend relay remove <project-name>\n');
+    process.exit(1);
+  }
+
+  const token = relayToken();
+  if (!token) {
+    process.stderr.write("tend: relay not configured. Run 'tend relay setup' first.\n");
+    process.exit(1);
+  }
+
+  const ok = await relayRemoveProject(project);
+  if (ok) {
+    process.stdout.write(`✓ Removed '${project}' from relay\n`);
+  } else {
+    process.stderr.write(`tend: failed to remove '${project}' from relay\n`);
+    process.exit(1);
   }
 }

@@ -1369,6 +1369,20 @@ async function handleGetProjects(request: Request, db: D1Database, tokenHash: st
   return jsonResponse({ projects: result.results.map(r => r.project) });
 }
 
+async function handleDeleteProject(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
+  if (request.method !== 'DELETE') return errorResponse('Method not allowed', 405);
+
+  await db.batch([
+    db.prepare('DELETE FROM events WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+    db.prepare('DELETE FROM todos WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+    db.prepare('DELETE FROM insights WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+    db.prepare('DELETE FROM insight_log WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+    db.prepare('DELETE FROM project_context WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+  ]);
+
+  return jsonResponse({ ok: true, project });
+}
+
 // ── Board Token Handlers ──
 
 async function handleCreateBoardToken(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
@@ -1647,6 +1661,13 @@ export default {
       const project = decodeURIComponent(path.slice('/v1/insights/'.length));
       response = project
         ? await handleGetProjectInsight(request, env.DB, tokenHash, project)
+        : errorResponse('Missing project name', 400);
+    }
+    // Route: DELETE /v1/projects/:project
+    else if (path.startsWith('/v1/projects/') && request.method === 'DELETE') {
+      const project = decodeURIComponent(path.slice('/v1/projects/'.length));
+      response = project
+        ? await handleDeleteProject(request, env.DB, tokenHash, project)
         : errorResponse('Missing project name', 400);
     }
     else {
