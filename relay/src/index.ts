@@ -87,7 +87,8 @@ const STATE_PRIORITY: Record<string, number> = {
 };
 
 const STALE_THRESHOLD_SECONDS = 1800; // 30 minutes
-
+const WAITING_INFERENCE_WINDOW_SECONDS = 600; // 10 minutes
+const MIN_WORKING_DURATION_SECONDS = 60; // must work ≥60s before idle→waiting
 
 interface EventRow {
   project: string;
@@ -122,6 +123,8 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
   if (events.length === 0) return null;
 
   const sessions = new Map<string, { state: string; ts: string; message: string }>();
+  const sessionWorkPending = new Map<string, boolean>();
+  const sessionLastWorkingTs = new Map<string, string>();
   let lastTs = '';
 
   for (const evt of events) {
@@ -130,6 +133,8 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
 
     if (sessionId === '*') {
       sessions.clear();
+      sessionWorkPending.clear();
+      sessionLastWorkingTs.clear();
       sessions.set('_', { state: evt.state, ts: evt.timestamp, message: '' });
       continue;
     }
@@ -139,25 +144,44 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
       for (const [sid] of sessions) {
         if (userTagFromSessionId(sid) === userTag || userTagFromSessionId(sid) === '') {
           sessions.delete(sid);
+          sessionWorkPending.delete(sid);
+          sessionLastWorkingTs.delete(sid);
         }
       }
       continue;
     }
 
-    sessions.set(sessionId, { state: evt.state, ts: evt.timestamp, message: evt.message });
+    if (evt.state === 'working') {
+      sessionWorkPending.set(sessionId, true);
+      sessionLastWorkingTs.set(sessionId, evt.timestamp);
+    } else if (evt.state === 'done') {
+      sessionWorkPending.set(sessionId, false);
+      sessionLastWorkingTs.delete(sessionId);
+    }
+
+    let effectiveState = evt.state;
+    if (evt.state === 'idle' && sessionWorkPending.get(sessionId)) {
+      const lastWorkingTs = sessionLastWorkingTs.get(sessionId);
+      const gap = lastWorkingTs ? (toEpoch(evt.timestamp) - toEpoch(lastWorkingTs)) : Infinity;
+      if (gap >= MIN_WORKING_DURATION_SECONDS && gap <= WAITING_INFERENCE_WINDOW_SECONDS) {
+        effectiveState = 'waiting';
+      }
+    }
+
+    sessions.set(sessionId, { state: effectiveState, ts: evt.timestamp, message: evt.message });
   }
 
   if (sessions.size === 0) return null;
 
-  // Demote stale working to idle
+  // Demote stale working/waiting to idle
   for (const [id, sess] of sessions) {
-    if (sess.state === 'working' && isStale(sess.ts)) {
+    if ((sess.state === 'working' || sess.state === 'waiting') && isStale(sess.ts)) {
       sessions.set(id, { ...sess, state: 'idle' });
     }
   }
 
-  // Demote orphan working sessions: if a user has a newer session
-  // (any state), older working sessions are orphans.
+  // Demote orphan working/waiting sessions: if a user has a newer session
+  // (any state), older working/waiting sessions are orphans.
   // A user can only actively work in one session at a time.
   const latestByUser = new Map<string, { ts: string; state: string }>();
   for (const [id, sess] of sessions) {
@@ -168,11 +192,22 @@ function aggregateProjectEvents(events: EventRow[]): ProjectRow | null {
     }
   }
   for (const [id, sess] of sessions) {
-    if (sess.state !== 'working') continue;
+    if (sess.state !== 'working' && sess.state !== 'waiting') continue;
     const userTag = userTagFromSessionId(id);
     const latest = latestByUser.get(userTag);
     if (latest && toEpoch(latest.ts) > toEpoch(sess.ts)) {
       sessions.set(id, { ...sess, state: 'idle' });
+    }
+  }
+
+  // If any session is actively working, inferred waiting on other sessions
+  // is noise — the user is clearly engaged with the project.
+  const hasActiveWorking = [...sessions.values()].some(s => s.state === 'working');
+  if (hasActiveWorking) {
+    for (const [id, sess] of sessions) {
+      if (sess.state === 'waiting') {
+        sessions.set(id, { ...sess, state: 'idle' });
+      }
     }
   }
 
