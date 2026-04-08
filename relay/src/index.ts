@@ -308,12 +308,86 @@ function stateClass(state: string): string {
   }
 }
 
-function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false): string {
+interface GamificationStats {
+  donesToday: number;
+  donesWeek: number;
+  activeHours: number;
+  todosOpen: number;
+}
+
+async function fetchGamificationStats(db: D1Database, tokenHash: string): Promise<GamificationStats> {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const today = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+
+  // Monday of current ISO week (UTC)
+  const dow = now.getUTCDay() || 7;
+  const monday = new Date(now);
+  monday.setUTCDate(monday.getUTCDate() - (dow - 1));
+  const weekStart = `${monday.getUTCFullYear()}-${pad(monday.getUTCMonth() + 1)}-${pad(monday.getUTCDate())}`;
+
+  const twentyFourAgoISO = new Date(now.getTime() - 86400000).toISOString();
+
+  // Count dones today, this week, and active hours in parallel
+  const [donesTodayRow, donesWeekRow, activeEvents, todosRow] = await Promise.all([
+    db.prepare("SELECT COUNT(*) as cnt FROM events WHERE token_hash = ? AND state = 'done' AND timestamp >= ?")
+      .bind(tokenHash, today + 'T00:00:00')
+      .first<{ cnt: number }>(),
+    db.prepare("SELECT COUNT(*) as cnt FROM events WHERE token_hash = ? AND state = 'done' AND timestamp >= ?")
+      .bind(tokenHash, weekStart + 'T00:00:00')
+      .first<{ cnt: number }>(),
+    db.prepare("SELECT timestamp, state, session_id FROM events WHERE token_hash = ? AND state != 'idle' AND timestamp >= ? ORDER BY timestamp ASC")
+      .bind(tokenHash, twentyFourAgoISO)
+      .all<{ timestamp: string; state: string; session_id: string | null }>(),
+    db.prepare("SELECT COUNT(*) as cnt FROM todos WHERE token_hash = ? AND status IN ('pending', 'dispatched')")
+      .bind(tokenHash)
+      .first<{ cnt: number }>(),
+  ]);
+
+  // Compute active hours from events in the last 24h
+  const activeHourSet = new Set<number>();
+  const workingStarts = new Map<string, number>();
+
+  for (const evt of activeEvents.results) {
+    const epoch = toEpoch(evt.timestamp);
+    if (epoch <= 0) continue;
+    activeHourSet.add(Math.floor(epoch / 3600));
+
+    const sessionKey = evt.session_id || '_';
+    if (evt.state === 'working') {
+      workingStarts.set(sessionKey, epoch);
+    } else if (workingStarts.has(sessionKey)) {
+      const start = workingStarts.get(sessionKey)!;
+      for (let t = start; t <= epoch; t += 3600) {
+        activeHourSet.add(Math.floor(t / 3600));
+      }
+      workingStarts.delete(sessionKey);
+    }
+  }
+
+  // Fill in hours for still-working sessions (cap at stale threshold)
+  const nowEpoch = Math.floor(now.getTime() / 1000);
+  for (const [, start] of workingStarts) {
+    const end = Math.min(start + STALE_THRESHOLD_SECONDS, nowEpoch);
+    for (let t = start; t <= end; t += 3600) {
+      activeHourSet.add(Math.floor(t / 3600));
+    }
+  }
+
+  return {
+    donesToday: donesTodayRow?.cnt ?? 0,
+    donesWeek: donesWeekRow?.cnt ?? 0,
+    activeHours: Math.min(activeHourSet.size, 24),
+    todosOpen: todosRow?.cnt ?? 0,
+  };
+}
+
+function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false, stats?: GamificationStats): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const rowsHtml = rows.map(r => {
     const insight = insightsByProject.get(r.project);
-    // Never let stale LLM insight override idle, waiting, or done — these are definitive heuristic signals
-    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle' && r.state !== 'waiting' && r.state !== 'done') ? insight.inferred_state : r.state;
+    // Never let stale LLM insight override heuristic state — only override 'stuck' (e.g. LLM detects recovery)
+    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state === 'stuck') ? insight.inferred_state : r.state;
     const icon = stateIcon(effectiveState);
     const cls = stateClass(effectiveState);
     const name = r.project.length > 19 ? r.project.slice(0, 18) + '…' : r.project;
@@ -341,7 +415,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   // Compute effective states (insight-overridden) for footer counts
   const effectiveStates = rows.map(r => {
     const insight = insightsByProject.get(r.project);
-    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle' && r.state !== 'waiting' && r.state !== 'done') ? insight.inferred_state : r.state;
+    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state === 'stuck') ? insight.inferred_state : r.state;
   });
   const stuckCount = effectiveStates.filter(s => s === 'stuck' || s === 'waiting').length;
   const doneCount = effectiveStates.filter(s => s === 'done').length;
@@ -349,10 +423,21 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   const idleCount = effectiveStates.filter(s => s === 'idle').length;
 
   const footerParts: string[] = [];
-  if (stuckCount > 0) footerParts.push(`<span class="ember">${stuckCount} needs attention</span>`);
-  if (doneCount > 0) footerParts.push(`${doneCount} done`);
-  if (workingCount > 0) footerParts.push(`<span class="working">${workingCount} working</span>`);
-  if (idleCount > 0) footerParts.push(`<span class="idle">${idleCount} idle</span>`);
+  if (stats) {
+    footerParts.push(`${stats.activeHours}/24h active`);
+    footerParts.push(`${stats.donesToday} done today`);
+    if (stats.donesWeek > stats.donesToday) {
+      footerParts.push(`${stats.donesWeek} this week`);
+    }
+    if (stats.todosOpen > 0) {
+      footerParts.push(`${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''}`);
+    }
+  } else {
+    if (stuckCount > 0) footerParts.push(`<span class="ember">${stuckCount} needs attention</span>`);
+    if (doneCount > 0) footerParts.push(`${doneCount} done`);
+    if (workingCount > 0) footerParts.push(`<span class="working">${workingCount} working</span>`);
+    if (idleCount > 0) footerParts.push(`<span class="idle">${idleCount} idle</span>`);
+  }
   const footerHtml = footerParts.length > 0 ? footerParts.join(' · ') : 'no projects yet';
 
   const emptyMsg = rows.length === 0
@@ -452,6 +537,11 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       font-size: 14px;
       color: rgba(168,168,168,0.7);
     }
+    .gamification {
+      margin-top: 4px;
+      font-size: 13px;
+      color: rgba(168,168,168,0.45);
+    }
     .empty {
       color: rgba(168,168,168,0.7);
       font-size: 12px;
@@ -461,7 +551,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     /* State colours */
     .ember   { color: #E8553D; }
     .patina  { color: #2E9E6E; }
-    .working { color: #20A890; }
+    .working { color: #D99E4E; }
     .idle    { color: rgba(168,168,168,0.65); }
     /* TODO CRUD */
     .todo-actions { display: inline-flex; gap: 4px; margin-left: 8px; opacity: 0; transition: opacity 0.15s; }
@@ -501,7 +591,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       color: #F5F2EB; font-family: inherit; font-size: 14px; padding: 2px 6px;
       border-radius: 4px; flex: 1; outline: none;
     }
-    .todo-edit-input:focus { border-color: #20A890; }
+    .todo-edit-input:focus { border-color: #D99E4E; }
   </style>
 </head>
 <body>
@@ -596,8 +686,14 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       el.textContent = ts ? '(' + timeAgo(ts) + ')' : '';
     });
 
-    // Auto-refresh
-    setInterval(function() { location.reload(); }, 60000);
+    // Auto-refresh with countdown
+    var secs = 60;
+    var cdEl = document.getElementById('countdown');
+    setInterval(function() {
+      secs--;
+      if (cdEl) cdEl.textContent = secs + 's';
+      if (secs <= 0) { location.reload(); return; }
+    }, 1000);
 
     // TODO CRUD (only active when token is writable)
     var TOKEN = '${rawToken}';
@@ -857,16 +953,17 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
 
   const todos = await fetchTodos(db, tokenHash);
   const insights = await fetchInsights(db, tokenHash);
+  const stats = await fetchGamificationStats(db, tokenHash);
 
     const isWritable = rawToken.startsWith('tnd_');
-  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable));
+  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable, stats));
 }
 
 function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const effectiveState = (r: ProjectRow) => {
     const ins = insightsByProject.get(r.project);
-    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state) && r.state !== 'idle' && r.state !== 'waiting' && r.state !== 'done') ? ins.inferred_state : r.state;
+    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state) && r.state === 'stuck') ? ins.inferred_state : r.state;
   };
   const now = new Date();
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
