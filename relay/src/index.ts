@@ -596,8 +596,14 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       el.textContent = ts ? '(' + timeAgo(ts) + ')' : '';
     });
 
-    // Auto-refresh
-    setInterval(function() { location.reload(); }, 60000);
+    // Auto-refresh with countdown
+    var secs = 60;
+    var cdEl = document.getElementById('countdown');
+    setInterval(function() {
+      secs--;
+      if (cdEl) cdEl.textContent = secs + 's';
+      if (secs <= 0) { location.reload(); return; }
+    }, 1000);
 
     // TODO CRUD (only active when token is writable)
     var TOKEN = '${rawToken}';
