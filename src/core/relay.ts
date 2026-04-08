@@ -93,8 +93,11 @@ export async function relaySync(): Promise<void> {
     return;
   }
 
-  // Fetch events for each project
-  await Promise.all(projectList.map(p => relayFetchProject(p, token)));
+  // Fetch events for each project + sync TODOs down to local files
+  await Promise.all([
+    ...projectList.map(p => relayFetchProject(p, token)),
+    relaySyncTodos().catch(() => {}),
+  ]);
 }
 
 /** Fetch events for one relay project and append to cache */
@@ -273,6 +276,62 @@ export async function relayPushContext(projectPath: string, projectName: string)
     }
   } catch {
     // silently fail — context push is best-effort
+  }
+}
+
+// ── TODO Sync ──
+
+/** Pull relay TODOs down to local .tend/TODO files (additive — won't duplicate) */
+export async function relaySyncTodos(): Promise<void> {
+  const todos = await relayListTodos('pending');
+  if (todos.length === 0) return;
+
+  // Build gitRepoName → projectPath mapping for local projects
+  const nameToPath = new Map<string, string>();
+  for (const p of discoverProjects()) {
+    nameToPath.set(gitRepoName(p), p);
+  }
+
+  // Group relay TODOs by project
+  const byProject = new Map<string, RelayTodo[]>();
+  for (const t of todos) {
+    const existing = byProject.get(t.project) || [];
+    existing.push(t);
+    byProject.set(t.project, existing);
+  }
+
+  for (const [project, relayTodos] of byProject) {
+    const projectPath = nameToPath.get(project);
+    if (!projectPath) continue; // relay-only project, no local dir
+
+    const todoFile = join(projectPath, '.tend', 'TODO');
+
+    // Read existing local TODO messages to avoid duplicates
+    const existingMessages = new Set<string>();
+    if (existsSync(todoFile)) {
+      const content = readFileSync(todoFile, 'utf-8').trim();
+      for (const line of content.split('\n')) {
+        if (!line.trim()) continue;
+        // Strip timestamp prefix: "[2026-04-06T08:48:09] message" → "message"
+        const msg = line.replace(/^\[[^\]]*\]\s*/, '');
+        existingMessages.add(msg);
+      }
+    }
+
+    // Append missing relay TODOs to local file
+    const toAppend: string[] = [];
+    for (const rt of relayTodos) {
+      if (!existingMessages.has(rt.message)) {
+        // Use relay created_at timestamp, converted to local format
+        const ts = formatTs(new Date(rt.created_at + (rt.created_at.endsWith('Z') ? '' : 'Z')));
+        toAppend.push(`[${ts}] ${rt.message}`);
+      }
+    }
+
+    if (toAppend.length > 0) {
+      mkdirSync(join(projectPath, '.tend'), { recursive: true });
+      appendFileSync(todoFile, toAppend.join('\n') + '\n');
+    }
   }
 }
 
