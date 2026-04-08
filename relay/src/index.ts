@@ -513,7 +513,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       <span class="titlebar-label">$ tend</span>
     </div>
     <nav class="statusbar" aria-label="Board status">
-      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time></span>
+      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time> &nbsp;·&nbsp; <span id="countdown" class="countdown">60s</span></span>
       <span>tend.cx</span>
     </nav>
     <main class="board" role="main">
