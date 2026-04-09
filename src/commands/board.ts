@@ -1,11 +1,12 @@
 import { discoverProjects, sortedProjects, detectProject } from '../core/projects.js';
 import { projectState, relayProjectState, stateIcon, stateLabel } from '../core/state.js';
-import { relaySync, relayOnlyProjects, relayFetchInsights, type RelayInsight } from '../core/relay.js';
+import { relaySync, relayOnlyProjects, relayFetchInsights, relayFetchNotes, type RelayInsight } from '../core/relay.js';
 import { lastCommitMessage, lastCommitEpoch, lastCommitTs, isDirty, hasGit, dirtySummary, gitRepoName } from '../core/git.js';
 import { ago, dateHeader, toEpoch, isStale } from '../ui/format.js';
 import { config } from '../core/config.js';
 import { C } from '../ui/colors.js';
 import { gamificationEnabled, renderFooter } from '../ui/gamification.js';
+import { readNote } from './note.js';
 import { basename } from 'path';
 import { invalidateStatusCache } from './status.js';
 
@@ -16,7 +17,7 @@ function stateColor(state: string): string {
   switch (state) {
     case 'stuck': case 'waiting': return '\x1b[31m';
     case 'done': return '\x1b[32m';
-    case 'working': return '\x1b[36m';
+    case 'working': return '\x1b[33m';
     default: return '\x1b[90m';
   }
 }
@@ -26,14 +27,17 @@ export async function buildBoardOutput(): Promise<string> {
   // Invalidate status cache so prompt picks up fresh data after board/dashboard runs
   invalidateStatusCache();
 
-  // Relay sync + fetch insights in parallel (swallow errors)
+  // Relay sync + fetch insights/notes in parallel (swallow errors)
   let insightMap = new Map<string, RelayInsight>();
+  let relayNoteMap = new Map<string, string>();
   try {
-    const [, insights] = await Promise.all([
+    const [, insights, notes] = await Promise.all([
       relaySync().catch(() => {}),
       relayFetchInsights().catch(() => new Map<string, RelayInsight>()),
+      relayFetchNotes().catch(() => new Map<string, string>()),
     ]);
     insightMap = insights;
+    relayNoteMap = notes;
   } catch { /* ignore */ }
 
   const allProjects = discoverProjects();
@@ -185,10 +189,16 @@ export async function buildBoardOutput(): Promise<string> {
     let maxDetail = termWidth - prefixWidth - timeColWidth;
     if (maxDetail < 10) maxDetail = 10;
 
-    // Prefer insight over message when available
+    // Prefer note > insight > message
+    const localNote = readNote(project);
+    const relayNote = relayNoteMap.get(projectName) || '';
+    const note = localNote || relayNote;
     let detail: string;
     let detailColor = '';
-    if (insight) {
+    if (note) {
+      detail = `» ${note}`;
+      detailColor = C.amber;
+    } else if (insight) {
       detail = `${insight.summary} → ${insight.prediction}`;
       detailColor = C.amber;
     } else {
@@ -259,10 +269,14 @@ export async function buildBoardOutput(): Promise<string> {
     let maxDetail = termWidth - 47 - timeColWidth;
     if (maxDetail < 10) maxDetail = 10;
 
-    // Prefer insight over message when available
+    // Prefer note > insight > message
+    const relayNote = relayNoteMap.get(relayProject) || '';
     let detail: string;
     let detailColor = '';
-    if (relayInsight) {
+    if (relayNote) {
+      detail = `» ${relayNote}`;
+      detailColor = C.amber;
+    } else if (relayInsight) {
       detail = `${relayInsight.summary} → ${relayInsight.prediction}`;
       detailColor = C.amber;
     } else {
@@ -283,7 +297,7 @@ export async function buildBoardOutput(): Promise<string> {
   const footerParts: string[] = [];
   if (needs > 0) footerParts.push(`${C.amber}${needs} needs attention${C.reset}`);
   if (ready > 0) footerParts.push(`${ready} done`);
-  if (workingCount > 0) footerParts.push(`${C.cyan}${workingCount} working${C.reset}`);
+  if (workingCount > 0) footerParts.push(`${C.amber}${workingCount} working${C.reset}`);
   if (idleCount > 0) footerParts.push(`${C.grey}${idleCount} idle${C.reset}`);
   output += `  ${footerParts.join(' · ')}\n\n`;
 

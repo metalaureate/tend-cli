@@ -8,6 +8,8 @@ Usage:
   tend <project>                Show project detail + sessions
   tend init [project]           Initialize .tend/ in a project
   tend emit <state> "msg"       Emit an event (working/done/stuck/waiting/idle)
+  tend note "msg"               Set a sticky note (replaces prediction until next emit)
+  tend note --clear             Clear the note
   tend clear [project]          Clear events history for a project
   tend status                   Status indicator (○ ◐N ?N ◉N)
   tend add [project] "msg"      Add a TODO (or show TODOs if no message)

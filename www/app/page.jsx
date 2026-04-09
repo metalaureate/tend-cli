@@ -3,8 +3,8 @@ import { NavbarClient, HeroReveal, ScrollReveal, GlyphDemo, HeroPromptGlyph, Git
 const board = [
   { icon: '?', name: 'payments-api', state: 'stuck', msg: 'needs database credentials for staging', time: '', color: 'text-ember', env: '', insight: 'blocked on creds, 2nd try → ask devops for keys' },
   { icon: '◉', name: 'mobile-app', state: 'done', msg: 'PR #847 ready for review', time: '2m ago', color: 'text-ember', env: '', insight: 'auth refactor landed → review PR, merge' },
-  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-patina', env: '', insight: '' },
-  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-patina', env: '↗', insight: 'ETL schema pass 2 → test w/ prod data' },
+  { icon: '◐', name: 'strategy-doc', state: 'working', msg: 'drafting Q2 roadmap', time: '8m', color: 'text-amber-500', env: '', insight: '' },
+  { icon: '◐', name: 'data-pipeline', state: 'working', msg: 'building ETL for analytics', time: '23m', color: 'text-amber-500', env: '↗', insight: 'ETL schema pass 2 → test w/ prod data' },
   { icon: '?', name: 'auth-service', state: 'waiting', msg: 'changes in src/auth', time: '45m ago', color: 'text-ember', env: '↗', insight: 'dirty worktree post-fix → commit or stash' },
   { icon: '◌', name: 'support-triage', state: 'idle', msg: 'customer tickets triaged', time: '3h ago', color: 'text-smoke/50', env: '', insight: '' },
 ]

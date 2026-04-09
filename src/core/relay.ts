@@ -207,6 +207,28 @@ export async function relayFetchInsights(): Promise<Map<string, RelayInsight>> {
   }
 }
 
+/** Fetch sticky notes from the relay (non-blocking, returns empty on failure) */
+export async function relayFetchNotes(): Promise<Map<string, string>> {
+  const token = relayToken();
+  if (!token) return new Map();
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/notes`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return new Map();
+    const data = await response.json() as { notes: Array<{ project: string; note: string }> };
+    const map = new Map<string, string>();
+    for (const n of data.notes || []) {
+      if (n.note) map.set(n.project, n.note);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
 // ── Project Context (README) ──
 
 const MAX_README_SIZE = 8000;

@@ -279,6 +279,12 @@ interface TodoRow {
   updated_at: string;
 }
 
+interface NoteRow {
+  project: string;
+  note: string;
+  updated_at: string;
+}
+
 /** Resolve a tnb_ board token to its parent tnd_ token_hash */
 async function resolveBoardToken(boardToken: string, db: D1Database): Promise<string | null> {
   const boardHash = await hashToken(boardToken);
@@ -382,10 +388,12 @@ async function fetchGamificationStats(db: D1Database, tokenHash: string): Promis
   };
 }
 
-function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false, stats?: GamificationStats): string {
+function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false, stats?: GamificationStats, notes: NoteRow[] = []): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
+  const notesByProject = new Map(notes.map(n => [n.project, n.note]));
   const rowsHtml = rows.map(r => {
     const insight = insightsByProject.get(r.project);
+    const note = notesByProject.get(r.project);
     // Never let stale LLM insight override heuristic state — only override 'stuck' (e.g. LLM detects recovery)
     const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state === 'stuck') ? insight.inferred_state : r.state;
     const icon = stateIcon(effectiveState);
@@ -398,9 +406,15 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     const timeEl = isoTs
       ? `<time class="time ${cls}" datetime="${isoTs}" ${tsAttr}></time>`
       : `<span class="time ${cls}"></span>`;
-    const displayMsg = insight
-      ? `<span class="msg msg-insight">${(insight.summary + ' → ' + insight.prediction).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`
-      : `<span class="msg">${msg}</span>`;
+    // Priority: note > insight > message
+    let displayMsg: string;
+    if (note) {
+      displayMsg = `<span class="msg msg-note">» ${note.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+    } else if (insight) {
+      displayMsg = `<span class="msg msg-insight">${(insight.summary + ' → ' + insight.prediction).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+    } else {
+      displayMsg = `<span class="msg">${msg}</span>`;
+    }
     return `<article class="row" data-project="${fullName}" data-state="${effectiveState}">
       <span class="icon ${cls}" aria-hidden="true">${icon}</span>
       <span class="name" title="${fullName}">${name}</span>
@@ -529,6 +543,10 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     .time { flex-shrink: 0; margin-left: 8px; color: rgba(168,168,168,0.6); }
     .msg-insight {
       color: rgba(217,158,78,0.9);
+    }
+    .msg-note {
+      color: rgba(217,158,78,0.95);
+      font-style: italic;
     }
     .footer {
       margin-top: 14px;
@@ -953,10 +971,11 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
 
   const todos = await fetchTodos(db, tokenHash);
   const insights = await fetchInsights(db, tokenHash);
+  const notes = await fetchNotes(db, tokenHash);
   const stats = await fetchGamificationStats(db, tokenHash);
 
     const isWritable = rawToken.startsWith('tnd_');
-  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable, stats));
+  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable, stats, notes));
 }
 
 function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
@@ -1406,6 +1425,10 @@ async function handleEmitEvent(request: Request, db: D1Database, tokenHash: stri
     .bind(tokenHash, project, ts, session_id ?? null, state, message ?? '')
     .run();
 
+  // Clear sticky note on new event (note is a temporary override)
+  await db.prepare('DELETE FROM notes WHERE token_hash = ? AND project = ?')
+    .bind(tokenHash, project).run();
+
   // Asynchronously recompute LLM insight after responding
   const apiKey = env.OPENROUTER_API_KEY;
   if (apiKey) {
@@ -1631,6 +1654,45 @@ async function fetchTodos(db: D1Database, tokenHash: string): Promise<TodoRow[]>
   return result.results;
 }
 
+async function fetchNotes(db: D1Database, tokenHash: string): Promise<NoteRow[]> {
+  const result = await db.prepare(
+    "SELECT project, note, updated_at FROM notes WHERE token_hash = ? AND note != ''"
+  ).bind(tokenHash).all<NoteRow>();
+  return result.results;
+}
+
+async function handleGetNotes(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
+  const notes = await fetchNotes(db, tokenHash);
+  return jsonResponse({ notes });
+}
+
+async function handlePutNote(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
+  if (request.method !== 'PUT') return errorResponse('Method not allowed', 405);
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json() as Record<string, unknown>;
+  } catch {
+    return errorResponse('Invalid JSON body', 400);
+  }
+  const note = body.note;
+  if (typeof note !== 'string') {
+    return errorResponse('Missing or invalid "note"', 400);
+  }
+  await db.prepare(
+    'INSERT INTO notes (token_hash, project, note, updated_at) VALUES (?, ?, ?, datetime(\'now\')) ON CONFLICT(token_hash, project) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at'
+  ).bind(tokenHash, project, note).run();
+  return jsonResponse({ ok: true });
+}
+
+async function handleDeleteNote(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
+  if (request.method !== 'DELETE') return errorResponse('Method not allowed', 405);
+  await db.prepare(
+    'DELETE FROM notes WHERE token_hash = ? AND project = ?'
+  ).bind(tokenHash, project).run();
+  return jsonResponse({ ok: true });
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -1753,6 +1815,24 @@ export default {
       const project = decodeURIComponent(path.slice('/v1/projects/'.length));
       response = project
         ? await handleDeleteProject(request, env.DB, tokenHash, project)
+        : errorResponse('Missing project name', 400);
+    }
+    // Route: GET /v1/notes
+    else if (path === '/v1/notes' && request.method === 'GET') {
+      response = await handleGetNotes(request, env.DB, tokenHash);
+    }
+    // Route: PUT /v1/notes/:project
+    else if (path.startsWith('/v1/notes/') && request.method === 'PUT') {
+      const project = decodeURIComponent(path.slice('/v1/notes/'.length));
+      response = project
+        ? await handlePutNote(request, env.DB, tokenHash, project)
+        : errorResponse('Missing project name', 400);
+    }
+    // Route: DELETE /v1/notes/:project
+    else if (path.startsWith('/v1/notes/') && request.method === 'DELETE') {
+      const project = decodeURIComponent(path.slice('/v1/notes/'.length));
+      response = project
+        ? await handleDeleteNote(request, env.DB, tokenHash, project)
         : errorResponse('Missing project name', 400);
     }
     else {

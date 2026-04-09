@@ -17,6 +17,7 @@ import { cmdHook } from './commands/hooks.js';
 import { cmdVersion } from './commands/version.js';
 import { cmdHelp } from './commands/help.js';
 import { cmdRemove } from './commands/remove.js';
+import { cmdNote } from './commands/note.js';
 import { resolveProjectPath } from './core/projects.js';
 
 async function main(): Promise<void> {
@@ -72,6 +73,9 @@ async function main(): Promise<void> {
         break;
       case 'remove':
         await cmdRemove(rest);
+        break;
+      case 'note':
+        await cmdNote(rest);
         break;
       case 'hook':
         await cmdHook(rest);

@@ -8,6 +8,7 @@ import { gitUserEmail } from '../core/git.js';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { invalidateStatusCache } from './status.js';
+import { clearNote } from './note.js';
 
 export async function cmdEmit(args: string[]): Promise<void> {
   const state = args[0];
@@ -45,6 +46,7 @@ export async function cmdEmit(args: string[]): Promise<void> {
     const rawSessionId = config.sessionId || '_cli';
     const sessionId = rawEmail ? `${rawSessionId}@${sanitizeUserTag(rawEmail)}` : rawSessionId;
     appendEvent(join(tendDir, 'events'), ts, sessionId, state as State, message);
+    clearNote(projectPath);
     invalidateStatusCache();
   }
 
