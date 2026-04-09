@@ -16,6 +16,7 @@ const helpCommands = [
   ['td init [project]', 'Initialize .tend/ in a project'],
   ['td clear [project]', 'Clear events history for a project'],
   ['td add [project] "msg"', 'Queue a TODO for the agent\'s next session'],
+  ['td note "msg"', 'Set a sticky note (replaces prediction until next emit)'],
   ['td ack [project]', 'Clear done/stuck/waiting → idle'],
   ['td dispatch', 'Pick a TODO and dispatch as a GitHub issue'],
   ['td relay <subcmd>', 'Relay management (setup|status|pull|token|share)'],
@@ -589,6 +590,33 @@ export default function Page() {
                     <span className="font-mono text-sm text-parchment">/v1/insights/:project</span>
                   </div>
                   <p className="font-body text-smoke/60 text-xs mt-2">Insight for a single project. Returns summary, prediction, and cache timestamp.</p>
+                </div>
+
+                {/* Notes */}
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded">PUT</span>
+                    <span className="font-mono text-sm text-parchment">/v1/notes/:project</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">
+                    Set a sticky note. Body: <span className="font-mono text-parchment/50">{`{ note }`}</span>. Overrides AI prediction on the board. Cleared on next emit.
+                  </p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded">GET</span>
+                    <span className="font-mono text-sm text-parchment">/v1/notes</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">List all sticky notes for this token.</p>
+                </div>
+
+                <div className="px-5 py-4">
+                  <div className="flex items-baseline gap-3">
+                    <span className="font-mono text-[11px] bg-ember/20 text-ember px-2 py-0.5 rounded">DELETE</span>
+                    <span className="font-mono text-sm text-parchment">/v1/notes/:project</span>
+                  </div>
+                  <p className="font-body text-smoke/60 text-xs mt-2">Clear a sticky note.</p>
                 </div>
               </div>
             </div>

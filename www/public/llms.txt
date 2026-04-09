@@ -44,4 +44,6 @@ td            # show the board from anywhere
 - td relay <subcmd>      — Manage relay (setup|status|pull|token|share)
 - td dispatch [--dry-run]— Dispatch pending TODOs as GitHub issues to Copilot
 - td emit <state> "msg"  — Emit an event (used by agents)
+- td note "msg"          — Set a sticky note (replaces prediction until next emit)
+- td note --clear        — Clear the note
 - td help                — Show help

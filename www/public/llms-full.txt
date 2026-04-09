@@ -67,6 +67,8 @@ TEND                                       Wed Mar 18, 19:02
 | `td clear [project]` | Clear events history for a project |
 | `td switch <project>` | Focus the editor window (or `td #N`) |
 | `td emit <state> "msg"` | Emit an event (used by agents, not humans) |
+| `td note "msg"` | Set a sticky note (replaces prediction until next emit) |
+| `td note --clear` | Clear the note |
 | `td ack [project]` | Clear done/stuck/waiting → idle |
 | `td status` | Status indicator: `○` or `?N ◐N ◉N` |
 | `td remove [project]` | Remove tend from a project (with confirmation) |
