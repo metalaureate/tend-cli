@@ -53,7 +53,7 @@ describe('ack', () => {
     expect(r.stdout.trim()).toBe('○');
   });
 
-  it('ack * clears all projects', () => {
+  it('ack --all clears all projects', () => {
     const dir1 = ctx.makeProject('ackstar1');
     const dir2 = ctx.makeProject('ackstar2');
     ctx.tend(['init'], { cwd: dir1 });
@@ -62,20 +62,20 @@ describe('ack', () => {
     ctx.tend(['emit', 'stuck', 'blocked'], { cwd: dir2 });
     const before = ctx.tend(['status']);
     expect(before.stdout.trim()).not.toBe('○');
-    const r = ctx.tend(['ack', '*']);
+    const r = ctx.tend(['ack', '--all']);
     expect(r.stdout).toContain('Acknowledged 2 projects');
     const after = ctx.tend(['status']);
     expect(after.stdout.trim()).toBe('○');
   });
 
-  it('ack * skips idle projects', () => {
+  it('ack --all skips idle projects', () => {
     const dir1 = ctx.makeProject('ackidle1');
     const dir2 = ctx.makeProject('ackidle2');
     ctx.tend(['init'], { cwd: dir1 });
     ctx.tend(['init'], { cwd: dir2 });
     ctx.tend(['emit', 'done', 'finished'], { cwd: dir1 });
     // dir2 stays idle (no events after init)
-    const r = ctx.tend(['ack', '*']);
+    const r = ctx.tend(['ack', '--all']);
     // The ack message should only mention ackidle1
     const firstLine = r.stdout.split('\n')[0];
     expect(firstLine).toContain('Acknowledged 1 project');
@@ -83,10 +83,10 @@ describe('ack', () => {
     expect(firstLine).not.toContain('ackidle2');
   });
 
-  it('ack * with nothing to acknowledge', () => {
+  it('ack --all with nothing to acknowledge', () => {
     const dir = ctx.makeProject('ackempty');
     ctx.tend(['init'], { cwd: dir });
-    const r = ctx.tend(['ack', '*']);
+    const r = ctx.tend(['ack', '--all']);
     expect(r.stdout).toContain('Nothing to acknowledge');
   });
 });

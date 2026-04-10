@@ -13,7 +13,7 @@ Usage:
   tend clear [project]          Clear events history for a project
   tend status                   Status indicator (○ ◐N ?N ◉N)
   tend add [project] "msg"      Add a TODO (or show TODOs if no message)
-  tend ack [project]            Clear done/stuck/waiting → idle
+  tend ack [project|--all]      Clear done/stuck/waiting → idle
   tend switch <project>         Focus VSCode window for project
   tend relay <subcmd>           Relay management (setup|status|pull|token|share|remove)
   tend dispatch                  Pick a TODO and dispatch as a GitHub issue

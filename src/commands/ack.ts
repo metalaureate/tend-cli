@@ -27,8 +27,8 @@ async function ackProject(projectPath: string): Promise<string> {
 }
 
 export async function cmdAck(args: string[]): Promise<void> {
-  // td ack * — acknowledge all projects
-  if (args[0] === '*') {
+  // td ack --all (or td ack '*') — acknowledge all projects
+  if (args[0] === '--all' || args[0] === '-a' || args[0] === '*') {
     const projects = discoverProjects();
     const acked: string[] = [];
     for (const projectPath of projects) {
