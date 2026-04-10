@@ -38,7 +38,7 @@ td            # show the board from anywhere
 - td #<N>                — Switch to project N
 - td init [project]      — Initialize .tend/ in a project
 - td add [project] "msg" — Queue a TODO for the agent
-- td ack [project]       — Clear done/stuck/waiting → idle
+- td ack [project|--all] — Clear done/stuck/waiting → idle
 - td status              — Shell prompt indicator (○ or ?N ◐N ◉N)
 - td remove [project]    — Remove tend from a project
 - td relay <subcmd>      — Manage relay (setup|status|pull|token|share)

@@ -17,7 +17,7 @@ const helpCommands = [
   ['td clear [project]', 'Clear events history for a project'],
   ['td add [project] "msg"', 'Queue a TODO for the agent\'s next session'],
   ['td note "msg"', 'Set a sticky note (replaces prediction until next emit)'],
-  ['td ack [project]', 'Clear done/stuck/waiting → idle'],
+  ['td ack [project|--all]', 'Clear done/stuck/waiting → idle'],
   ['td dispatch', 'Pick a TODO and dispatch as a GitHub issue'],
   ['td relay <subcmd>', 'Relay management (setup|status|pull|token|share)'],
   ['td version', 'Show version'],

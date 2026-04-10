@@ -97,7 +97,7 @@ No config files. No database. No daemon.
 | `td emit <state> "msg"` | Emit an event (used by agents, not humans) |
 | `td note "msg"` | Set a sticky note (replaces prediction until next emit) |
 | `td note --clear` | Clear the note |
-| `td ack [project]` | Clear done/stuck/waiting → idle |
+| `td ack [project\|--all]` | Clear done/stuck/waiting → idle |
 | `td status` | Status indicator: `○` or `?N ◐N ◉N` |
 | `td remove [project]` | Remove tend from a project (with confirmation) |
 | `td dispatch` | Dispatch pending TODOs as GitHub issues to Copilot |
