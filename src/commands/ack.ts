@@ -18,11 +18,13 @@ async function ackProject(projectPath: string): Promise<string> {
   const ts = tsLocal();
   const rawEmail = gitUserEmail(projectPath);
   if (rawEmail) {
-    appendUserReset(join(projectPath, '.tend', 'events'), ts, sanitizeUserTag(rawEmail));
+    const userTag = sanitizeUserTag(rawEmail);
+    appendUserReset(join(projectPath, '.tend', 'events'), ts, userTag);
+    await relayEmit(projectName, 'idle', 'acknowledged', `*@${userTag}`);
   } else {
     appendReset(join(projectPath, '.tend', 'events'), ts);
+    await relayEmit(projectName, 'idle', 'acknowledged', '*');
   }
-  await relayEmit(projectName, 'idle', 'acknowledged');
   return projectName;
 }
 

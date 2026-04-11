@@ -34,11 +34,10 @@ export function computeStats(): GamificationStats {
   const pad = (n: number) => String(n).padStart(2, '0');
   const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-  // Monday of current ISO week (local time)
-  const dow = now.getDay() || 7;
-  const monday = new Date(now);
-  monday.setDate(monday.getDate() - (dow - 1));
-  const weekStart = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
+  // Rolling 7-day window (local time)
+  const sevenDaysAgo = new Date(now);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const weekStart = `${sevenDaysAgo.getFullYear()}-${pad(sevenDaysAgo.getMonth() + 1)}-${pad(sevenDaysAgo.getDate())}`;
 
   const projects = discoverProjects();
 
