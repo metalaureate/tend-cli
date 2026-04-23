@@ -37,6 +37,17 @@ export async function cmdClear(args: string[]): Promise<void> {
   // Always try to delete from relay
   const clearedRelay = await relayDeleteProject(projectName);
 
+  // If the user-provided name differs from the resolved name, also delete
+  // the raw name from the relay (handles ghost projects with stale names)
+  let clearedAlias = false;
+  if (name && name !== projectName) {
+    clearedAlias = await relayDeleteProject(name);
+    const aliasCacheFile = join(config.relayCacheDir, name);
+    if (existsSync(aliasCacheFile)) {
+      try { unlinkSync(aliasCacheFile); } catch { /* ignore */ }
+    }
+  }
+
   // Also clean up the local relay cache file
   const cacheFile = join(config.relayCacheDir, projectName);
   if (existsSync(cacheFile)) {
