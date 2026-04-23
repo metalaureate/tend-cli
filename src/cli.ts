@@ -44,7 +44,7 @@ async function main(): Promise<void> {
         await cmdEmit(rest);
         break;
       case 'clear':
-        cmdClear(rest);
+        await cmdClear(rest);
         break;
       case 'status':
         if (rest.includes('--refresh')) {

@@ -279,12 +279,6 @@ interface TodoRow {
   updated_at: string;
 }
 
-interface NoteRow {
-  project: string;
-  note: string;
-  updated_at: string;
-}
-
 /** Resolve a tnb_ board token to its parent tnd_ token_hash */
 async function resolveBoardToken(boardToken: string, db: D1Database): Promise<string | null> {
   const boardHash = await hashToken(boardToken);
@@ -314,88 +308,12 @@ function stateClass(state: string): string {
   }
 }
 
-interface GamificationStats {
-  donesToday: number;
-  donesWeek: number;
-  activeHours: number;
-  todosOpen: number;
-}
-
-async function fetchGamificationStats(db: D1Database, tokenHash: string): Promise<GamificationStats> {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const today = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
-
-  // Monday of current ISO week (UTC)
-  const dow = now.getUTCDay() || 7;
-  const monday = new Date(now);
-  monday.setUTCDate(monday.getUTCDate() - (dow - 1));
-  const weekStart = `${monday.getUTCFullYear()}-${pad(monday.getUTCMonth() + 1)}-${pad(monday.getUTCDate())}`;
-
-  const twentyFourAgoISO = new Date(now.getTime() - 86400000).toISOString();
-
-  // Count dones today, this week, and active hours in parallel
-  const [donesTodayRow, donesWeekRow, activeEvents, todosRow] = await Promise.all([
-    db.prepare("SELECT COUNT(*) as cnt FROM events WHERE token_hash = ? AND state = 'done' AND timestamp >= ?")
-      .bind(tokenHash, today + 'T00:00:00')
-      .first<{ cnt: number }>(),
-    db.prepare("SELECT COUNT(*) as cnt FROM events WHERE token_hash = ? AND state = 'done' AND timestamp >= ?")
-      .bind(tokenHash, weekStart + 'T00:00:00')
-      .first<{ cnt: number }>(),
-    db.prepare("SELECT timestamp, state, session_id FROM events WHERE token_hash = ? AND state != 'idle' AND timestamp >= ? ORDER BY timestamp ASC")
-      .bind(tokenHash, twentyFourAgoISO)
-      .all<{ timestamp: string; state: string; session_id: string | null }>(),
-    db.prepare("SELECT COUNT(*) as cnt FROM todos WHERE token_hash = ? AND status IN ('pending', 'dispatched')")
-      .bind(tokenHash)
-      .first<{ cnt: number }>(),
-  ]);
-
-  // Compute active hours from events in the last 24h
-  const activeHourSet = new Set<number>();
-  const workingStarts = new Map<string, number>();
-
-  for (const evt of activeEvents.results) {
-    const epoch = toEpoch(evt.timestamp);
-    if (epoch <= 0) continue;
-    activeHourSet.add(Math.floor(epoch / 3600));
-
-    const sessionKey = evt.session_id || '_';
-    if (evt.state === 'working') {
-      workingStarts.set(sessionKey, epoch);
-    } else if (workingStarts.has(sessionKey)) {
-      const start = workingStarts.get(sessionKey)!;
-      for (let t = start; t <= epoch; t += 3600) {
-        activeHourSet.add(Math.floor(t / 3600));
-      }
-      workingStarts.delete(sessionKey);
-    }
-  }
-
-  // Fill in hours for still-working sessions (cap at stale threshold)
-  const nowEpoch = Math.floor(now.getTime() / 1000);
-  for (const [, start] of workingStarts) {
-    const end = Math.min(start + STALE_THRESHOLD_SECONDS, nowEpoch);
-    for (let t = start; t <= end; t += 3600) {
-      activeHourSet.add(Math.floor(t / 3600));
-    }
-  }
-
-  return {
-    donesToday: donesTodayRow?.cnt ?? 0,
-    donesWeek: donesWeekRow?.cnt ?? 0,
-    activeHours: Math.min(activeHourSet.size, 24),
-    todosOpen: todosRow?.cnt ?? 0,
-  };
-}
-
-function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false, stats?: GamificationStats, notes: NoteRow[] = []): string {
+function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = [], rawToken: string = '', isWritable: boolean = false): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
-  const notesByProject = new Map(notes.map(n => [n.project, n.note]));
   const rowsHtml = rows.map(r => {
     const insight = insightsByProject.get(r.project);
-    const note = notesByProject.get(r.project);
-    // Never let stale LLM insight override heuristic state — only override 'stuck' (e.g. LLM detects recovery)
-    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state === 'stuck') ? insight.inferred_state : r.state;
+    // Never let stale LLM insight override idle, waiting, or done — these are definitive heuristic signals
+    const effectiveState = (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle' && r.state !== 'waiting' && r.state !== 'done') ? insight.inferred_state : r.state;
     const icon = stateIcon(effectiveState);
     const cls = stateClass(effectiveState);
     const name = r.project.length > 19 ? r.project.slice(0, 18) + '…' : r.project;
@@ -406,15 +324,9 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     const timeEl = isoTs
       ? `<time class="time ${cls}" datetime="${isoTs}" ${tsAttr}></time>`
       : `<span class="time ${cls}"></span>`;
-    // Priority: note > insight > message
-    let displayMsg: string;
-    if (note) {
-      displayMsg = `<span class="msg msg-note">» ${note.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
-    } else if (insight) {
-      displayMsg = `<span class="msg msg-insight">${(insight.summary + ' → ' + insight.prediction).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
-    } else {
-      displayMsg = `<span class="msg">${msg}</span>`;
-    }
+    const displayMsg = insight
+      ? `<span class="msg msg-insight">${(insight.summary + ' → ' + insight.prediction).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`
+      : `<span class="msg">${msg}</span>`;
     return `<article class="row" data-project="${fullName}" data-state="${effectiveState}">
       <span class="icon ${cls}" aria-hidden="true">${icon}</span>
       <span class="name" title="${fullName}">${name}</span>
@@ -429,7 +341,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   // Compute effective states (insight-overridden) for footer counts
   const effectiveStates = rows.map(r => {
     const insight = insightsByProject.get(r.project);
-    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state === 'stuck') ? insight.inferred_state : r.state;
+    return (insight?.inferred_state && VALID_INSIGHT_STATES.has(insight.inferred_state) && r.state !== 'idle' && r.state !== 'waiting' && r.state !== 'done') ? insight.inferred_state : r.state;
   });
   const stuckCount = effectiveStates.filter(s => s === 'stuck' || s === 'waiting').length;
   const doneCount = effectiveStates.filter(s => s === 'done').length;
@@ -437,21 +349,10 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   const idleCount = effectiveStates.filter(s => s === 'idle').length;
 
   const footerParts: string[] = [];
-  if (stats) {
-    footerParts.push(`${stats.activeHours}/24h active`);
-    footerParts.push(`${stats.donesToday} done today`);
-    if (stats.donesWeek > stats.donesToday) {
-      footerParts.push(`${stats.donesWeek} this week`);
-    }
-    if (stats.todosOpen > 0) {
-      footerParts.push(`${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''}`);
-    }
-  } else {
-    if (stuckCount > 0) footerParts.push(`<span class="ember">${stuckCount} needs attention</span>`);
-    if (doneCount > 0) footerParts.push(`${doneCount} done`);
-    if (workingCount > 0) footerParts.push(`<span class="working">${workingCount} working</span>`);
-    if (idleCount > 0) footerParts.push(`<span class="idle">${idleCount} idle</span>`);
-  }
+  if (stuckCount > 0) footerParts.push(`<span class="ember">${stuckCount} needs attention</span>`);
+  if (doneCount > 0) footerParts.push(`${doneCount} done`);
+  if (workingCount > 0) footerParts.push(`<span class="working">${workingCount} working</span>`);
+  if (idleCount > 0) footerParts.push(`<span class="idle">${idleCount} idle</span>`);
   const footerHtml = footerParts.length > 0 ? footerParts.join(' · ') : 'no projects yet';
 
   const emptyMsg = rows.length === 0
@@ -544,21 +445,12 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     .msg-insight {
       color: rgba(217,158,78,0.9);
     }
-    .msg-note {
-      color: rgba(217,158,78,0.95);
-      font-style: italic;
-    }
     .footer {
       margin-top: 14px;
       padding-top: 10px;
       border-top: 1px solid rgba(255,255,255,0.05);
       font-size: 14px;
       color: rgba(168,168,168,0.7);
-    }
-    .gamification {
-      margin-top: 4px;
-      font-size: 13px;
-      color: rgba(168,168,168,0.45);
     }
     .empty {
       color: rgba(168,168,168,0.7);
@@ -569,8 +461,11 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
     /* State colours */
     .ember   { color: #E8553D; }
     .patina  { color: #2E9E6E; }
-    .working { color: #D99E4E; }
+    .working { color: #20A890; }
     .idle    { color: rgba(168,168,168,0.65); }
+    /* Countdown */
+    .countdown { color: rgba(168,168,168,0.8); }
+    .countdown.warn { color: #E8553D; }
     /* TODO CRUD */
     .todo-actions { display: inline-flex; gap: 4px; margin-left: 8px; opacity: 0; transition: opacity 0.15s; }
     .row:hover .todo-actions, .row:focus-within .todo-actions { opacity: 1; }
@@ -609,7 +504,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       color: #F5F2EB; font-family: inherit; font-size: 14px; padding: 2px 6px;
       border-radius: 4px; flex: 1; outline: none;
     }
-    .todo-edit-input:focus { border-color: #D99E4E; }
+    .todo-edit-input:focus { border-color: #20A890; }
   </style>
 </head>
 <body>
@@ -621,7 +516,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       <span class="titlebar-label">$ tend</span>
     </div>
     <nav class="statusbar" aria-label="Board status">
-      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time> &nbsp;·&nbsp; <span id="countdown" class="countdown">60s</span></span>
+      <span>tend board &nbsp;·&nbsp; updated <time id="updated-at"></time> &nbsp;·&nbsp; next refresh in <span id="countdown" class="countdown">60s</span></span>
       <span>tend.cx</span>
     </nav>
     <main class="board" role="main">
@@ -704,13 +599,16 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
       el.textContent = ts ? '(' + timeAgo(ts) + ')' : '';
     });
 
-    // Auto-refresh with countdown
+    // Countdown + auto-refresh
     var secs = 60;
     var cdEl = document.getElementById('countdown');
     setInterval(function() {
       secs--;
-      if (cdEl) cdEl.textContent = secs + 's';
       if (secs <= 0) { location.reload(); return; }
+      if (cdEl) {
+        cdEl.textContent = secs + 's';
+        cdEl.className = 'countdown' + (secs <= 10 ? ' warn' : '');
+      }
     }, 1000);
 
     // TODO CRUD (only active when token is writable)
@@ -971,18 +869,16 @@ async function handleBoardView(request: Request, db: D1Database, rawToken: strin
 
   const todos = await fetchTodos(db, tokenHash);
   const insights = await fetchInsights(db, tokenHash);
-  const notes = await fetchNotes(db, tokenHash);
-  const stats = await fetchGamificationStats(db, tokenHash);
 
     const isWritable = rawToken.startsWith('tnd_');
-  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable, stats, notes));
+  return htmlResponse(buildBoardHtml(rows, updatedAt, todos, insights, rawToken, isWritable));
 }
 
 function buildLlmsTxt(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] = [], insights: InsightRow[] = []): string {
   const insightsByProject = new Map(insights.map(i => [i.project, i]));
   const effectiveState = (r: ProjectRow) => {
     const ins = insightsByProject.get(r.project);
-    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state) && r.state === 'stuck') ? ins.inferred_state : r.state;
+    return (ins?.inferred_state && VALID_INSIGHT_STATES.has(ins.inferred_state) && r.state !== 'idle' && r.state !== 'waiting' && r.state !== 'done') ? ins.inferred_state : r.state;
   };
   const now = new Date();
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -1425,10 +1321,6 @@ async function handleEmitEvent(request: Request, db: D1Database, tokenHash: stri
     .bind(tokenHash, project, ts, session_id ?? null, state, message ?? '')
     .run();
 
-  // Clear sticky note on new event (note is a temporary override)
-  await db.prepare('DELETE FROM notes WHERE token_hash = ? AND project = ?')
-    .bind(tokenHash, project).run();
-
   // Asynchronously recompute LLM insight after responding
   const apiKey = env.OPENROUTER_API_KEY;
   if (apiKey) {
@@ -1478,14 +1370,14 @@ async function handleGetProjects(request: Request, db: D1Database, tokenHash: st
 }
 
 async function handleDeleteProject(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
-  if (request.method !== 'DELETE') return errorResponse('Method not allowed', 405);
-
+  // Delete all data associated with this project
   await db.batch([
     db.prepare('DELETE FROM events WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
-    db.prepare('DELETE FROM todos WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
     db.prepare('DELETE FROM insights WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
     db.prepare('DELETE FROM insight_log WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
     db.prepare('DELETE FROM project_context WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+    db.prepare('DELETE FROM notes WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
+    db.prepare('DELETE FROM todos WHERE token_hash = ? AND project = ?').bind(tokenHash, project),
   ]);
 
   return jsonResponse({ ok: true, project });
@@ -1654,45 +1546,6 @@ async function fetchTodos(db: D1Database, tokenHash: string): Promise<TodoRow[]>
   return result.results;
 }
 
-async function fetchNotes(db: D1Database, tokenHash: string): Promise<NoteRow[]> {
-  const result = await db.prepare(
-    "SELECT project, note, updated_at FROM notes WHERE token_hash = ? AND note != ''"
-  ).bind(tokenHash).all<NoteRow>();
-  return result.results;
-}
-
-async function handleGetNotes(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
-  if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
-  const notes = await fetchNotes(db, tokenHash);
-  return jsonResponse({ notes });
-}
-
-async function handlePutNote(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
-  if (request.method !== 'PUT') return errorResponse('Method not allowed', 405);
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json() as Record<string, unknown>;
-  } catch {
-    return errorResponse('Invalid JSON body', 400);
-  }
-  const note = body.note;
-  if (typeof note !== 'string') {
-    return errorResponse('Missing or invalid "note"', 400);
-  }
-  await db.prepare(
-    'INSERT INTO notes (token_hash, project, note, updated_at) VALUES (?, ?, ?, datetime(\'now\')) ON CONFLICT(token_hash, project) DO UPDATE SET note = excluded.note, updated_at = excluded.updated_at'
-  ).bind(tokenHash, project, note).run();
-  return jsonResponse({ ok: true });
-}
-
-async function handleDeleteNote(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
-  if (request.method !== 'DELETE') return errorResponse('Method not allowed', 405);
-  await db.prepare(
-    'DELETE FROM notes WHERE token_hash = ? AND project = ?'
-  ).bind(tokenHash, project).run();
-  return jsonResponse({ ok: true });
-}
-
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -1810,29 +1663,11 @@ export default {
         ? await handleGetProjectInsight(request, env.DB, tokenHash, project)
         : errorResponse('Missing project name', 400);
     }
-    // Route: DELETE /v1/projects/:project
-    else if (path.startsWith('/v1/projects/') && request.method === 'DELETE') {
+    // Route: DELETE /v1/projects/:name
+    else if (path.startsWith('/v1/projects/') && !path.endsWith('/context') && request.method === 'DELETE') {
       const project = decodeURIComponent(path.slice('/v1/projects/'.length));
       response = project
         ? await handleDeleteProject(request, env.DB, tokenHash, project)
-        : errorResponse('Missing project name', 400);
-    }
-    // Route: GET /v1/notes
-    else if (path === '/v1/notes' && request.method === 'GET') {
-      response = await handleGetNotes(request, env.DB, tokenHash);
-    }
-    // Route: PUT /v1/notes/:project
-    else if (path.startsWith('/v1/notes/') && request.method === 'PUT') {
-      const project = decodeURIComponent(path.slice('/v1/notes/'.length));
-      response = project
-        ? await handlePutNote(request, env.DB, tokenHash, project)
-        : errorResponse('Missing project name', 400);
-    }
-    // Route: DELETE /v1/notes/:project
-    else if (path.startsWith('/v1/notes/') && request.method === 'DELETE') {
-      const project = decodeURIComponent(path.slice('/v1/notes/'.length));
-      response = project
-        ? await handleDeleteNote(request, env.DB, tokenHash, project)
         : errorResponse('Missing project name', 400);
     }
     else {

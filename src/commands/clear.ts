@@ -1,25 +1,55 @@
 import { resolveProjectPath } from '../core/projects.js';
 import { clearEvents } from '../core/events.js';
-import { existsSync } from 'fs';
+import { relayDeleteProject } from '../core/relay.js';
+import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { config } from '../core/config.js';
 import { gitRepoName } from '../core/git.js';
 
-export function cmdClear(args: string[]): void {
-  let projectPath: string;
+export async function cmdClear(args: string[]): Promise<void> {
+  const name = args[0];
+
+  // Try to resolve locally first
+  let projectPath: string | null = null;
+  let projectName: string;
   try {
-    projectPath = resolveProjectPath(args[0]);
-  } catch (e) {
-    process.stderr.write(`tend: ${(e as Error).message}\n`);
-    process.exit(1);
+    projectPath = resolveProjectPath(name);
+    projectName = gitRepoName(projectPath);
+  } catch {
+    // Not found locally — treat the raw name as a relay-only project
+    if (!name) {
+      process.stderr.write(`tend: not inside a project (no .git found)\n`);
+      process.exit(1);
+    }
+    projectName = name;
   }
-  const projectName = gitRepoName(projectPath);
-  const eventsFile = join(projectPath, '.tend', 'events');
 
-  if (!existsSync(eventsFile)) {
+  // Clear local events if we have a local project
+  let clearedLocal = false;
+  if (projectPath) {
+    const eventsFile = join(projectPath, '.tend', 'events');
+    if (existsSync(eventsFile)) {
+      clearEvents(eventsFile);
+      clearedLocal = true;
+    }
+  }
+
+  // Always try to delete from relay
+  const clearedRelay = await relayDeleteProject(projectName);
+
+  // Also clean up the local relay cache file
+  const cacheFile = join(config.relayCacheDir, projectName);
+  if (existsSync(cacheFile)) {
+    try { unlinkSync(cacheFile); } catch { /* ignore */ }
+  }
+
+  if (clearedLocal && clearedRelay) {
+    process.stdout.write(`✓ Cleared events for ${projectName} (local + relay)\n`);
+  } else if (clearedLocal) {
+    process.stdout.write(`✓ Cleared local events for ${projectName}\n`);
+  } else if (clearedRelay) {
+    process.stdout.write(`✓ Removed ${projectName} from relay\n`);
+  } else {
     process.stdout.write(`No events to clear for ${projectName}\n`);
-    return;
   }
-
-  clearEvents(eventsFile);
-  process.stdout.write(`✓ Cleared events for ${projectName}\n`);
 }

@@ -72,6 +72,23 @@ export async function relayEmit(
   }
 }
 
+/** DELETE a project and all its data from the relay */
+export async function relayDeleteProject(project: string): Promise<boolean> {
+  const token = relayToken();
+  if (!token) return false;
+
+  try {
+    const response = await fetch(`${config.relayUrl}/v1/projects/${encodeURIComponent(project)}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Sync all relay projects to local cache */
 export async function relaySync(): Promise<void> {
   const token = relayToken();

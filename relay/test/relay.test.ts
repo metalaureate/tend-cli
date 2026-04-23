@@ -32,6 +32,9 @@ async function applySchema(db: D1Database) {
     "CREATE TABLE IF NOT EXISTS insight_log (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, summary TEXT NOT NULL DEFAULT '', prediction TEXT NOT NULL DEFAULT '', inferred_state TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT (datetime('now')))"
   );
   await db.exec("CREATE INDEX IF NOT EXISTS idx_insight_log_token_project ON insight_log (token_hash, project, created_at)");
+  await db.exec(
+    "CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT NOT NULL, project TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(token_hash, project))"
+  );
 }
 
 async function makeRequest(method: string, path: string, body?: unknown, token?: string): Promise<Response> {
@@ -1128,6 +1131,61 @@ describe('Tend Relay', () => {
 
       expect(row1?.content).toBe('# Token1 App');
       expect(row2?.content).toBe('# Token2 App');
+    });
+  });
+
+  describe('DELETE /v1/projects/:name', () => {
+    it('deletes all data for a project', async () => {
+      const token = await registerToken();
+
+      // Create events for two projects
+      await makeRequest('POST', '/v1/events', {
+        project: 'keep-me', state: 'working', message: 'busy', timestamp: '2026-01-01T10:00:00',
+      }, token);
+      await makeRequest('POST', '/v1/events', {
+        project: 'delete-me', state: 'done', message: 'finished', timestamp: '2026-01-01T10:00:00',
+      }, token);
+
+      // Add a todo for the project to be deleted
+      await makeRequest('POST', '/v1/todos', {
+        project: 'delete-me', message: 'should be gone',
+      }, token);
+
+      // Verify project exists
+      let projects = await makeRequest('GET', '/v1/projects', undefined, token);
+      let data = await projects.json() as { projects: string[] };
+      expect(data.projects).toContain('delete-me');
+      expect(data.projects).toContain('keep-me');
+
+      // Delete the project
+      const resp = await makeRequest('DELETE', '/v1/projects/delete-me', undefined, token);
+      expect(resp.status).toBe(200);
+      const body = await resp.json() as { ok: boolean; project: string };
+      expect(body.ok).toBe(true);
+      expect(body.project).toBe('delete-me');
+
+      // Verify project is gone
+      projects = await makeRequest('GET', '/v1/projects', undefined, token);
+      data = await projects.json() as { projects: string[] };
+      expect(data.projects).not.toContain('delete-me');
+      expect(data.projects).toContain('keep-me');
+
+      // Verify todos are gone
+      const todos = await makeRequest('GET', '/v1/todos', undefined, token);
+      const todoData = await todos.json() as { todos: Array<{ project: string }> };
+      const deletedTodos = todoData.todos.filter(t => t.project === 'delete-me');
+      expect(deletedTodos).toHaveLength(0);
+    });
+
+    it('returns 401 without auth', async () => {
+      const resp = await makeRequest('DELETE', '/v1/projects/some-project');
+      expect(resp.status).toBe(401);
+    });
+
+    it('succeeds even if project does not exist', async () => {
+      const token = await registerToken();
+      const resp = await makeRequest('DELETE', '/v1/projects/nonexistent', undefined, token);
+      expect(resp.status).toBe(200);
     });
   });
 });
