@@ -1331,6 +1331,44 @@ async function handleEmitEvent(request: Request, db: D1Database, tokenHash: stri
   return jsonResponse({ ok: true }, 201);
 }
 
+async function handleGetAllEvents(request: Request, db: D1Database, tokenHash: string): Promise<Response> {
+  const url = new URL(request.url);
+  const since = url.searchParams.get('since');
+  const until = url.searchParams.get('until');
+  const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') ?? '5000', 10) || 5000, 1), 5000);
+
+  let query = 'SELECT project, created_at, message, state FROM events WHERE token_hash = ?';
+  const params: unknown[] = [tokenHash];
+
+  if (since) {
+    query += ' AND created_at >= ?';
+    params.push(since);
+  }
+  if (until) {
+    query += ' AND created_at <= ?';
+    params.push(until);
+  }
+
+  query += ' ORDER BY created_at ASC LIMIT ?';
+  params.push(limit);
+
+  const result = await db.prepare(query).bind(...params).all<{
+    project: string;
+    created_at: string;
+    message: string;
+    state: string;
+  }>();
+
+  const events = result.results.map(r => ({
+    project: r.project,
+    created_at: r.created_at,
+    summary: r.message,
+    inferred_state: r.state,
+  }));
+
+  return jsonResponse({ events });
+}
+
 async function handleGetEvents(request: Request, db: D1Database, tokenHash: string, project: string): Promise<Response> {
   if (request.method !== 'GET') return errorResponse('Method not allowed', 405);
 
@@ -1595,8 +1633,12 @@ export default {
 
     let response: Response;
 
+    // Route: GET /v1/events (all events, filterable)
+    if (path === '/v1/events' && request.method === 'GET') {
+      response = await handleGetAllEvents(request, env.DB, tokenHash);
+    }
     // Route: POST /v1/events
-    if (path === '/v1/events') {
+    else if (path === '/v1/events' && request.method === 'POST') {
       response = await handleEmitEvent(request, env.DB, tokenHash, ctx, env);
     }
     // Route: GET /v1/events/:project
