@@ -355,6 +355,15 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
   if (idleCount > 0) footerParts.push(`<span class="idle">${idleCount} idle</span>`);
   const footerHtml = footerParts.length > 0 ? footerParts.join(' · ') : 'no projects yet';
 
+  const gamificationHtml = stats ? (() => {
+    const parts: string[] = [];
+    parts.push(`${stats.activeHours}/24h active`);
+    parts.push(`${stats.donesToday} done today`);
+    if (stats.donesWeek > stats.donesToday) parts.push(`${stats.donesWeek} this week`);
+    if (stats.todosOpen > 0) parts.push(`${stats.todosOpen} open TODO${stats.todosOpen > 1 ? 's' : ''}`);
+    return parts.join('  ·  ');
+  })() : null;
+
   const emptyMsg = rows.length === 0
     ? '<div class="empty">No events yet — start emitting with <code>tend emit working "your task"</code></div>'
     : '';
@@ -562,6 +571,7 @@ function buildBoardHtml(rows: ProjectRow[], updatedAt: string, todos: TodoRow[] 
         </form>` : ''}
       </section>` : ''}
       <footer class="footer">${footerHtml}</footer>
+      ${gamificationHtml ? `<div class="gamification">${gamificationHtml}</div>` : ''}
     </main>
   </div>
   <script>
