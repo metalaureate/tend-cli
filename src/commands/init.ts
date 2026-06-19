@@ -12,6 +12,15 @@ type HookEntry = {
   env?: Record<string, string>;
 };
 
+/**
+ * Claude Code's hook format wraps one or more HookEntry objects in a matcher
+ * group. Each event array element is a group, not a bare entry.
+ */
+type HookGroup = {
+  matcher?: string;
+  hooks: HookEntry[];
+};
+
 type HookConfig = {
   hooks: Record<HookEventName, HookEntry[]>;
 };
@@ -154,6 +163,69 @@ function syncHooks(existing: unknown, desired: HookConfig): HookConfig['hooks'] 
   return hooks;
 }
 
+/** True when a hook command string belongs to the given tend subcommand. */
+function isTendHookCommand(command: unknown, subcommand: string): boolean {
+  return typeof command === 'string' && command.endsWith(`hook ${subcommand}`);
+}
+
+/**
+ * Sync a single Claude event array (array of matcher groups). Updates the tend
+ * hook in place if present, migrates a legacy flat entry (a bare HookEntry sitting
+ * directly in the event array) into a proper group, and otherwise appends a new
+ * group. Non-tend entries and groups are preserved untouched.
+ */
+function syncClaudeHookEntries(existing: unknown, desired: HookEntry, subcommand: string): HookGroup[] {
+  const entries = Array.isArray(existing) ? existing : [];
+  const result: unknown[] = [];
+  let placed = false;
+
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object') {
+      result.push(entry);
+      continue;
+    }
+    const obj = entry as Record<string, unknown>;
+
+    // Legacy flat tend entry — drop it; a canonical group is (re)added below.
+    if (obj.type === 'command' && isTendHookCommand(obj.command, subcommand)) {
+      continue;
+    }
+
+    // Existing group that already contains the tend hook — update it in place.
+    if (Array.isArray(obj.hooks)) {
+      const idx = obj.hooks.findIndex(
+        (h): boolean => !!h && typeof h === 'object' && isTendHookCommand((h as HookEntry).command, subcommand),
+      );
+      if (idx >= 0 && !placed) {
+        const hooks = [...(obj.hooks as HookEntry[])];
+        hooks[idx] = { ...hooks[idx], ...desired };
+        result.push({ ...obj, hooks });
+        placed = true;
+        continue;
+      }
+    }
+
+    result.push(entry);
+  }
+
+  if (!placed) {
+    result.push({ hooks: [desired] });
+  }
+
+  return result as HookGroup[];
+}
+
+function syncClaudeHookGroups(existing: unknown, desired: HookConfig): Record<HookEventName, HookGroup[]> {
+  const current = existing && typeof existing === 'object' ? existing as Record<string, unknown> : {};
+  const hooks = { ...current } as Record<HookEventName, HookGroup[]>;
+
+  for (const [eventName, subcommand] of Object.entries(HOOK_SUBCOMMANDS) as Array<[HookEventName, string]>) {
+    hooks[eventName] = syncClaudeHookEntries(current[eventName], desired.hooks[eventName][0], subcommand);
+  }
+
+  return hooks;
+}
+
 function syncCopilotHooks(filePath: string): void {
   const desired = buildHookConfig();
   let config: { hooks?: unknown } = {};
@@ -182,7 +254,7 @@ function syncClaudeHooks(filePath: string): void {
     }
   }
 
-  config.hooks = syncHooks(config.hooks, desired);
+  config.hooks = syncClaudeHookGroups(config.hooks, desired);
   writeFileSync(filePath, JSON.stringify(config, null, 2) + '\n');
 }
 

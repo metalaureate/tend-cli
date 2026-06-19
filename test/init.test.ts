@@ -175,7 +175,7 @@ describe('init', () => {
     expect(content.hooks).toBeDefined();
     expect(content.hooks.SessionStart).toBeDefined();
     expect(content.permissions.allow).toContain('Read');
-    expect(content.hooks.SessionStart[0].command).toContain(`${TEND_BIN} hook session-start`);
+    expect(content.hooks.SessionStart[0].hooks[0].command).toContain(`${TEND_BIN} hook session-start`);
   });
 
   it('updates stale Claude hook commands while preserving other settings', () => {
@@ -193,9 +193,12 @@ describe('init', () => {
 
     const content = JSON.parse(readFileSync(join(claudeDir, 'settings.local.json'), 'utf-8'));
     expect(content.permissions.allow).toContain('Read');
-    expect(content.hooks.SessionStart[0].command).toContain(`${TEND_BIN} hook session-start`);
-    expect(content.hooks.UserPromptSubmit[0].command).toContain(`${TEND_BIN} hook user-prompt`);
-    expect(content.hooks.Stop[0].command).toContain(`${TEND_BIN} hook stop`);
+    // The stale flat entry should be migrated to Claude's nested matcher-group format,
+    // not left as a bare entry and not duplicated.
+    expect(content.hooks.SessionStart).toHaveLength(1);
+    expect(content.hooks.SessionStart[0].hooks[0].command).toContain(`${TEND_BIN} hook session-start`);
+    expect(content.hooks.UserPromptSubmit[0].hooks[0].command).toContain(`${TEND_BIN} hook user-prompt`);
+    expect(content.hooks.Stop[0].hooks[0].command).toContain(`${TEND_BIN} hook stop`);
   });
 
   it('fails without git repo', () => {
